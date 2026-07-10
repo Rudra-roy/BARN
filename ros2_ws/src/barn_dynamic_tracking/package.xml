@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>barn_dynamic_tracking</name>
+  <version>0.1.0</version>
+  <description>
+    Shared dynamic-obstacle perception for Track C: LiDAR clustering, temporal
+    association, per-track constant-velocity Kalman filtering, and TTC. The
+    Kalman filter and TTC are implemented and tested; clustering/association/
+    tracker node are stubs pending milestone M18.
+  </description>
+  <maintainer email="muztahid.appbaksho@gmail.com">barn-2027-prep contributors</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>barn_core</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

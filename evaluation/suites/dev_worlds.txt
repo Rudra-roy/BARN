@@ -1,0 +1,9 @@
+# Fast development sweep — a small spread across the difficulty range.
+# One trial per world (see run_dev_suite.sh). Replace this with a
+# failure-driven set as real failures are observed.
+0
+60
+120
+180
+240
+294

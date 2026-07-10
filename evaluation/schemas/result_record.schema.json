@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://barn-2027-prep/schemas/result_record.schema.json",
+  "title": "BARN per-trial result record",
+  "description": "One trial's outcome. The evaluator's raw out_file remains the source of truth; this is the normalized form the metric scripts consume.",
+  "type": "object",
+  "required": ["world_idx", "success", "collided", "timeout", "actual_time", "optimal_time"],
+  "additionalProperties": true,
+  "properties": {
+    "world_idx": {"type": "integer", "minimum": 0},
+    "mode": {"type": "string", "enum": ["classical", "e2e_rl", "hybrid"]},
+    "trial": {"type": "integer", "minimum": 1},
+    "success": {"type": "boolean", "description": "reached goal within 1 m before timeout, no collision"},
+    "collided": {"type": "boolean"},
+    "timeout": {"type": "boolean"},
+    "actual_time": {"type": "number", "minimum": 0, "description": "AT, seconds"},
+    "optimal_time": {"type": "number", "minimum": 0, "description": "OT = reference path length / 2.0 m/s"},
+    "min_obstacle_dist": {"type": "number", "minimum": 0},
+    "git_sha": {"type": "string"}
+  }
+}

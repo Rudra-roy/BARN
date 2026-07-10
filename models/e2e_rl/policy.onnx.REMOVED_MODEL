@@ -1,0 +1,3 @@
+Placeholder for e2e_rl/policy.onnx (git-ignored weights).
+Export with: python -m barn_rl_train.export_onnx --checkpoint <ckpt> --output policy.onnx
+Record the sha256 and producing commit in model_card.md.

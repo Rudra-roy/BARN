@@ -1,0 +1,15 @@
+# Parameters for barn_safety/safety_node — the final command authority.
+# These bound EVERY track (classical, RL, hybrid). RL must not bypass them.
+safety_node:
+  ros__parameters:
+    use_sim_time: true
+    desired_topic: /barn/cmd_desired
+    safe_topic: /barn/cmd_safe
+    scan_topic: /barn/scan
+    v_max: 2.0            # m/s  (BARN maximum robot speed)
+    w_max: 1.5            # rad/s
+    max_lin_accel: 2.5    # m/s^2
+    max_ang_accel: 3.0    # rad/s^2
+    cmd_timeout_s: 0.4    # zero output if desired command older than this
+    scan_timeout_s: 0.5   # treat sensors as stale if scan older than this
+    watchdog_period_s: 0.05

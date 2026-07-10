@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>barn_hybrid</name>
+  <version>0.1.0</version>
+  <description>
+    Track C arbiter: fuses the classical command with a dynamic-risk-gated RL
+    residual. Not the real-time authority (barn_safety clamps the final
+    command), so it is written in Python for fast iteration. Reduces exactly to
+    the classical stack in static worlds (gate alpha = 0).
+  </description>
+  <maintainer email="muztahid.appbaksho@gmail.com">barn-2027-prep contributors</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

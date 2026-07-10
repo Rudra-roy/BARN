@@ -1,0 +1,6 @@
+{
+  "observation_version": "v1",
+  "note": "Placeholder. Overwrite at export time with the mean/std used in training. The same statistics MUST be applied at inference (barn_rl_runtime/normalization.py).",
+  "mean": null,
+  "std": null
+}

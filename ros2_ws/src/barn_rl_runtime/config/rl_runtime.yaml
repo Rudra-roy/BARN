@@ -1,0 +1,13 @@
+# Parameters for barn_rl_runtime/rl_runtime_node (Track B).
+rl_runtime_node:
+  ros__parameters:
+    use_sim_time: true
+    goal_topic: /barn/goal
+    pose_topic: /barn/pose
+    scan_topic: /barn/scan
+    cmd_topic: /barn/cmd_desired
+    cmd_frame: base_link
+    control_rate_hz: 20.0
+    model_path: ""     # path to an exported ONNX policy; empty -> stub (no motion)
+    v_max: 2.0
+    w_max: 1.5

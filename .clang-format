@@ -1,0 +1,22 @@
+# ROS 2 C++ style (ament_clang_format compatible).
+# Based on Google style with the ROS 2 developer-guide deviations.
+---
+Language: Cpp
+BasedOnStyle: Google
+AccessModifierOffset: -2
+AlignAfterOpenBracket: AlwaysBreak
+BraceWrapping:
+  AfterClass: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+BreakBeforeBraces: Custom
+ColumnLimit: 100
+ConstructorInitializerIndentWidth: 0
+ContinuationIndentWidth: 2
+DerivePointerAlignment: false
+PointerAlignment: Middle
+ReflowComments: true
+IncludeBlocks: Preserve
+SortIncludes: false
+Standard: c++17

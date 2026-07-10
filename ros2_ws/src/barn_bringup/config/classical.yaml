@@ -1,0 +1,55 @@
+# Track A (classical) parameters for all slice nodes. One file, one section per
+# node name; each node reads only its own section.
+
+goal_adapter_node:
+  ros__parameters:
+    planning_frame: odom
+    goal_topic: /barn/goal
+    pose_topic: /barn/pose
+    success_distance: 1.0
+    feedback_period_s: 0.1
+
+robot_adapter_node:
+  ros__parameters:
+    scan_topic: /front/scan
+    odom_topic: platform/odom/filtered
+    odom_frame: odom
+    base_frame: base_link
+    internal_scan_topic: /barn/scan
+    internal_pose_topic: /barn/pose
+    safe_cmd_topic: /barn/cmd_safe
+    cmd_vel_topic: /cmd_vel
+    cmd_vel_type: twist_stamped
+    cmd_vel_frame: base_link
+
+goal_seeker_node:
+  ros__parameters:
+    goal_topic: /barn/goal
+    pose_topic: /barn/pose
+    scan_topic: /barn/scan
+    cmd_topic: /barn/cmd_desired
+    cmd_frame: base_link
+    control_rate_hz: 20.0
+    front_sector_deg: 60.0
+    v_nominal: 0.5
+    v_max: 2.0
+    w_max: 1.2
+    k_ang: 1.5
+    heading_tol: 0.35
+    stop_distance: 0.45
+    slow_distance: 1.2
+    goal_tolerance: 0.8
+    creep_fraction: 0.15
+
+safety_node:
+  ros__parameters:
+    desired_topic: /barn/cmd_desired
+    safe_topic: /barn/cmd_safe
+    scan_topic: /barn/scan
+    v_max: 2.0
+    w_max: 1.5
+    max_lin_accel: 2.5
+    max_ang_accel: 3.0
+    cmd_timeout_s: 0.4
+    scan_timeout_s: 0.5
+    watchdog_period_s: 0.05

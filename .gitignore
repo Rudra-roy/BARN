@@ -1,0 +1,59 @@
+# ---------------------------------------------------------------------------
+# barn-2027-prep .gitignore
+# ---------------------------------------------------------------------------
+
+# --- colcon / ROS 2 build artifacts ---------------------------------------
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+build/
+install/
+log/
+
+# --- The BARN 2026 evaluator is NOT vendored ------------------------------
+# It is cloned + pinned locally by tools/setup_barn_eval.sh. Never commit it;
+# only the pinned commit (patches/README.md) and the launch patch are tracked.
+ros2_ws/src/barn_eval/
+
+# --- Benchmark results (raw runs are large / machine-specific) -------------
+# Keep the directory and its manifests; ignore heavy artifacts.
+results/**/*.bag
+results/**/*.db3
+results/**/*.mcap
+results/**/*.csv
+results/**/*.json
+!results/.gitkeep
+!results/**/manifest.json
+!results/**/experiment.yaml
+
+# --- Trained model weights (tracked via provenance, not the binaries) ------
+models/**/*.onnx
+models/**/*.pt
+models/**/*.pth
+models/**/*.zip
+!models/**/*.REMOVED_MODEL
+
+# --- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- C / C++ --------------------------------------------------------------
+*.o
+*.so
+*.a
+compile_commands.json
+
+# --- Editors / OS ---------------------------------------------------------
+.vscode/
+!.vscode/settings.json.example
+.idea/
+*.swp
+*~
+.DS_Store

@@ -1,0 +1,16 @@
+# ament_flake8 configuration shared by the Python packages
+# (barn_rl_runtime, barn_hybrid) and the offline learning/ code.
+[flake8]
+max-line-length = 99
+# ROS 2 ament_flake8 default ignore set + a couple of black-friendly rules.
+extend-ignore = B902,C816,D100,D101,D102,D103,D104,D105,D106,D107,E203,W503,W504
+import-order-style = google
+exclude =
+    .git,
+    __pycache__,
+    build,
+    install,
+    log,
+    ros2_ws/src/barn_eval,
+    .venv,
+    venv

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>barn_rl_runtime</name>
+  <version>0.1.0</version>
+  <description>
+    CPU policy-inference runtime for the end-to-end RL track (Track B):
+    observation construction, normalization, ONNX model loading, and action
+    scaling. Consumes only allowed sensor inputs; must not use privileged
+    simulator information. Training code lives in learning/, not here.
+  </description>
+  <maintainer email="muztahid.appbaksho@gmail.com">barn-2027-prep contributors</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

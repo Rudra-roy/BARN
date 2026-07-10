@@ -1,0 +1,11 @@
+# Parameters for barn_hybrid/hybrid_node (Track C).
+hybrid_node:
+  ros__parameters:
+    use_sim_time: true
+    classical_topic: /barn/cmd_classical
+    rl_topic: /barn/cmd_rl
+    cmd_topic: /barn/cmd_desired
+    cmd_frame: base_link
+    control_rate_hz: 20.0
+    ttc_full: 1.0   # s; gate fully open at/below this TTC
+    ttc_zero: 3.0   # s; gate closed at/above this TTC (alpha = 0 in static worlds)

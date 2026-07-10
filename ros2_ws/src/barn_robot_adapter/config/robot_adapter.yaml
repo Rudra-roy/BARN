@@ -1,0 +1,20 @@
+# Parameters for barn_robot_adapter/robot_adapter_node.
+#
+# cmd_vel_type MUST match what the BARN 2026 velocity smoother / base expects.
+# The 2026 baseline enables stamped commands, so the default is twist_stamped.
+# Confirm against the live graph on first bring-up:
+#   ros2 topic info /cmd_vel --verbose
+# then flip to "twist" here if the consumer wants geometry_msgs/Twist.
+robot_adapter_node:
+  ros__parameters:
+    use_sim_time: true
+    scan_topic: /front/scan
+    odom_topic: platform/odom/filtered
+    odom_frame: odom
+    base_frame: base_link
+    internal_scan_topic: /barn/scan
+    internal_pose_topic: /barn/pose
+    safe_cmd_topic: /barn/cmd_safe
+    cmd_vel_topic: /cmd_vel
+    cmd_vel_type: twist_stamped   # twist_stamped | twist
+    cmd_vel_frame: base_link

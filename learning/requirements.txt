@@ -1,0 +1,9 @@
+# Offline training / export dependencies (install in a venv, GPU allowed).
+# The ROS runtime (barn_rl_runtime) needs only onnxruntime on CPU.
+pyyaml
+numpy
+gymnasium
+stable-baselines3
+torch
+onnx
+onnxruntime

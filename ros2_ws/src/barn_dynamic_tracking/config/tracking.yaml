@@ -1,0 +1,13 @@
+# Parameters for barn_dynamic_tracking/tracker_node (Track C).
+tracker_node:
+  ros__parameters:
+    use_sim_time: true
+    scan_topic: /barn/scan
+    pose_topic: /barn/pose
+    tracks_topic: /barn/tracks
+    publish_rate_hz: 10.0
+    # --- reserved for the M18 implementation ---
+    cluster_distance_threshold: 0.3   # m
+    association_gate_distance: 0.5     # m
+    process_noise_q: 1.0               # m^2/s^3
+    measurement_noise_r: 0.05          # m^2

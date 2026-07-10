@@ -1,0 +1,34 @@
+# Example experiment manifest. Copy into a results/<track>/<exp_id>/ directory
+# and fill in the commit hashes before a scored campaign. Validated against
+# evaluation/schemas/experiment.schema.yaml.
+experiment_id: classical_exp_001
+date: "2026-07-11"
+
+benchmark:
+  challenge_baseline: BARN_2026
+  evaluator_branch: master
+  evaluator_commit: REPLACE_WITH_GIT_HASH
+  worlds:
+    start: 0
+    step: 6
+    count: 50
+  trials_per_world: 10
+  timeout_s: 100
+  metric: barn_2026_published
+  metric_clip:
+    lower_ot_multiplier: 2
+    upper_ot_multiplier: 8
+
+navigation:
+  mode: classical
+  repository_commit: REPLACE_WITH_GIT_HASH
+
+runtime:
+  ros_distro: jazzy
+  ubuntu: "24.04"
+  container: distrobox
+  cpu_only_inference: true
+
+notes: >
+  First full classical validation campaign against the 50 evenly spaced public
+  worlds. No per-world tuning.

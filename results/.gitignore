@@ -1,0 +1,11 @@
+# Raw benchmark artifacts are large and machine-specific: ignore heavy files,
+# keep the directory + campaign manifests/reports.
+*
+!.gitignore
+!.gitkeep
+!README.md
+!**/
+!**/manifest.json
+!**/experiment.yaml
+!**/report_*.txt
+!**/failure_labels.csv

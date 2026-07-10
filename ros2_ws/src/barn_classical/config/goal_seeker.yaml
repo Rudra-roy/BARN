@@ -1,0 +1,21 @@
+# Parameters for barn_classical/goal_seeker_node (the M0-M3 vertical slice).
+# These are conservative "prove the pipeline" values, NOT tuned for score.
+goal_seeker_node:
+  ros__parameters:
+    use_sim_time: true
+    goal_topic: /barn/goal
+    pose_topic: /barn/pose
+    scan_topic: /barn/scan
+    cmd_topic: /barn/cmd_desired
+    cmd_frame: base_link
+    control_rate_hz: 20.0
+    front_sector_deg: 60.0
+    v_nominal: 0.5      # m/s cruise (deliberately slow for the slice)
+    v_max: 2.0          # m/s hard cap
+    w_max: 1.2          # rad/s
+    k_ang: 1.5          # heading P-gain
+    heading_tol: 0.35   # rad; above this the robot creeps and realigns
+    stop_distance: 0.45 # m; forward clearance below this -> stop
+    slow_distance: 1.2  # m; ramp speed down below this
+    goal_tolerance: 0.8 # m; internal stop radius (< evaluator's 1 m success)
+    creep_fraction: 0.15

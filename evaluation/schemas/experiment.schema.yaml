@@ -1,0 +1,54 @@
+# JSON Schema (expressed in YAML) for an experiment manifest (experiment.yaml).
+# Validate with any JSON-schema validator, e.g.:
+#   python3 -c "import yaml,jsonschema,sys; \
+#     s=yaml.safe_load(open('evaluation/schemas/experiment.schema.yaml')); \
+#     d=yaml.safe_load(open('evaluation/experiment.example.yaml')); \
+#     jsonschema.validate(d,s); print('valid')"
+$schema: "http://json-schema.org/draft-07/schema#"
+title: BARN experiment manifest
+type: object
+required: [experiment_id, benchmark, navigation, runtime]
+additionalProperties: true
+properties:
+  experiment_id:
+    type: string
+  date:
+    type: string
+  benchmark:
+    type: object
+    required: [challenge_baseline, evaluator_commit, worlds, trials_per_world, metric]
+    properties:
+      challenge_baseline: {type: string, enum: [BARN_2026]}
+      evaluator_branch: {type: string}
+      evaluator_commit: {type: string}
+      worlds:
+        type: object
+        required: [start, step, count]
+        properties:
+          start: {type: integer, minimum: 0}
+          step: {type: integer, minimum: 1}
+          count: {type: integer, minimum: 1}
+      trials_per_world: {type: integer, minimum: 1}
+      timeout_s: {type: number, minimum: 1}
+      metric: {type: string, enum: [barn_2026_published, upstream_master]}
+      metric_clip:
+        type: object
+        properties:
+          lower_ot_multiplier: {type: number}
+          upper_ot_multiplier: {type: number}
+  navigation:
+    type: object
+    required: [mode, repository_commit]
+    properties:
+      mode: {type: string, enum: [classical, e2e_rl, hybrid]}
+      repository_commit: {type: string}
+  runtime:
+    type: object
+    required: [ros_distro]
+    properties:
+      ros_distro: {type: string}
+      ubuntu: {type: string}
+      container: {type: string}
+      cpu_only_inference: {type: boolean}
+  notes:
+    type: string

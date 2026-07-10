@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>barn_bringup</name>
+  <version>0.1.0</version>
+  <description>
+    Launch + config composition. One entrypoint (barn_navigation.launch.py) with
+    a mode:={classical,e2e_rl,hybrid} argument, launched by the BARN evaluator's
+    navigation-stack hook. The evaluator does not need to know which track runs.
+  </description>
+  <maintainer email="muztahid.appbaksho@gmail.com">barn-2027-prep contributors</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <exec_depend>barn_goal_adapter</exec_depend>
+  <exec_depend>barn_robot_adapter</exec_depend>
+  <exec_depend>barn_classical</exec_depend>
+  <exec_depend>barn_mapping</exec_depend>
+  <exec_depend>barn_safety</exec_depend>
+  <exec_depend>barn_dynamic_tracking</exec_depend>
+  <exec_depend>barn_rl_runtime</exec_depend>
+  <exec_depend>barn_hybrid</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
