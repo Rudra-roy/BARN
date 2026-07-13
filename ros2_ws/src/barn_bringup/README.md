@@ -6,16 +6,18 @@ evaluator does not need to know which one runs.
 ## Entrypoint
 ```bash
 ros2 launch barn_bringup barn_navigation.launch.py mode:=classical use_sim_time:=true
+ros2 launch barn_bringup barn_navigation.launch.py mode:=classical_mpc use_sim_time:=true
 ros2 launch barn_bringup barn_navigation.launch.py mode:=e2e_rl
 ros2 launch barn_bringup barn_navigation.launch.py mode:=hybrid
 ```
-`barn_navigation.launch.py` includes exactly one of `slice_classical.launch.py`,
-`e2e_rl.launch.py`, or `hybrid.launch.py` based on `mode`.
+`barn_navigation.launch.py` includes exactly one selected navigation stack.
+`classical_mpc` launches mapping, the footprint-aware planner/controller,
+adapters, and the independent safety process.
 
 ## Arguments
 | Arg | Default | Meaning |
 |-----|---------|---------|
-| `mode` | `classical` | `classical` \| `e2e_rl` \| `hybrid` |
+| `mode` | `classical` | `classical` \| `classical_mpc` \| `e2e_rl` \| `hybrid` |
 | `use_sim_time` | `true` | must be true under the evaluator (Gazebo `/clock`) |
 | `cmd_vel_type` | `twist_stamped` | final `/cmd_vel` type; `twist` \| `twist_stamped` |
 
@@ -28,7 +30,9 @@ parameter on the command line, e.g.:
 ros2 launch barn_bringup barn_navigation.launch.py mode:=classical cmd_vel_type:=twist
 ```
 
-## How the evaluator uses it
-The evaluator's `launch_navigation_stack()` is patched to include this file with
-`mode:=$BARN_MODE`. See [`patches/`](../../../patches/) and
-[`tools/setup_barn_eval.sh`](../../../tools/setup_barn_eval.sh).
+## Official evaluator integration
+
+The evaluator's `algo_type:=builtin` branch still runs its official
+`jackal_helper` Nav2 baseline. Select this stack with `algo_type:=classical_mpc`;
+the evaluator package name, goal action, simulation, collision detection,
+timeout, and scoring logic remain unchanged.

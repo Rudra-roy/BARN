@@ -1,5 +1,0 @@
-# The exact The-Barn-Challenge-Ros2 commit this repo is validated against.
-# Upstream has no tagged release, so pin a commit for reproducibility.
-# Replace the line below with the hash printed by:
-#   git -C ros2_ws/src/barn_eval rev-parse HEAD
-REPLACE_WITH_PINNED_COMMIT

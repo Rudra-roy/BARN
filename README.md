@@ -26,7 +26,7 @@ navigation stack with **three independently developed approaches** under one ide
 
 | Track | Package(s) | Language | Status |
 |-------|-----------|----------|--------|
-| **A — Classical** *(Priority 1)* | `barn_classical`, `barn_mapping` | C++ | runnable slice + algorithm stubs |
+| **A — Classical** *(Priority 1)* | `barn_classical`, `barn_mapping` | C++ | footprint-aware lattice + MPC stack |
 | **B — End-to-end RL** | `barn_rl_runtime`, `learning/` | Python | runtime + training stubs |
 | **C — Hybrid** | `barn_hybrid`, `barn_dynamic_tracking` | Python + C++ | arbiter + tracker stubs |
 
@@ -60,7 +60,6 @@ barn-2027-prep/
 ├── learning/        # offline RL training (NOT a ROS package)
 ├── models/          # model cards + normalization stats (weights are git-ignored)
 ├── evaluation/      # run scripts, dual metric reports, world suites, schemas
-├── patches/         # the single launch-hook patch applied to the evaluator
 ├── tools/           # setup_barn_eval.sh, setup_workspace.sh, format.sh
 ├── results/         # raw per-trial results + manifests (source of truth)
 └── tests/           # cross-package integration (launch_testing)
@@ -73,13 +72,14 @@ barn-2027-prep/
 | `barn_core` | ament_cmake (C++) | pure types + math — **no** ROS/Gazebo deps |
 | `barn_goal_adapter` | ament_cmake (C++) | `NavigateToPose` action server → internal `Goal2D` |
 | `barn_robot_adapter` | ament_cmake (C++) | sensors in / velocity command out (message type configurable) |
-| `barn_mapping` | ament_cmake (C++) | online log-odds occupancy grid *(stub)* |
-| `barn_classical` | ament_cmake (C++) | A\*/local/controller/recovery + the runnable goal-seeker |
+| `barn_mapping` | ament_cmake (C++) | online log-odds occupancy grid + Euclidean distance field |
+| `barn_classical` | ament_cmake (C++) | footprint-aware lattice, elastic local planner, OSQP MPC, recovery |
 | `barn_dynamic_tracking` | ament_cmake (C++) | cluster / associate / Kalman / TTC *(stub)* |
-| `barn_safety` | ament_cmake (C++) | **final command authority** — clamp, accel-limit, stale gate |
+| `barn_safety` | ament_cmake (C++) | **final command authority** — swept-footprint shield + stale/acceleration gates |
 | `barn_rl_runtime` | ament_python | CPU policy inference *(stub)* |
 | `barn_hybrid` | ament_python | risk gate + command fusion *(stub)* |
 | `barn_bringup` | ament_cmake | launch + config; single `mode:=` entrypoint |
+| `barn_movement_test` | ament_python | unsafe fixed-duration goal/odom/cmd wiring test |
 
 ---
 
@@ -92,7 +92,7 @@ barn-2027-prep/
 # 0. Clone this repo into the container and enter it
 git clone <your-fork-url> barn-2027-prep && cd barn-2027-prep
 
-# 1. Fetch + pin + patch the BARN 2026 evaluator (writes to ros2_ws/src/barn_eval, git-ignored)
+# 1. Clone the evaluator and add the minimal algo_type dispatcher
 bash tools/setup_barn_eval.sh
 
 # 2. Resolve dependencies and build the whole workspace
@@ -101,19 +101,27 @@ bash tools/setup_workspace.sh          # rosdep install + colcon build --symlink
 # 3. Source the overlay
 source ros2_ws/install/setup.bash
 
-# 4. Smoke-test the navigation slice on its own (no evaluator)
-ros2 launch barn_bringup barn_navigation.launch.py mode:=classical use_sim_time:=true
-#    …then, in another sourced shell:
-ros2 topic echo /cmd_vel                       # expect non-zero motion commands
-ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
-  "{pose: {header: {frame_id: odom}, pose: {position: {x: 10.0, y: 0.0}}}}"
+# 4. Run the official Nav2/MPPI branch
+ros2 launch jackal_helper BARN_runner.launch.py algo_type:=builtin world_idx:=0 gui:=true
+```
 
-# 5. Run one evaluated world under the BARN 2026 runner
-BARN_MODE=classical bash evaluation/scripts/run_single_world.sh 0 classical 1
+Run the footprint-aware MPC stack headlessly:
 
-# 6. Development suite, then the full 500-trial public suite
-bash evaluation/scripts/run_dev_suite.sh classical
-bash evaluation/scripts/run_barn2026_public_suite.sh classical
+```bash
+ros2 launch jackal_helper BARN_runner.launch.py \
+  algo_type:=classical_mpc world_idx:=0 gui:=false planner_rviz:=false
+```
+
+Set `planner_rviz:=true` to start the planner view without enabling Gazebo's
+GUI. The map, global/local paths, MPC prediction, footprint, safety envelope,
+and diagnostics remain published in headless mode.
+
+To verify the custom-planner wiring without obstacle avoidance:
+
+```bash
+ros2 launch jackal_helper BARN_runner.launch.py \
+  algo_type:=movement_and_odom_test world_idx:=0 gui:=true \
+  movement_duration:=4.0 forward_velocity:=0.25 rotation_speed:=0.5
 ```
 
 ---

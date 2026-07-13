@@ -4,6 +4,7 @@
 //
 // Ingress:  /front/scan            -> /barn/scan   (relay)
 //           platform/odom/filtered -> /barn/pose   (base_link in odom, via TF)
+//                                  -> /barn/odom   (filtered pose + measured twist)
 // Egress:   /barn/cmd_safe         -> /cmd_vel      (Twist or TwistStamped)
 //
 // The egress message type is a PARAMETER (`cmd_vel_type`) because the BARN 2026
@@ -47,6 +48,7 @@ private:
   std::string base_frame_;
   std::string internal_scan_topic_;
   std::string internal_pose_topic_;
+  std::string internal_odom_topic_;
   std::string safe_cmd_topic_;
   std::string cmd_vel_topic_;
   std::string cmd_vel_type_;   ///< "twist_stamped" (default) or "twist"
@@ -57,6 +59,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr scan_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 
   // Egress (exactly one of these is created, per cmd_vel_type).
   rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr safe_cmd_sub_;

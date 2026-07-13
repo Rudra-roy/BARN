@@ -40,7 +40,7 @@ properties:
     type: object
     required: [mode, repository_commit]
     properties:
-      mode: {type: string, enum: [classical, e2e_rl, hybrid]}
+      mode: {type: string, minLength: 1}
       repository_commit: {type: string}
   runtime:
     type: object

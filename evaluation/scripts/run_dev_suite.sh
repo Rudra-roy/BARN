@@ -3,11 +3,11 @@
 # Fast development sweep: one trial per world in evaluation/suites/dev_worlds.txt.
 # Use during iteration; it is NOT the scored campaign (see run_barn2026_public_suite.sh).
 #
-# Usage:  run_dev_suite.sh [mode]     (default mode: classical)
+# Usage:  run_dev_suite.sh [algo_type]     (default: builtin)
 
 set -euo pipefail
 
-MODE="${1:-classical}"
+MODE="${1:-builtin}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUITE_FILE="${SCRIPT_DIR}/../suites/dev_worlds.txt"
 RESULTS_DIR="${BARN_RESULTS_DIR:-results/${MODE}/dev}"

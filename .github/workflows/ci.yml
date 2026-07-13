@@ -1,7 +1,7 @@
 name: ci
 
 # Builds and tests the custom navigation packages inside an official ROS 2
-# Jazzy container. The BARN 2026 evaluator (ros2_ws/src/barn_eval) is NOT
+# Jazzy container. The official evaluator checkout is NOT
 # vendored and is intentionally absent here, so CI builds only our stacks.
 # Gazebo / hardware-in-the-loop evaluation is out of scope for CI and is run
 # manually inside the distrobox (see docs/setup/barn_2026_jazzy_distrobox.md).

@@ -108,8 +108,11 @@ Key properties visible in this flow:
 
 ## 4. Mode selection
 
-There is exactly one entrypoint. The BARN evaluator's patched
-`launch_navigation_stack()` includes it with a `mode:=` argument.
+Our future custom stack has one entrypoint. The evaluator's minimal `algo_type`
+dispatcher keeps `builtin` mapped to the stock Nav2 baseline. Once an algorithm
+is ready, a named branch can be added to its documented
+`launch_navigation_stack()` hook and include our entrypoint with a `mode:=`
+argument.
 
 ```bash
 ros2 launch barn_bringup barn_navigation.launch.py mode:=classical

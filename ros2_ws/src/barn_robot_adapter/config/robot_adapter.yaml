@@ -14,6 +14,7 @@ robot_adapter_node:
     base_frame: base_link
     internal_scan_topic: /barn/scan
     internal_pose_topic: /barn/pose
+    internal_odom_topic: /barn/odom
     safe_cmd_topic: /barn/cmd_safe
     cmd_vel_topic: /cmd_vel
     cmd_vel_type: twist_stamped   # twist_stamped | twist

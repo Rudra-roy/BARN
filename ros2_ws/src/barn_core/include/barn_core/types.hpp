@@ -39,6 +39,23 @@ struct VelocityCommand
   double w{0.0};  ///< angular velocity, rad/s (counter-clockwise positive)
 };
 
+/// Planar robot state used by predictive controllers.
+struct State2D
+{
+  Pose2D pose;
+  double v{0.0};  ///< measured forward velocity, m/s
+  double w{0.0};  ///< measured yaw rate, rad/s
+};
+
+/// A timestamp-free point on a locally planned trajectory.
+struct TrajectoryPoint
+{
+  Pose2D pose;
+  double v_ref{0.0};       ///< desired forward speed, m/s
+  double clearance{0.0};   ///< nearest obstacle distance, m
+  bool in_unknown{false};  ///< true if this point crosses unobserved map space
+};
+
 /// Kinematic / dynamic limits enforced by barn_safety.
 struct Limits
 {

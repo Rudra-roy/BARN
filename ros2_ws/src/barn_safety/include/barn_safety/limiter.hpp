@@ -1,10 +1,8 @@
 // Copyright 2026 barn-2027-prep contributors. MIT License.
 //
 // Pure velocity-limiting logic: magnitude clamp, per-axis acceleration
-// rate-limit, and a stale-sensor kill. This is the real safety math and is
-// unit-tested without ROS. The obstacle-corridor / clearance methods are
-// declared here but currently pass through (STUB) — fill them as Track A
-// matures, but they must never widen the limits below.
+// rate-limit, and a stale-sensor kill. This is unit-tested without ROS and is
+// deliberately independent of the swept-footprint shield.
 
 #ifndef BARN_SAFETY__LIMITER_HPP_
 #define BARN_SAFETY__LIMITER_HPP_
@@ -30,13 +28,10 @@ public:
 
   /// Forget the previous command (call on (re)start or after an e-stop).
   void reset();
+  /// Synchronize rate-limit state after an independent shield clamps a command.
+  void override_last(const barn_core::VelocityCommand & command) { last_ = command; }
 
   const barn_core::VelocityCommand & last() const { return last_; }
-
-  // ---- STUB hooks (return `desired` unchanged for now) -------------------
-  /// Reduce forward speed based on the nearest obstacle in the travel corridor.
-  barn_core::VelocityCommand apply_forward_corridor(
-    const barn_core::VelocityCommand & desired, const barn_core::ScanView & scan) const;
 
 private:
   static double rate_limit(double target, double previous, double max_delta);

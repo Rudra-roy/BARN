@@ -1,23 +1,58 @@
 // Copyright 2026 barn-2027-prep contributors. MIT License.
-//
-// STUB (milestone M8). Curvature/clearance-aware trajectory tracking controller
-// (e.g. pure pursuit + speed scheduling) that turns the local trajectory into a
-// smooth velocity command.
 
 #ifndef BARN_CLASSICAL__CONTROLLER_HPP_
 #define BARN_CLASSICAL__CONTROLLER_HPP_
 
-#include "barn_classical/global_planner_astar.hpp"
+#include <string>
+#include <vector>
+
+#include "barn_classical/local_planner.hpp"
+#include "barn_core/distance_field.hpp"
 #include "barn_core/types.hpp"
 
 namespace barn_classical
 {
 
+struct MpcParams
+{
+  int horizon{20};
+  double dt{0.1};
+  double max_speed{2.0};
+  double max_yaw_rate{1.5};
+  double max_accel{2.5};
+  double max_yaw_accel{3.0};
+  double solve_deadline_ms{35.0};
+  int max_linearization_passes{3};
+  double obstacle_margin{0.02};
+  double max_obstacle_slack{0.40};
+  Footprint footprint{};
+};
+
+struct MpcResult
+{
+  barn_core::VelocityCommand command{};
+  Path2D prediction;
+  bool success{false};
+  bool timed_out{false};
+  double solve_ms{0.0};
+  std::string status{"not_run"};
+};
+
+/// Sequentially-linearized differential-drive MPC backed by OSQP.
 class Controller
 {
 public:
-  /// Track `path` from `pose`. STUB: returns a zero command.
-  barn_core::VelocityCommand control(const Path2D & path, const barn_core::Pose2D & pose) const;
+  explicit Controller(const MpcParams & params = {}) : params_(params) {}
+
+  MpcResult control(
+    const LocalTrajectory & trajectory, const barn_core::State2D & state,
+    const barn_core::DistanceField2D & distance_field);
+
+  void reset();
+
+private:
+  MpcParams params_;
+  std::vector<double> warm_start_;
 };
 
 }  // namespace barn_classical

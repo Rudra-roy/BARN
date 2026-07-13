@@ -15,7 +15,7 @@ mkdir -p "$RESULTS_DIR"
 
 repo_sha="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 repo_dirty="$(test -n "$(git status --porcelain 2>/dev/null)" && echo true || echo false)"
-eval_dir="ros2_ws/src/barn_eval"
+eval_dir="ros2_ws/src/The-Barn-Challenge-Ros2"
 eval_sha="$(git -C "$eval_dir" rev-parse HEAD 2>/dev/null || echo not-present)"
 date_iso="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 

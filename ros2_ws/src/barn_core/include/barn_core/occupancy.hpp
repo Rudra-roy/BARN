@@ -57,6 +57,7 @@ public:
   /// are ignored.
   double log_odds(const GridIndex & idx) const;
   void set_log_odds(const GridIndex & idx, double value);
+  void add_log_odds(const GridIndex & idx, double increment, double min_value, double max_value);
 
   /// Classify a cell against the free/occupied thresholds.
   CellState classify(

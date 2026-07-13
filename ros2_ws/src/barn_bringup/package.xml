@@ -15,6 +15,7 @@
 
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rviz2</exec_depend>
 
   <exec_depend>barn_goal_adapter</exec_depend>
   <exec_depend>barn_robot_adapter</exec_depend>

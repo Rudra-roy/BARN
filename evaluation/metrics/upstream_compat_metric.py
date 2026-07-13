@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """UPSTREAM-COMPATIBLE metric report.
 
-Reproduces what the pinned ROS 2 evaluator's own report_test.py computes, whose
+Reproduces what the ROS 2 evaluator's own report_test.py computes, whose
 source clips actual time as:
 
     np.clip(actual_time, optimal_time * 4, optimal_time * 8)

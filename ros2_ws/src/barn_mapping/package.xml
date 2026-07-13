@@ -4,9 +4,8 @@
   <name>barn_mapping</name>
   <version>0.1.0</version>
   <description>
-    Online LiDAR occupancy mapping (log-odds) in the odom frame for Track A.
-    Currently a stub node that publishes an all-unknown grid; the ray-tracing
-    update (M4) builds the map from allowed sensor data only.
+    Online LiDAR log-odds occupancy mapping and Euclidean distance field in the
+    odom frame, built exclusively from competition-legal sensor data.
   </description>
   <maintainer email="muztahid.appbaksho@gmail.com">barn-2027-prep contributors</maintainer>
   <license>MIT</license>
@@ -18,6 +17,7 @@
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>tf2_ros</depend>
+  <depend>tf2</depend>
   <depend>barn_core</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>

@@ -10,9 +10,9 @@ schemas/   experiment.schema.yaml · result_record.schema.json
 ```
 
 ## Three levels of testing
-1. **Smoke** — `run_single_world.sh <idx> classical` on one world (GUI optional).
-2. **Dev sweep** — `run_dev_suite.sh classical` over `suites/dev_worlds.txt`.
-3. **Scored campaign** — `run_barn2026_public_suite.sh classical`: 50 worlds × 10
+1. **Smoke** — `run_single_world.sh <idx> builtin` on one world (GUI optional).
+2. **Dev sweep** — `run_dev_suite.sh builtin` over `suites/dev_worlds.txt`.
+3. **Scored campaign** — `run_barn2026_public_suite.sh builtin`: 50 worlds × 10
    trials = 500 trials, with a captured manifest and both metric reports.
 
 ## Two metric reports — never mixed
@@ -27,5 +27,5 @@ states which metric produced it. Why two:
 
 ## Note on the out_file format
 `_common.py:COLUMN_ORDER` assumes `world_idx success collided timeout actual_time
-optimal_time`. Confirm this against your pinned evaluator's output on the first
+optimal_time`. Confirm this against your evaluator's output on the first
 run and adjust if the columns differ.

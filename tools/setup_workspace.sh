@@ -13,17 +13,24 @@ if [[ -z "${ROS_DISTRO:-}" ]]; then
   exit 1
 fi
 
-echo "[setup_workspace] rosdep install (${ROS_DISTRO})"
-if command -v rosdep >/dev/null 2>&1; then
-  rosdep install --from-paths "${WS}/src" --ignore-src -y --rosdistro "${ROS_DISTRO}" || {
-    echo "[setup_workspace] rosdep reported issues; continuing to build." >&2
-  }
-else
-  echo "[setup_workspace] rosdep not found; skipping dependency resolution." >&2
+if [[ "$ROS_DISTRO" != "jazzy" ]]; then
+  echo "error: this workspace requires ROS 2 Jazzy; found ROS_DISTRO=${ROS_DISTRO}." >&2
+  echo "       Run: source /opt/ros/jazzy/setup.bash" >&2
+  exit 1
 fi
 
-echo "[setup_workspace] colcon build --symlink-install"
-( cd "$WS" && colcon build --symlink-install )
+# Remove ROS paths inherited from a differently sourced host environment.
+source "${REPO_ROOT}/infra/env/barn_jazzy.env"
+
+echo "[setup_workspace] rosdep install (${ROS_DISTRO})"
+if ! command -v rosdep >/dev/null 2>&1; then
+  echo "error: rosdep not found; install ros-dev-tools before continuing." >&2
+  exit 1
+fi
+rosdep install --from-paths "${WS}/src" --ignore-src -y --rosdistro "${ROS_DISTRO}"
+
+echo "[setup_workspace] colcon build --symlink-install (Release)"
+( cd "$WS" && colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release )
 
 echo
 echo "[setup_workspace] done. Source the overlay:"

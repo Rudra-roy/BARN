@@ -6,6 +6,7 @@
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <thread>
 
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
@@ -113,8 +114,18 @@ void GoalAdapterNode::execute(const std::shared_ptr<GoalHandle> goal_handle)
 
   while (rclcpp::ok()) {
     if (goal_handle->is_canceling()) {
-      goal_handle->canceled(result);
-      RCLCPP_INFO(get_logger(), "Goal canceled");
+      // The evaluator tears down its CLI action client and this server in the
+      // same launch shutdown wave. The goal can disappear between
+      // is_canceling() and publishing the terminal result; that is a benign
+      // shutdown race and must not abort the adapter process.
+      try {
+        if (goal_handle->is_active()) {
+          goal_handle->canceled(result);
+          RCLCPP_INFO(get_logger(), "Goal canceled");
+        }
+      } catch (const std::runtime_error & error) {
+        RCLCPP_DEBUG(get_logger(), "Goal vanished during cancellation: %s", error.what());
+      }
       return;
     }
 
@@ -125,11 +136,22 @@ void GoalAdapterNode::execute(const std::shared_ptr<GoalHandle> goal_handle)
     }
     feedback->distance_remaining = static_cast<float>(d);
     feedback->navigation_time = now() - start;
-    goal_handle->publish_feedback(feedback);
+    try {
+      goal_handle->publish_feedback(feedback);
+    } catch (const std::runtime_error & error) {
+      RCLCPP_DEBUG(get_logger(), "Goal vanished while publishing feedback: %s", error.what());
+      return;
+    }
 
     if (d <= success_distance_) {
-      goal_handle->succeed(result);
-      RCLCPP_INFO(get_logger(), "Goal reached (%.2f m <= %.2f m)", d, success_distance_);
+      try {
+        if (goal_handle->is_active()) {
+          goal_handle->succeed(result);
+          RCLCPP_INFO(get_logger(), "Goal reached (%.2f m <= %.2f m)", d, success_distance_);
+        }
+      } catch (const std::runtime_error & error) {
+        RCLCPP_DEBUG(get_logger(), "Goal vanished while publishing success: %s", error.what());
+      }
       return;
     }
     loop.sleep();

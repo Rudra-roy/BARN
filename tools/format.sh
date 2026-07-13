@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Format / lint the source we own (never the vendored evaluator).
+# Format / lint the source we own (never the external evaluator checkout).
 #   --check   report only, non-zero exit on any diff/violation (for CI/pre-push)
 # Default: format C++ in place and lint Python.
 
@@ -12,8 +12,8 @@ cd "$REPO_ROOT"
 CHECK=0
 [[ "${1:-}" == "--check" ]] && CHECK=1
 
-# C++ files under ros2_ws/src, excluding the vendored evaluator.
-mapfile -t CPP < <(find ros2_ws/src -path ros2_ws/src/barn_eval -prune -o \
+# C++ files under ros2_ws/src, excluding the external evaluator checkout.
+mapfile -t CPP < <(find ros2_ws/src -path ros2_ws/src/The-Barn-Challenge-Ros2 -prune -o \
   \( -name '*.cpp' -o -name '*.hpp' \) -print)
 
 if command -v clang-format >/dev/null 2>&1 && ((${#CPP[@]})); then
@@ -29,7 +29,7 @@ else
 fi
 
 # Python: flake8 the two ament_python packages and the learning code.
-PY_PATHS=(ros2_ws/src/barn_rl_runtime ros2_ws/src/barn_hybrid learning evaluation)
+PY_PATHS=(ros2_ws/src/barn_rl_runtime ros2_ws/src/barn_hybrid learning evaluation tools)
 if command -v flake8 >/dev/null 2>&1; then
   echo "[format] flake8 ${PY_PATHS[*]}"
   flake8 "${PY_PATHS[@]}" || { ((CHECK)) && exit 1 || true; }

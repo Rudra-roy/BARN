@@ -6,7 +6,7 @@ Related documents:
 
 - [Scoring metric notes](./metric_notes.md) — formula, clip semantics, and the two-report policy.
 - [Failure taxonomy](./failure_taxonomy.md) — static/dynamic failure codes and labeling format.
-- [Robot interface](./robot_interface.md) — action/adapter contract between the stack and the evaluator.
+- [Robot interface](../robot_interface.md) — action/adapter contract between the stack and the evaluator.
 - [Programme roadmap](../roadmap.md) — milestone plan M0–M21.
 
 ---

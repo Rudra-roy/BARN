@@ -1,0 +1,80 @@
+# One global parameter set for all static BARN worlds. Do not add per-world tuning.
+goal_adapter_node:
+  ros__parameters:
+    planning_frame: odom
+    goal_topic: /barn/goal
+    pose_topic: /barn/pose
+    success_distance: 0.75
+    feedback_period_s: 0.1
+
+robot_adapter_node:
+  ros__parameters:
+    scan_topic: /front/scan
+    odom_topic: platform/odom/filtered
+    odom_frame: odom
+    base_frame: base_link
+    internal_scan_topic: /barn/scan
+    internal_pose_topic: /barn/pose
+    internal_odom_topic: /barn/odom
+    safe_cmd_topic: /barn/cmd_safe
+    cmd_vel_topic: /cmd_vel
+    cmd_vel_type: twist_stamped
+    cmd_vel_frame: base_link
+
+mapping_node:
+  ros__parameters:
+    scan_topic: /barn/scan
+    pose_topic: /barn/pose
+    grid_topic: /barn/occupancy
+    frame_id: odom
+    resolution: 0.05
+    width_m: 50.0
+    height_m: 30.0
+    publish_rate_hz: 5.0
+    max_usable_range: 12.0
+    log_odds_hit: 0.85
+    log_odds_miss: -0.40
+    log_odds_min: -4.0
+    log_odds_max: 4.0
+
+classical_mpc_node:
+  ros__parameters:
+    goal_topic: /barn/goal
+    pose_topic: /barn/pose
+    odom_topic: /barn/odom
+    scan_topic: /barn/scan
+    map_topic: /barn/occupancy
+    cmd_topic: /barn/cmd_desired
+    planning_frame: odom
+    cmd_frame: base_link
+    goal_tolerance: 0.70
+    global_planner_budget_ms: 100.0
+    unknown_cost_multiplier: 1.8
+    heuristic_weight: 3.0
+    clearance_weight: 0.08
+    local_horizon_m: 4.0
+    max_speed: 2.0
+    unknown_speed: 0.4
+    mpc_deadline_ms: 35.0
+    startup_creep_delay_s: 1.0
+    startup_creep_speed: 0.15
+    no_progress_timeout_s: 3.0
+    max_recovery_attempts: 3
+
+safety_node:
+  ros__parameters:
+    desired_topic: /barn/cmd_desired
+    safe_topic: /barn/cmd_safe
+    scan_topic: /barn/scan
+    base_frame: base_link
+    v_max: 2.0
+    w_max: 1.5
+    max_lin_accel: 2.5
+    max_ang_accel: 3.0
+    cmd_timeout_s: 0.4
+    scan_timeout_s: 0.5
+    watchdog_period_s: 0.05
+    emergency_margin: 0.10
+    shield_latency_s: 0.15
+    braking_decel: 2.5
+    shield_horizon_s: 1.0

@@ -2,6 +2,7 @@
 
 #include "barn_core/logodds.hpp"
 #include "barn_core/occupancy.hpp"
+#include "barn_mapping/ray_integrator.hpp"
 #include "gtest/gtest.h"
 
 TEST(LogOdds, ProbabilityRoundTrip)
@@ -54,4 +55,17 @@ TEST(OccupancyGrid, Classification)
   EXPECT_EQ(grid.classify(idx), barn_core::CellState::kOccupied);
   grid.set_log_odds(idx, -2.0);
   EXPECT_EQ(grid.classify(idx), barn_core::CellState::kFree);
+}
+
+TEST(RayIntegrator, MarksFreeCellsAndOccupiedEndpoint)
+{
+  barn_core::OccupancyGrid2D grid(10, 3, 0.1, 0.0, 0.0);
+  barn_core::InverseSensorModel model;
+  barn_mapping::integrate_ray(grid, {1, 1}, {7, 1}, true, model);
+
+  EXPECT_DOUBLE_EQ(grid.log_odds({1, 1}), 0.0);
+  for (int col = 2; col < 7; ++col) {
+    EXPECT_LT(grid.log_odds({col, 1}), 0.0);
+  }
+  EXPECT_GT(grid.log_odds({7, 1}), 0.0);
 }

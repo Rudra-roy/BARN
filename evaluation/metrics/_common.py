@@ -17,7 +17,7 @@ V_MAX = 2.0  # m/s, BARN maximum robot speed (used to derive OT from path length
 # Result-file parsing
 # ---------------------------------------------------------------------------
 # The BARN evaluator writes one line per trial to its out_file. The exact column
-# layout depends on the pinned evaluator revision, so VERIFY this against your
+# layout depends on the evaluator revision, so VERIFY this against your
 # evaluator's output the first time and adjust COLUMN_ORDER if needed. The
 # default matches the common BARN layout:
 #     world_idx  success  collided  timeout  actual_time  optimal_time

@@ -8,12 +8,12 @@
 # docs/benchmark/metric_notes.md). Do NOT use the upstream test.sh for a fresh
 # full campaign.
 #
-# Usage:  run_barn2026_public_suite.sh [mode]     (default mode: classical)
+# Usage:  run_barn2026_public_suite.sh [algo_type]     (default: builtin)
 # No per-world tuning during the campaign.
 
 set -euo pipefail
 
-MODE="${1:-classical}"
+MODE="${1:-builtin}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRIALS="${BARN_TRIALS_PER_WORLD:-10}"
 RESULTS_DIR="${BARN_RESULTS_DIR:-results/${MODE}/public_$(printf '%(%Y%m%d_%H%M%S)T' -1)}"

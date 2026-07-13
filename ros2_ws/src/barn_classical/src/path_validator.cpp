@@ -5,10 +5,24 @@
 namespace barn_classical
 {
 
-bool PathValidator::is_path_clear(const Path2D &, const barn_core::OccupancyGrid2D &) const
+bool PathValidator::is_path_clear(
+  const Path2D & path, const barn_core::OccupancyGrid2D & grid,
+  bool unknown_is_obstacle) const
 {
-  // STUB (M6): sample the path against grid cells and return false on the first
-  // OCCUPIED cell so the node replans immediately.
+  if (path.empty()) {
+    return false;
+  }
+  if (!footprint_is_clear(grid, path.front(), footprint_, unknown_is_obstacle)) {
+    return false;
+  }
+  for (std::size_t i = 1; i < path.size(); ++i) {
+    if (!swept_segment_is_clear(
+        grid, path[i - 1], path[i], footprint_, unknown_is_obstacle,
+        grid.resolution()))
+    {
+      return false;
+    }
+  }
   return true;
 }
 

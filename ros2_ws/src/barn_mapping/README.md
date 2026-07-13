@@ -4,10 +4,9 @@ Online LiDAR occupancy mapping for Track A. Turns `/barn/scan` + `/barn/pose`
 into a log-odds `OccupancyGrid2D` (odom frame), published as
 `nav_msgs/OccupancyGrid` for the planner and RViz.
 
-## Status
-**Stub (M4).** The node wires the interface and publishes an all-unknown grid of
-the configured size. The ray-tracing log-odds update — free along each ray,
-occupied at the endpoint, using `barn_core::InverseSensorModel` — is the M4 task.
+The implementation transforms each scan into `odom`, marks free cells along
+each ray, accumulates occupied endpoints with bounded log odds, and publishes a
+latched occupancy grid for planning and RViz.
 
 ## Hard rule
 Build the map **only** from allowed sensor data (`/barn/scan`, pose/TF). Never

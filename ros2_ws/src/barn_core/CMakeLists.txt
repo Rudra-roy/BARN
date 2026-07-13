@@ -14,7 +14,8 @@ find_package(ament_cmake REQUIRED)
 add_library(barn_core
   src/geometry.cpp
   src/scan.cpp
-  src/occupancy.cpp)
+  src/occupancy.cpp
+  src/distance_field.cpp)
 target_include_directories(barn_core PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<INSTALL_INTERFACE:include>")
@@ -38,6 +39,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_scan test/test_scan.cpp)
   target_link_libraries(test_scan barn_core)
+
+  ament_add_gtest(test_distance_field test/test_distance_field.cpp)
+  target_link_libraries(test_distance_field barn_core)
 endif()
 
 ament_package()

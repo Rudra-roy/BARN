@@ -4,39 +4,90 @@ Panels:
 Visualization Manager:
   Class: ""
   Global Options:
-    Background Color: 48; 48; 48
+    Background Color: 35; 35; 35
     Fixed Frame: odom
-    Frame Rate: 30
+    Frame Rate: 20
   Displays:
     - Class: rviz_default_plugins/Grid
       Name: Grid
       Enabled: true
-      Plane Cell Count: 40
+      Plane Cell Count: 60
       Cell Size: 1
       Reference Frame: odom
     - Class: rviz_default_plugins/TF
       Name: TF
       Enabled: true
+    - Class: rviz_default_plugins/RobotModel
+      Name: Robot
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
     - Class: rviz_default_plugins/LaserScan
-      Name: Scan
+      Name: Legal LiDAR input
       Enabled: true
       Topic:
         Value: /barn/scan
         Depth: 5
         Reliability Policy: Best Effort
-      Size (m): 0.03
+      Size (m): 0.025
       Style: Points
     - Class: rviz_default_plugins/Map
-      Name: OccupancyGrid
+      Name: Online occupancy
       Enabled: true
       Topic:
         Value: /barn/occupancy
+        Durability Policy: Transient Local
       Color Scheme: map
-    - Class: rviz_default_plugins/MarkerArray
-      Name: Tracks
+    - Class: rviz_default_plugins/Map
+      Name: Inflated planning grid
       Enabled: true
       Topic:
-        Value: /barn/tracks
+        Value: /barn/inflated_grid
+        Durability Policy: Transient Local
+      Color Scheme: costmap
+      Alpha: 0.55
+    - Class: rviz_default_plugins/Pose
+      Name: Goal
+      Enabled: true
+      Topic:
+        Value: /barn/goal
+        Durability Policy: Transient Local
+    - Class: rviz_default_plugins/Path
+      Name: Global lattice path
+      Enabled: true
+      Topic:
+        Value: /barn/global_path
+        Durability Policy: Transient Local
+      Line Style: Lines
+      Line Width: 0.04
+      Color: 40; 110; 255
+    - Class: rviz_default_plugins/Path
+      Name: Local elastic path
+      Enabled: true
+      Topic:
+        Value: /barn/local_path
+      Line Style: Lines
+      Line Width: 0.06
+      Color: 30; 240; 100
+    - Class: rviz_default_plugins/Path
+      Name: MPC prediction
+      Enabled: true
+      Topic:
+        Value: /barn/mpc_prediction
+      Line Style: Lines
+      Line Width: 0.05
+      Color: 255; 180; 20
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Footprint and recovery
+      Enabled: true
+      Topic:
+        Value: /barn/planner_markers
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Safety stopping envelope
+      Enabled: true
+      Topic:
+        Value: /barn/safety_markers
   Tools:
     - Class: rviz_default_plugins/MoveCamera
   Views:
@@ -44,11 +95,11 @@ Visualization Manager:
       Class: rviz_default_plugins/Orbit
       Distance: 25
       Focal Point:
-        X: 5
+        X: 6
         Y: 0
         Z: 0
       Pitch: 1.2
       Yaw: 3.14
 Window Geometry:
-  Height: 800
-  Width: 1200
+  Height: 900
+  Width: 1400

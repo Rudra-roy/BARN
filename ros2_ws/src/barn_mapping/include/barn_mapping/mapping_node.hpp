@@ -1,25 +1,28 @@
 // Copyright 2026 barn-2027-prep contributors. MIT License.
 //
-// STUB (milestone M4). Online occupancy mapping from LiDAR. Subscribes the
+// Online occupancy mapping from LiDAR. Subscribes the
 // relayed scan and the robot pose, maintains a log-odds OccupancyGrid2D in the
 // odom frame, and publishes it as nav_msgs/OccupancyGrid for the planner + RViz.
 //
-// The current implementation wires the interface and publishes an all-UNKNOWN
-// grid of the configured size. The ray-tracing log-odds update (using
-// barn_core::InverseSensorModel) is the M4 task. It must build the map ONLY
-// from allowed sensor data — never the ground-truth world map.
+// It builds the map ONLY from allowed sensor data — never the ground-truth
+// world map.
 
 #ifndef BARN_MAPPING__MAPPING_NODE_HPP_
 #define BARN_MAPPING__MAPPING_NODE_HPP_
 
 #include <memory>
+#include <mutex>
 #include <string>
 
+#include "barn_core/distance_field.hpp"
+#include "barn_core/logodds.hpp"
 #include "barn_core/occupancy.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
 
 namespace barn_mapping
 {
@@ -42,15 +45,22 @@ private:
   double width_m_;
   double height_m_;
   double publish_rate_hz_;
+  double max_usable_range_;
+  barn_core::InverseSensorModel sensor_model_;
 
   barn_core::OccupancyGrid2D grid_;
+  barn_core::DistanceField2D distance_field_;
   geometry_msgs::msg::PoseStamped last_pose_;
-  sensor_msgs::msg::LaserScan::SharedPtr last_scan_;
+  bool have_pose_{false};
+  bool map_initialized_{false};
+  std::mutex grid_mutex_;
 
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr grid_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };
 
 }  // namespace barn_mapping

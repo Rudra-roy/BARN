@@ -60,6 +60,16 @@ void OccupancyGrid2D::set_log_odds(const GridIndex & idx, double value)
   data_[index_of(idx)] = value;
 }
 
+void OccupancyGrid2D::add_log_odds(
+  const GridIndex & idx, double increment, double min_value, double max_value)
+{
+  if (!in_bounds(idx)) {
+    return;
+  }
+  const auto flat = index_of(idx);
+  data_[flat] = std::clamp(data_[flat] + increment, min_value, max_value);
+}
+
 CellState OccupancyGrid2D::classify(
   const GridIndex & idx, double free_threshold, double occupied_threshold) const
 {

@@ -11,6 +11,6 @@ exclude =
     build,
     install,
     log,
-    ros2_ws/src/barn_eval,
+    ros2_ws/src/The-Barn-Challenge-Ros2,
     .venv,
     venv

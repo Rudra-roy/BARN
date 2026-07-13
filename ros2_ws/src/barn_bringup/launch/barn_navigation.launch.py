@@ -1,9 +1,9 @@
 # Copyright 2026 barn-2027-prep contributors. MIT License.
 #
-# Single entrypoint for the BARN navigation stack. The BARN evaluator's patched
-# launch_navigation_stack() includes THIS file with `mode:=<track>`. The
-# evaluator owns Gazebo, the Jackal spawn, the LiDAR remap, and all
-# collision/goal/timeout monitoring; we own only the navigation nodes below.
+# Future single entrypoint for our BARN navigation stack. Once an algorithm is
+# ready, the official evaluator's documented launch_navigation_stack() hook may
+# manually include this file. The evaluator package name and all simulation,
+# goal, collision, timeout, and scoring behavior must remain unchanged.
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
@@ -34,15 +34,26 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'mode', default_value='classical',
-            description='Navigation track: classical | e2e_rl | hybrid'),
+            description='Navigation track: classical | classical_mpc | e2e_rl | hybrid'),
         DeclareLaunchArgument(
             'use_sim_time', default_value='true',
             description='Use the Gazebo /clock (must be true under the evaluator)'),
         DeclareLaunchArgument(
             'cmd_vel_type', default_value='twist_stamped',
             description='Final /cmd_vel message type: twist | twist_stamped'),
+        DeclareLaunchArgument('planner_rviz', default_value='false'),
 
         _mode_include('slice_classical.launch.py', 'classical'),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(PathJoinSubstitution([
+                FindPackageShare('barn_bringup'), 'launch', 'classical_mpc.launch.py'])),
+            launch_arguments={
+                'use_sim_time': LaunchConfiguration('use_sim_time'),
+                'cmd_vel_type': LaunchConfiguration('cmd_vel_type'),
+                'planner_rviz': LaunchConfiguration('planner_rviz'),
+            }.items(),
+            condition=IfCondition(EqualsSubstitution(
+                LaunchConfiguration('mode'), 'classical_mpc'))),
         _mode_include('e2e_rl.launch.py', 'e2e_rl'),
         _mode_include('hybrid.launch.py', 'hybrid'),
     ])

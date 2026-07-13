@@ -19,6 +19,7 @@ RobotAdapterNode::RobotAdapterNode(const rclcpp::NodeOptions & options)
   base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
   internal_scan_topic_ = declare_parameter<std::string>("internal_scan_topic", "/barn/scan");
   internal_pose_topic_ = declare_parameter<std::string>("internal_pose_topic", "/barn/pose");
+  internal_odom_topic_ = declare_parameter<std::string>("internal_odom_topic", "/barn/odom");
   safe_cmd_topic_ = declare_parameter<std::string>("safe_cmd_topic", "/barn/cmd_safe");
   cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
   cmd_vel_type_ = declare_parameter<std::string>("cmd_vel_type", "twist_stamped");
@@ -29,6 +30,7 @@ RobotAdapterNode::RobotAdapterNode(const rclcpp::NodeOptions & options)
 
   scan_pub_ = create_publisher<sensor_msgs::msg::LaserScan>(internal_scan_topic_, sensor_qos);
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(internal_pose_topic_, 10);
+  odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(internal_odom_topic_, 10);
 
   scan_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
     scan_topic_, sensor_qos,
@@ -84,6 +86,15 @@ void RobotAdapterNode::odom_callback(const nav_msgs::msg::Odometry::SharedPtr ms
     pose.pose = msg->pose.pose;
   }
   pose_pub_->publish(pose);
+
+  // Preserve measured twist while making the pose agree with the pose relay.
+  // Downstream predictive control therefore never subscribes around the robot
+  // boundary to the evaluator-owned odometry topic.
+  nav_msgs::msg::Odometry odom = *msg;
+  odom.header.frame_id = odom_frame_;
+  odom.child_frame_id = base_frame_;
+  odom.pose.pose = pose.pose;
+  odom_pub_->publish(odom);
 }
 
 void RobotAdapterNode::safe_cmd_callback(const geometry_msgs::msg::TwistStamped::SharedPtr msg)

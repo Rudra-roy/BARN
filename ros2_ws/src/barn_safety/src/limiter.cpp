@@ -38,12 +38,4 @@ barn_core::VelocityCommand Limiter::apply(
 
 void Limiter::reset() { last_ = {0.0, 0.0}; }
 
-barn_core::VelocityCommand Limiter::apply_forward_corridor(
-  const barn_core::VelocityCommand & desired, const barn_core::ScanView &) const
-{
-  // STUB: a future clearance-aware slowdown lives here. For now it must not
-  // increase speed, so pass the command through unchanged.
-  return desired;
-}
-
 }  // namespace barn_safety

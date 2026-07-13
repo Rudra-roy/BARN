@@ -11,9 +11,8 @@ install/
 log/
 
 # --- The BARN 2026 evaluator is NOT vendored ------------------------------
-# It is cloned + pinned locally by tools/setup_barn_eval.sh. Never commit it;
-# only the pinned commit (patches/README.md) and the launch patch are tracked.
-ros2_ws/src/barn_eval/
+# It is cloned unchanged by tools/setup_barn_eval.sh.
+ros2_ws/src/The-Barn-Challenge-Ros2/
 
 # --- Benchmark results (raw runs are large / machine-specific) -------------
 # Keep the directory and its manifests; ignore heavy artifacts.

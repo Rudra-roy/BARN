@@ -8,7 +8,7 @@
   "additionalProperties": true,
   "properties": {
     "world_idx": {"type": "integer", "minimum": 0},
-    "mode": {"type": "string", "enum": ["classical", "e2e_rl", "hybrid"]},
+    "mode": {"type": "string", "minLength": 1},
     "trial": {"type": "integer", "minimum": 1},
     "success": {"type": "boolean", "description": "reached goal within 1 m before timeout, no collision"},
     "collided": {"type": "boolean"},
