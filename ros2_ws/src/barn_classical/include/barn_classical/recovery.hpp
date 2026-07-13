@@ -13,6 +13,7 @@ enum class RecoveryState
 {
   kInactive,
   kStop,
+  kVetoEscape,
   kRotateToGap,
   kBackUp,
   kRequestReplan,
@@ -34,6 +35,7 @@ struct RecoveryParams
   double backup_speed{0.30};
   double rear_clearance{0.55};
   int max_attempts{3};
+  double replan_timeout{1.0}; // seconds to wait for a replan before trying next recovery action
 };
 
 class Recovery
@@ -42,9 +44,10 @@ public:
   explicit Recovery(const RecoveryParams & params = {}) : params_(params) {}
 
   void trigger(const barn_core::ScanView & scan);
+  void trigger_veto_escape(const barn_core::ScanView & scan);
   barn_core::VelocityCommand step(
     double dt, double current_yaw, double distance_backed,
-    const barn_core::ScanView & scan);
+    const barn_core::ScanView & scan, bool veto_active = false);
   /// Mark the requested replan complete without resetting the bounded-attempt count.
   void finish_replan();
   void reset();

@@ -58,15 +58,56 @@ void Recovery::trigger(const barn_core::ScanView & scan)
   target_yaw_ = widest_gap_heading(scan);
 }
 
+void Recovery::trigger_veto_escape(const barn_core::ScanView & scan)
+{
+  if (state_ == RecoveryState::kFailed) {
+    return;
+  }
+  // Veto escape takes priority.
+  state_ = RecoveryState::kVetoEscape;
+  state_elapsed_ = 0.0;
+  
+  double closest_angle = 0.0;
+  double min_range = std::numeric_limits<double>::infinity();
+  if (scan.valid()) {
+    for (std::size_t i = 0; i < scan.count; ++i) {
+      if (scan.ranges[i] >= scan.range_min && scan.ranges[i] <= scan.range_max) {
+        if (scan.ranges[i] < min_range) {
+          min_range = scan.ranges[i];
+          closest_angle = scan.angle_min + i * scan.angle_increment;
+        }
+      }
+    }
+  }
+  // Rotate in the opposite direction to the closest obstacle.
+  target_yaw_ = closest_angle >= 0.0 ? -1.0 : 1.0;
+}
+
 barn_core::VelocityCommand Recovery::step(
   double dt, double current_yaw, double distance_backed,
-  const barn_core::ScanView & scan)
+  const barn_core::ScanView & scan, bool veto_active)
 {
   state_elapsed_ += std::max(0.0, dt);
   switch (state_) {
     case RecoveryState::kInactive:
     case RecoveryState::kFailed:
+      return {0.0, 0.0};
+    case RecoveryState::kVetoEscape:
+      if (!veto_active) {
+        state_ = RecoveryState::kRequestReplan;
+        return {0.0, 0.0};
+      }
+      if (state_elapsed_ >= params_.rotate_timeout) {
+        state_ = RecoveryState::kInactive;
+        trigger(scan);
+        return {0.0, 0.0};
+      }
+      return {0.0, target_yaw_ * params_.rotate_speed};
     case RecoveryState::kRequestReplan:
+      if (state_elapsed_ >= params_.replan_timeout) {
+        state_ = RecoveryState::kInactive;
+        trigger(scan);
+      }
       return {0.0, 0.0};
     case RecoveryState::kStop:
       if (state_elapsed_ >= params_.stop_duration) {

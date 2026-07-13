@@ -30,12 +30,12 @@ mapping_node:
     resolution: 0.05
     width_m: 50.0
     height_m: 30.0
-    publish_rate_hz: 5.0
+    publish_rate_hz: 15.0
     max_usable_range: 12.0
     log_odds_hit: 0.85
-    log_odds_miss: -0.40
+    log_odds_miss: -0.85
     log_odds_min: -4.0
-    log_odds_max: 4.0
+    log_odds_max: 2.5
 
 classical_mpc_node:
   ros__parameters:

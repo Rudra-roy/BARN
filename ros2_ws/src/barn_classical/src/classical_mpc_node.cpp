@@ -122,8 +122,15 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   AStarParams astar;
   astar.timeout_ms = declare_parameter<double>("global_planner_budget_ms", 100.0);
   astar.unknown_cost_multiplier = declare_parameter<double>("unknown_cost_multiplier", 1.8);
-  astar.heuristic_weight = declare_parameter<double>("heuristic_weight", 3.0);
-  astar.clearance_weight = declare_parameter<double>("clearance_weight", 0.08);
+  // Lower the heuristic weight to make search less greedy, so A* actually
+  // respects clearance and turn penalties, choosing safer wide routes over
+  // tight direct bottlenecks.
+  astar.heuristic_weight = declare_parameter<double>("heuristic_weight", 1.2);
+  // Increase clearance weight so paths actively stay in the center of free corridors,
+  // and add turn weights to penalize sharp turns during global search.
+  astar.clearance_weight = declare_parameter<double>("clearance_weight", 0.40);
+  astar.turn_weight = declare_parameter<double>("turn_weight", 0.35);
+  astar.rotate_weight = declare_parameter<double>("rotate_weight", 0.50);
   global_planner_ = GlobalPlannerAStar(astar);
 
   LocalPlannerParams local;
@@ -141,6 +148,10 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
 
   RecoveryParams recovery_params;
   recovery_params.max_attempts = declare_parameter<int>("max_recovery_attempts", 3);
+  // Speed up recovery behavior to quickly clear the safety shield envelope.
+  recovery_params.stop_duration = declare_parameter<double>("recovery_stop_duration", 0.1);
+  recovery_params.rotate_speed = declare_parameter<double>("recovery_rotate_speed", 1.5);
+  recovery_params.backup_speed = declare_parameter<double>("recovery_backup_speed", 0.6);
   recovery_ = Recovery(recovery_params);
 
   command_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>(cmd_topic, 10);
@@ -176,15 +187,25 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   // Navigation rates are rates of the simulated robot dynamics. Using wall
   // timers creates hundreds of redundant MPC solves per simulated second when
   // Gazebo's real-time factor drops, causing a positive CPU feedback loop.
+  // Raised control rate to 30 Hz to increase red dot trajectory replanning speed.
   control_timer_ = rclcpp::create_timer(
-    this, get_clock(), std::chrono::milliseconds(50),
+    this, get_clock(), std::chrono::milliseconds(33),
     std::bind(&ClassicalMpcNode::control_step, this));
   local_timer_ = rclcpp::create_timer(
     this, get_clock(), std::chrono::milliseconds(100),
     std::bind(&ClassicalMpcNode::local_plan_step, this));
   replan_timer_ = rclcpp::create_timer(
     this, get_clock(), std::chrono::milliseconds(500),
-    std::bind(&ClassicalMpcNode::request_plan, this));
+    [this]() {
+      bool need_replan = false;
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        need_replan = global_path_.empty();
+      }
+      if (need_replan) {
+        request_plan();
+      }
+    });
   planner_thread_ = std::thread(&ClassicalMpcNode::planner_loop, this);
   RCLCPP_INFO(get_logger(), "classical_mpc_node ready: 20 Hz MPC, 10 Hz local, 2 Hz global");
 }
@@ -323,6 +344,7 @@ void ClassicalMpcNode::map_callback(const nav_msgs::msg::OccupancyGrid::SharedPt
     }
   }
 
+  bool needs_replan = false;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     grid_ = std::make_shared<const barn_core::OccupancyGrid2D>(std::move(next));
@@ -332,9 +354,15 @@ void ClassicalMpcNode::map_callback(const nav_msgs::msg::OccupancyGrid::SharedPt
       std::make_shared<const barn_core::OccupancyGrid2D>(std::move(next_inflated));
     distance_field_ = std::make_shared<const barn_core::DistanceField2D>(std::move(next_field));
     have_map_ = true;
+
+    if (global_path_.empty() || !path_validator_.is_path_clear(global_path_, *inflated_planning_grid_, false)) {
+      needs_replan = true;
+    }
   }
   inflated_grid_pub_->publish(inflated_msg);
-  request_plan();
+  if (needs_replan) {
+    request_plan();
+  }
 }
 
 void ClassicalMpcNode::request_plan()
@@ -348,16 +376,25 @@ void ClassicalMpcNode::request_plan()
 
 void ClassicalMpcNode::veto_callback(const std_msgs::msg::Bool::SharedPtr msg)
 {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    veto_active_ = msg->data;
+  }
+
   if (!msg->data) {
     // Shield cleared — reset counter so we don't replan on the next transient.
     consecutive_veto_count_ = 0;
     return;
   }
+
+  std::lock_guard<std::mutex> control_lock(control_mutex_);
   // Only react when actively navigating (have a goal and a path).
   bool navigating = false;
+  sensor_msgs::msg::LaserScan::SharedPtr latest_scan;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     navigating = have_goal_ && !global_path_.empty();
+    latest_scan = scan_;
   }
   if (!navigating) {
     consecutive_veto_count_ = 0;
@@ -366,10 +403,10 @@ void ClassicalMpcNode::veto_callback(const std_msgs::msg::Bool::SharedPtr msg)
   ++consecutive_veto_count_;
   if (consecutive_veto_count_ >= veto_replan_threshold_) {
     RCLCPP_WARN(
-      get_logger(), "Safety shield has vetoed %d consecutive commands — requesting replan",
+      get_logger(), "Safety shield has vetoed %d consecutive commands — executing veto escape recovery",
       consecutive_veto_count_);
     consecutive_veto_count_ = 0;
-    request_plan();
+    recovery_.trigger_veto_escape(scan_view(latest_scan));
   }
 }
 
@@ -394,12 +431,7 @@ void ClassicalMpcNode::planner_loop()
         continue;
       }
       grid = grid_;
-      planning_grid = planning_grid_;
-      // A* uses the inflated grid so the planned path stays at least
-      // inflation_radius_ from every obstacle wall.
-      if (inflated_planning_grid_) {
-        planning_grid = inflated_planning_grid_;
-      }
+      planning_grid = inflated_planning_grid_;
       pose = state_.pose;
       goal = goal_;
       generation = goal_generation_;
@@ -451,10 +483,25 @@ void ClassicalMpcNode::local_plan_step()
     if (!have_pose_ || !have_map_ || global_path_.empty()) {
       return;
     }
+    pose = state_.pose;
+
+    // Prune global_path_ by erasing points that the robot has already passed.
+    std::size_t start = 0;
+    double best_distance = std::numeric_limits<double>::infinity();
+    for (std::size_t i = 0; i < global_path_.size(); ++i) {
+      const double distance = std::hypot(global_path_[i].x - pose.x, global_path_[i].y - pose.y);
+      if (distance < best_distance) {
+        best_distance = distance;
+        start = i;
+      }
+    }
+    if (start > 0) {
+      global_path_.erase(global_path_.begin(), global_path_.begin() + start);
+    }
+
     global = global_path_;
     grid = grid_;
     field = distance_field_;
-    pose = state_.pose;
   }
   auto local = local_planner_.plan(global, pose, *grid, field.get());
   {
@@ -468,6 +515,7 @@ void ClassicalMpcNode::local_plan_step()
     planner_cv_.notify_one();
   } else {
     local_path_pub_->publish(make_path_message(local, now()));
+    global_path_pub_->publish(make_path_message(global, now()));
   }
 }
 
@@ -514,6 +562,7 @@ void ClassicalMpcNode::control_step()
   bool have_pose = false;
   bool have_odom = false;
   bool have_map = false;
+  bool veto_active = false;
   rclcpp::Time goal_time(0, 0, RCL_ROS_TIME);
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -527,6 +576,7 @@ void ClassicalMpcNode::control_step()
     have_pose = have_pose_;
     have_odom = have_odom_;
     have_map = have_map_;
+    veto_active = veto_active_;
     goal_time = goal_received_time_;
     // Bug 5 fix: consume replan_completed_ under the same mutex_ that the
     // planner thread writes it, eliminating the data race with control_mutex_.
@@ -549,7 +599,8 @@ void ClassicalMpcNode::control_step()
     } else if (recovery_.active()) {
       const double backed =
         std::hypot(state.pose.x - recovery_start_pose_.x, state.pose.y - recovery_start_pose_.y);
-      command = recovery_.step(0.05, state.pose.yaw, backed, scan_view(scan));
+      // Pass the veto_active flag to recovery so the veto escape knows when to stop.
+      command = recovery_.step(0.033, state.pose.yaw, backed, scan_view(scan), veto_active);
       status = recovery_.state() == RecoveryState::kFailed ? "recovery_failed" : "recovery";
       if (recovery_.request_replan()) {
         request_plan();

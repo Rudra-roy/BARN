@@ -121,6 +121,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr veto_sub_;
   int consecutive_veto_count_{0};
   int veto_replan_threshold_{0};  // populated from parameter in constructor
+  bool veto_active_{false};
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr command_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr global_path_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr local_path_pub_;
