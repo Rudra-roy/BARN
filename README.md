@@ -13,80 +13,34 @@
 
 ---
 
+## 📸 Media & Highlights
+
+*(Add your screenshots, GIFs, and videos of the robot navigating the BARN environments here)*
+
+- **[Insert Video/Screenshot 1]** - *Caption describing the run*
+- **[Insert Video/Screenshot 2]** - *Caption describing the run*
+
+---
+
 ## What is this?
 
-[BARN](https://people.cs.gmu.edu/~xiao/Research/BARN_Challenge/BARN_Challenge26.html) (Benchmark
-Autonomous Robot Navigation) tests **fast, collision-free autonomous navigation of a Clearpath
-Jackal through dense, highly constrained static obstacle fields** using only a 2-D LiDAR, at up to
-2 m/s, on **hidden** environments the robot has never seen.
+[BARN](https://people.cs.gmu.edu/~xiao/Research/BARN_Challenge/BARN_Challenge26.html) (Benchmark Autonomous Robot Navigation) tests **fast, collision-free autonomous navigation of a Clearpath Jackal through dense, highly constrained static obstacle fields** using only a 2-D LiDAR, at up to 2 m/s, on **hidden** environments the robot has never seen.
 
-This repository is a **clean-room preparation programme** for the 2027 edition. It preserves the
-finished **BARN 2026** ROS 2 evaluation environment as the benchmark oracle and replaces the
-navigation stack with **three independently developed approaches** under one identical contract:
+This repository is a **clean-room preparation programme** for the 2027 edition. We replace the default navigation stack with **three independently developed approaches**:
 
 | Track | Package(s) | Language | Status |
 |-------|-----------|----------|--------|
-| **A — Classical** *(Priority 1)* | `barn_classical`, `barn_mapping` | C++ | footprint-aware lattice + MPC stack |
+| **A — Classical** | `barn_classical`, `barn_mapping` | C++ | footprint-aware lattice + MPC stack |
 | **B — End-to-end RL** | `barn_rl_runtime`, `learning/` | Python | runtime + training stubs |
 | **C — Hybrid** | `barn_hybrid`, `barn_dynamic_tracking` | Python + C++ | arbiter + tracker stubs |
 
-All three share the same adapters (`barn_goal_adapter`, `barn_robot_adapter`), the same final
-authority (`barn_safety`), the same bring-up (`barn_bringup`), and the same evaluator.
-
-> **We do not reproduce Nav2.** The evaluator (Gazebo, Jackal spawn, collision/goal/timeout
-> monitoring, result logging) is kept intact; only the navigation stack it launches is ours.
-
----
-
-## The one rule that shapes everything
-
-> **Would the algorithm still work on the physical Jackal after replacing only the ROS
-> hardware adapter?**
-
-If a component reads Gazebo ground truth, parses the current `.world` file, or loads the test
-world's pre-computed map/path, the answer is *no* and it is **not allowed** in a scored run. The
-full allowed/disallowed input contract lives in
-[`docs/benchmark/barn_2026_contract.md`](docs/benchmark/barn_2026_contract.md).
-
----
-
-## Repository map
-
-```
-barn-2027-prep/
-├── docs/            # architecture, benchmark contract, metric notes, setup, ADRs
-├── infra/           # distrobox creation + Jazzy provisioning scripts
-├── ros2_ws/src/     # the ROS 2 navigation packages (see table below)
-├── learning/        # offline RL training (NOT a ROS package)
-├── models/          # model cards + normalization stats (weights are git-ignored)
-├── evaluation/      # run scripts, dual metric reports, world suites, schemas
-├── tools/           # setup_barn_eval.sh, setup_workspace.sh, format.sh
-├── results/         # raw per-trial results + manifests (source of truth)
-└── tests/           # cross-package integration (launch_testing)
-```
-
-### ROS 2 packages (`ros2_ws/src/`)
-
-| Package | Build type | Role |
-|---------|-----------|------|
-| `barn_core` | ament_cmake (C++) | pure types + math — **no** ROS/Gazebo deps |
-| `barn_goal_adapter` | ament_cmake (C++) | `NavigateToPose` action server → internal `Goal2D` |
-| `barn_robot_adapter` | ament_cmake (C++) | sensors in / velocity command out (message type configurable) |
-| `barn_mapping` | ament_cmake (C++) | online log-odds occupancy grid + Euclidean distance field |
-| `barn_classical` | ament_cmake (C++) | footprint-aware lattice, elastic local planner, OSQP MPC, recovery |
-| `barn_dynamic_tracking` | ament_cmake (C++) | cluster / associate / Kalman / TTC *(stub)* |
-| `barn_safety` | ament_cmake (C++) | **final command authority** — swept-footprint shield + stale/acceleration gates |
-| `barn_rl_runtime` | ament_python | CPU policy inference *(stub)* |
-| `barn_hybrid` | ament_python | risk gate + command fusion *(stub)* |
-| `barn_bringup` | ament_cmake | launch + config; single `mode:=` entrypoint |
-| `barn_movement_test` | ament_python | unsafe fixed-duration goal/odom/cmd wiring test |
+> **Note:** The core rule of this repo is that the algorithm must be deployable to the physical Jackal without modification. Reading Gazebo ground truth or pre-loading map structures is strictly forbidden.
 
 ---
 
 ## Quick start (inside your ROS 2 Jazzy distrobox)
 
 > Full walkthrough: [`docs/setup/barn_2026_jazzy_distrobox.md`](docs/setup/barn_2026_jazzy_distrobox.md).
-> This repo builds **nothing on the host** — it is cloned into the container and built there.
 
 ```bash
 # 0. Clone this repo into the container and enter it
@@ -101,83 +55,37 @@ bash tools/setup_workspace.sh          # rosdep install + colcon build --symlink
 # 3. Source the overlay
 source ros2_ws/install/setup.bash
 
-# 4. Run the official Nav2/MPPI branch
-ros2 launch jackal_helper BARN_runner.launch.py algo_type:=builtin world_idx:=0 gui:=true
-```
-
-Run the footprint-aware MPC stack headlessly:
-
-```bash
+# 4. Run the footprint-aware Classical MPC stack
 ros2 launch jackal_helper BARN_runner.launch.py \
-  algo_type:=classical_mpc world_idx:=0 gui:=false planner_rviz:=false
-```
-
-Set `planner_rviz:=true` to start the planner view without enabling Gazebo's
-GUI. The map, global/local paths, MPC prediction, footprint, safety envelope,
-and diagnostics remain published in headless mode.
-
-To verify the custom-planner wiring without obstacle avoidance:
-
-```bash
-ros2 launch jackal_helper BARN_runner.launch.py \
-  algo_type:=movement_and_odom_test world_idx:=0 gui:=true \
-  movement_duration:=4.0 forward_velocity:=0.25 rotation_speed:=0.5
+  algo_type:=classical_mpc world_idx:=0 gui:=true planner_rviz:=true
 ```
 
 ---
 
-## How you are scored
+## Documentation & Details
 
-Per environment *i*, the **published BARN 2026** metric is
+For in-depth details on how the system is built, evaluated, and structured, please refer to the documentation links below:
 
-```
-s_i = success_i * OT_i / clip(AT_i, 2*OT_i, 8*OT_i)      OT_i = reference_path_length_i / 2.0 m/s
-```
+### 🌟 New Features & Stack Updates
+- **[Classical MPC & Recovery Feature Updates](docs/features/classical_mpc_updates.md)** - Details on the new 6-phase robust recovery, global planner stability, high-speed local planner tuning, and advanced map decay.
 
-A collision or a failure to reach the goal (within 1 m, before the 100 s timeout) scores **0**,
-regardless of speed. The optimization priority is therefore **reliability → consistency → speed**,
-in that order.
+### Architecture & Guidelines
+- **[System Architecture & Data Flow](docs/architecture/overview.md)**
+- **[Robot Interface Contract (Topics/Frames)](docs/robot_interface.md)**
+- **[Roadmap (M0–M21)](docs/roadmap.md)**
+- **[Architecture Decisions (ADRs)](docs/decisions/)**
 
-> ⚠️ The upstream `report_test.py` computes `clip(AT, 4*OT, 8*OT)`, which **disagrees** with the
-> published rule. This repo always emits **two** reports so numbers are never silently confused —
-> see [`docs/benchmark/metric_notes.md`](docs/benchmark/metric_notes.md).
-
----
-
-## Development discipline
-
-- **Public worlds (0–299)** are development/validation data. The **50 evenly spaced worlds**
-  (`0, 6, …, 294`) form the fixed validation campaign; no per-world tuning.
-- Every campaign captures a **manifest** (repo + evaluator commit, ROS/apt versions, params) and
-  keeps the **raw** evaluator output as the source of truth (`evaluation/scripts/capture_manifest.sh`).
-- Failures get a **taxonomy code** (`S01–S13` / `D01–D12`) — see
-  [`docs/benchmark/failure_taxonomy.md`](docs/benchmark/failure_taxonomy.md).
-- The full milestone roadmap (M0–M21) is in [`docs/roadmap.md`](docs/roadmap.md).
-
----
-
-## Documentation
-
-| Topic | Document |
-|-------|----------|
-| System architecture & data flow | [`docs/architecture/overview.md`](docs/architecture/overview.md) |
-| Per-track designs | [`docs/architecture/{classical,e2e_rl,hybrid}.md`](docs/architecture/) |
-| Robot interface contract (topics/frames/types) | [`docs/robot_interface.md`](docs/robot_interface.md) |
-| Competition-faithful input policy | [`docs/benchmark/barn_2026_contract.md`](docs/benchmark/barn_2026_contract.md) |
-| Metric definitions & the clip discrepancy | [`docs/benchmark/metric_notes.md`](docs/benchmark/metric_notes.md) |
-| Failure taxonomy | [`docs/benchmark/failure_taxonomy.md`](docs/benchmark/failure_taxonomy.md) |
-| Distrobox + Jazzy setup | [`docs/setup/barn_2026_jazzy_distrobox.md`](docs/setup/barn_2026_jazzy_distrobox.md) |
-| Roadmap (M0–M21) | [`docs/roadmap.md`](docs/roadmap.md) |
-| Architecture decisions | [`docs/decisions/`](docs/decisions/) |
+### Benchmark & Scoring
+- **[Competition-Faithful Input Policy](docs/benchmark/barn_2026_contract.md)**
+- **[Metric Definitions & Scoring](docs/benchmark/metric_notes.md)**
+- **[Failure Taxonomy](docs/benchmark/failure_taxonomy.md)**
 
 ---
 
 ## References
 
 - ICRA 2026 BARN Challenge — <https://people.cs.gmu.edu/~xiao/Research/BARN_Challenge/BARN_Challenge26.html>
-- *Lessons Learned from the Fifth BARN Challenge* — <https://people.cs.gmu.edu/~xiao/papers/barn26_report.pdf>
 - BARN ROS 2 evaluation pipeline — <https://github.com/Saadmaghani/The-Barn-Challenge-Ros2>
-- Original BARN infrastructure — <https://github.com/Daffan/the-barn-challenge>
 
 ## License
 
