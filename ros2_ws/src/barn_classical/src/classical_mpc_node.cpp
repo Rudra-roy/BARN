@@ -109,11 +109,11 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   goal_tolerance_ = declare_parameter<double>("goal_tolerance", 0.70);
   startup_creep_delay_s_ = declare_parameter<double>("startup_creep_delay_s", 1.0);
   startup_creep_speed_ = declare_parameter<double>("startup_creep_speed", 0.15);
-  no_progress_timeout_s_ = declare_parameter<double>("no_progress_timeout_s", 3.0);
+  no_progress_timeout_s_ = declare_parameter<double>("no_progress_timeout_s", 2.0);
   // Obstacle inflation radius applied to the planning grid before A* search.
   // 10 cm keeps the planned path away from walls so the MPC and safety layer
   // never see the robot on a path that grazes an obstacle.
-  inflation_radius_ = declare_parameter<double>("obstacle_inflation_radius_m", 0.10);
+  inflation_radius_ = declare_parameter<double>("obstacle_inflation_radius_m", 0.00);
   // Number of consecutive safety vetoes before requesting a replan. At 20 Hz
   // this is ~300 ms — fast enough to react before the no-progress watchdog
   // fires, but long enough to ignore transient sensor noise.
@@ -125,33 +125,48 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   // Lower the heuristic weight to make search less greedy, so A* actually
   // respects clearance and turn penalties, choosing safer wide routes over
   // tight direct bottlenecks.
-  astar.heuristic_weight = declare_parameter<double>("heuristic_weight", 1.2);
-  // Increase clearance weight so paths actively stay in the center of free corridors,
-  // and add turn weights to penalize sharp turns during global search.
-  astar.clearance_weight = declare_parameter<double>("clearance_weight", 0.40);
-  astar.turn_weight = declare_parameter<double>("turn_weight", 0.35);
-  astar.rotate_weight = declare_parameter<double>("rotate_weight", 0.50);
+  astar.heuristic_weight = declare_parameter<double>("heuristic_weight", 1.5);
+  astar.distance_weight = declare_parameter<double>("distance_weight", 1.0);
+  // Soft clearance weight replaces the old binary inflation layer. A higher
+  // value pushes paths to the center of corridors without hard-blocking them.
+  astar.clearance_weight = declare_parameter<double>("clearance_weight", 0.3);
+  // Reduced turn/rotate penalties: the old values (0.35/0.50) heavily penalized
+  // the sequence of turns needed for L-turns and U-turns, causing A* to prefer
+  // longer routes or timeout. Lower values let A* freely navigate corners.
+  astar.turn_weight = declare_parameter<double>("turn_weight", 0.15);
+  astar.rotate_weight = declare_parameter<double>("rotate_weight", 0.20);
+  astar.yaw_bins = declare_parameter<int>("yaw_bins", 24);
   global_planner_ = GlobalPlannerAStar(astar);
 
   LocalPlannerParams local;
-  local.max_speed = declare_parameter<double>("max_speed", 2.0);
+  local.max_speed = declare_parameter<double>("max_speed", 3.5);
   local.unknown_speed = declare_parameter<double>("unknown_speed", 0.4);
-  local.horizon_m = declare_parameter<double>("local_horizon_m", 4.0);
-  // Keep the kinematic curvature cap consistent with the MPC's yaw-rate bound.
-  local.max_yaw_rate = declare_parameter<double>("max_yaw_rate", 1.5);
+  local.horizon_m = declare_parameter<double>("local_horizon_m", 8.0); // Increased horizon to support high speeds
+  local.max_yaw_rate = declare_parameter<double>("max_yaw_rate", 2.5);
+  local.max_lateral_accel = declare_parameter<double>("max_lateral_accel", 1.5);
   local_planner_ = LocalPlanner(local);
 
   MpcParams mpc;
+  mpc.horizon = declare_parameter<int>("mpc_horizon", 20);
+  mpc.dt = declare_parameter<double>("mpc_dt", 0.1);
   mpc.max_speed = local.max_speed;
+  mpc.max_yaw_rate = local.max_yaw_rate;
+  mpc.max_accel = declare_parameter<double>("max_accel", 2.5);
+  mpc.max_yaw_accel = declare_parameter<double>("max_yaw_accel", 3.0);
   mpc.solve_deadline_ms = declare_parameter<double>("mpc_deadline_ms", 35.0);
+  mpc.obstacle_margin = declare_parameter<double>("obstacle_margin", 0.10);
+  mpc.max_obstacle_slack = declare_parameter<double>("max_obstacle_slack", 1.20);
+  mpc.max_linearization_passes = 4;  // One extra pass for better convergence
   controller_ = Controller(mpc);
 
   RecoveryParams recovery_params;
-  recovery_params.max_attempts = declare_parameter<int>("max_recovery_attempts", 3);
+  recovery_params.max_attempts = declare_parameter<int>("max_recovery_attempts", 8);
   // Speed up recovery behavior to quickly clear the safety shield envelope.
   recovery_params.stop_duration = declare_parameter<double>("recovery_stop_duration", 0.1);
   recovery_params.rotate_speed = declare_parameter<double>("recovery_rotate_speed", 1.5);
   recovery_params.backup_speed = declare_parameter<double>("recovery_backup_speed", 0.6);
+  // Lower rear clearance requirement so the robot can actually back up out of tight corners.
+  recovery_params.rear_clearance = declare_parameter<double>("recovery_rear_clearance", 0.15);
   recovery_ = Recovery(recovery_params);
 
   command_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>(cmd_topic, 10);
@@ -162,10 +177,10 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("/barn/planner_markers", 2);
   diagnostics_pub_ =
     create_publisher<diagnostic_msgs::msg::DiagnosticArray>("/barn/navigation_diagnostics", 5);
-  // Inflated planning grid: published for RViz so the inflation layer is
-  // visible alongside the global path.
-  inflated_grid_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>(
-    "/barn/inflated_grid", rclcpp::QoS(1).transient_local());
+  // Planning grid: published for RViz so the 10cm downsampled grid and inflation layer
+  // is visible alongside the global path.
+  planning_grid_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>(
+    "/barn/planning_grid", rclcpp::QoS(1).transient_local());
 
   goal_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
     goal_topic, rclcpp::QoS(1).transient_local(),
@@ -194,18 +209,16 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   local_timer_ = rclcpp::create_timer(
     this, get_clock(), std::chrono::milliseconds(100),
     std::bind(&ClassicalMpcNode::local_plan_step, this));
-  replan_timer_ = rclcpp::create_timer(
-    this, get_clock(), std::chrono::milliseconds(500),
-    [this]() {
-      bool need_replan = false;
-      {
-        std::lock_guard<std::mutex> lock(mutex_);
-        need_replan = global_path_.empty();
-      }
-      if (need_replan) {
-        request_plan();
-      }
-    });
+  replan_timer_ = rclcpp::create_timer(this, get_clock(), std::chrono::milliseconds(500), [this]() {
+    bool need_replan = false;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      need_replan = global_path_.empty();
+    }
+    if (need_replan) {
+      request_plan();
+    }
+  });
   planner_thread_ = std::thread(&ClassicalMpcNode::planner_loop, this);
   RCLCPP_INFO(get_logger(), "classical_mpc_node ready: 20 Hz MPC, 10 Hz local, 2 Hz global");
 }
@@ -297,11 +310,11 @@ void ClassicalMpcNode::map_callback(const nav_msgs::msg::OccupancyGrid::SharedPt
   // quarter of the 5 cm occupancy map's cells.
   next_field.rebuild(next_planning_grid);
 
-  // Build an inflated copy of the planning grid for the A* search.
-  // Every cell whose distance-to-obstacle (from the EDT) is less than
-  // inflation_radius_ is marked occupied. This forces A* to route the global
-  // path through free space that is at least inflation_radius_ away from any
-  // obstacle, so the MPC and safety layer never encounter a path that grazes a wall.
+  // NOTE: Binary inflation has been removed from the A* planning path.
+  // The old inflated grid hard-blocked corridors at tight turns and U-bends.
+  // A* now uses the raw planning grid with soft clearance costs (via the
+  // distance field) to stay away from obstacles without closing off passages.
+  // The inflated grid is still built for RViz visualization only.
   barn_core::OccupancyGrid2D next_inflated(
     next_planning_grid.width(), next_planning_grid.height(), next_planning_grid.resolution(),
     next_planning_grid.origin_x(), next_planning_grid.origin_y());
@@ -316,7 +329,6 @@ void ClassicalMpcNode::map_callback(const nav_msgs::msg::OccupancyGrid::SharedPt
       } else if (state == barn_core::CellState::kFree) {
         next_inflated.set_log_odds(idx, -2.0);
       }
-      // Unknown cells stay at log-odds 0 (unknown) in the inflated grid.
     }
   }
 
@@ -355,11 +367,15 @@ void ClassicalMpcNode::map_callback(const nav_msgs::msg::OccupancyGrid::SharedPt
     distance_field_ = std::make_shared<const barn_core::DistanceField2D>(std::move(next_field));
     have_map_ = true;
 
-    if (global_path_.empty() || !path_validator_.is_path_clear(global_path_, *inflated_planning_grid_, false)) {
+    // Validate against the raw planning grid, not the inflated one.
+    // Binary inflation was closing off valid corridors at tight corners.
+    if (
+      global_path_.empty() ||
+      !path_validator_.is_path_clear(global_path_, *planning_grid_, false)) {
       needs_replan = true;
     }
   }
-  inflated_grid_pub_->publish(inflated_msg);
+  planning_grid_pub_->publish(inflated_msg);
   if (needs_replan) {
     request_plan();
   }
@@ -396,17 +412,19 @@ void ClassicalMpcNode::veto_callback(const std_msgs::msg::Bool::SharedPtr msg)
     navigating = have_goal_ && !global_path_.empty();
     latest_scan = scan_;
   }
-  if (!navigating) {
+  if (!navigating || recovery_.active()) {
     consecutive_veto_count_ = 0;
     return;
   }
   ++consecutive_veto_count_;
   if (consecutive_veto_count_ >= veto_replan_threshold_) {
     RCLCPP_WARN(
-      get_logger(), "Safety shield has vetoed %d consecutive commands — executing veto escape recovery",
+      get_logger(),
+      "Safety shield has vetoed %d consecutive commands — executing veto escape recovery",
       consecutive_veto_count_);
     consecutive_veto_count_ = 0;
     recovery_.trigger_veto_escape(scan_view(latest_scan));
+    RCLCPP_INFO(get_logger(), "[Recovery] Triggered due to: safety_veto. Action taken: %s", to_string(recovery_.state()));
   }
 }
 
@@ -431,7 +449,9 @@ void ClassicalMpcNode::planner_loop()
         continue;
       }
       grid = grid_;
-      planning_grid = inflated_planning_grid_;
+      // Use the raw planning grid for A* instead of the inflated one.
+      // Soft clearance cost in A* replaces hard binary inflation.
+      planning_grid = planning_grid_;
       pose = state_.pose;
       goal = goal_;
       generation = goal_generation_;
@@ -440,8 +460,30 @@ void ClassicalMpcNode::planner_loop()
     if (!planning_grid) {
       continue;
     }
-    Path2D candidate = global_planner_.plan(*planning_grid, pose, goal);
-    const auto stats = global_planner_.stats();
+
+    Path2D candidate;
+    PlannerStats stats;
+    
+    // Path smoother / shortcut optimization:
+    // If there is a direct line of sight to the goal, skip A* and just go straight.
+    barn_core::Pose2D los_goal{goal.x, goal.y, barn_core::wrap_angle(std::atan2(goal.y - pose.y, goal.x - pose.x))};
+    if (swept_segment_is_clear(*planning_grid, pose, los_goal, global_planner_.params().footprint, false, planning_grid->resolution())) {
+      const double dist = std::hypot(los_goal.x - pose.x, los_goal.y - pose.y);
+      const int steps = std::max(1, static_cast<int>(std::ceil(dist / 0.2)));
+      for (int i = 0; i <= steps; ++i) {
+        double t = static_cast<double>(i) / steps;
+        barn_core::Pose2D pt;
+        pt.x = pose.x + t * (los_goal.x - pose.x);
+        pt.y = pose.y + t * (los_goal.y - pose.y);
+        pt.yaw = los_goal.yaw;
+        candidate.push_back(pt);
+      }
+      is_los_path_ = true;
+    } else {
+      candidate = global_planner_.plan(*planning_grid, pose, goal);
+      stats = global_planner_.stats();
+      is_los_path_ = false;
+    }
     bool accepted = !candidate.empty() && path_validator_.is_path_clear(candidate, *grid, false);
     {
       std::lock_guard<std::mutex> lock(mutex_);
@@ -451,22 +493,50 @@ void ClassicalMpcNode::planner_loop()
         planner_status_ = "superseded";
         continue;
       }
+      
+      // Path stability: enforce a cooldown between path swaps to prevent
+      // rapid oscillation near obstacles where small map changes invalidate
+      // the first few path points (which the robot is already on top of).
+      bool force_accept = global_path_.empty();
+      if (!force_accept && last_path_swap_time_.nanoseconds() > 0) {
+        const double since_swap = (now() - last_path_swap_time_).seconds();
+        if (since_swap < path_cooldown_s_) {
+          // Still in cooldown — check if path ahead is truly blocked
+          // (skip first 5 points near robot to avoid false positives)
+          bool ahead_blocked = false;
+          if (global_path_.size() > 5 && grid_) {
+            Path2D ahead(global_path_.begin() + 5, global_path_.end());
+            ahead_blocked = !path_validator_.is_path_clear(ahead, *grid_, false);
+          }
+          if (!ahead_blocked) {
+            // Path ahead is fine, keep it
+            if (accepted) {
+              planner_status_ = "retained_cooldown";
+              replan_completed_ = true;
+            }
+            goto done;
+          }
+          // Path ahead is truly blocked — allow the swap despite cooldown
+          force_accept = true;
+        }
+      }
+      
       if (accepted) {
         global_path_ = std::move(candidate);
         path_to_publish = global_path_;
         planner_status_ = "success";
         replan_completed_ = true;
-      } else if (
-        !global_path_.empty() && grid_ &&
-        path_validator_.is_path_clear(global_path_, *grid_, false)) {
+        last_path_swap_time_ = now();
+      } else if (!global_path_.empty()) {
         planner_status_ = stats.timed_out ? "timeout_retaining_path" : "failed_retaining_path";
       } else {
         global_path_.clear();
-        local_trajectory_.clear();
-        planner_status_ = stats.timed_out ? "timeout_no_path" : "failed_no_path";
+        is_los_path_ = false;
+        planner_status_ = stats.timed_out ? "timeout_dead_end" : "failed_dead_end";
       }
     }
-    if (accepted) {
+    done:
+    if (!path_to_publish.empty()) {
       global_path_pub_->publish(make_path_message(path_to_publish, now()));
     }
   }
@@ -497,6 +567,25 @@ void ClassicalMpcNode::local_plan_step()
     }
     if (start > 0) {
       global_path_.erase(global_path_.begin(), global_path_.begin() + start);
+    }
+
+    // Dynamic path smoother: continuously check if a direct line to the goal has opened up.
+    if (planning_grid_) {
+      barn_core::Pose2D los_goal{goal_.x, goal_.y, barn_core::wrap_angle(std::atan2(goal_.y - pose.y, goal_.x - pose.x))};
+      if (!is_los_path_ && swept_segment_is_clear(*planning_grid_, pose, los_goal, global_planner_.params().footprint, false, planning_grid_->resolution())) {
+        global_path_.clear();
+        is_los_path_ = true;
+        const double dist = std::hypot(los_goal.x - pose.x, los_goal.y - pose.y);
+        const int steps = std::max(1, static_cast<int>(std::ceil(dist / 0.2)));
+        for (int i = 0; i <= steps; ++i) {
+          double t = static_cast<double>(i) / steps;
+          barn_core::Pose2D pt;
+          pt.x = pose.x + t * (los_goal.x - pose.x);
+          pt.y = pose.y + t * (los_goal.y - pose.y);
+          pt.yaw = los_goal.yaw;
+          global_path_.push_back(pt);
+        }
+      }
     }
 
     global = global_path_;
@@ -603,6 +692,16 @@ void ClassicalMpcNode::control_step()
       command = recovery_.step(0.033, state.pose.yaw, backed, scan_view(scan), veto_active);
       status = recovery_.state() == RecoveryState::kFailed ? "recovery_failed" : "recovery";
       if (recovery_.request_replan()) {
+        if (recovery_.is_clearance_replan()) {
+          auto params = global_planner_.params();
+          params.clearance_weight *= 1.5;
+          global_planner_.set_params(params);
+        }
+        {
+          std::lock_guard<std::mutex> lock(mutex_);
+          global_path_.clear();
+          local_trajectory_.clear();
+        }
         request_plan();
       }
     } else if (!have_map || !have_odom || local.empty()) {
@@ -634,6 +733,7 @@ void ClassicalMpcNode::control_step()
           recovery_start_pose_ = state.pose;
           recovery_.trigger(scan_view(scan));
           status = "mpc_failure_recovery";
+          RCLCPP_INFO(get_logger(), "[Recovery] Triggered due to: mpc_failure. Action taken: %s", to_string(recovery_.state()));
         }
       }
       clearance = field->distance_world(state.pose.x, state.pose.y);
@@ -650,10 +750,12 @@ void ClassicalMpcNode::control_step()
         // A command near 0.10-0.20 m/s is legitimately slow near obstacles; firing
         // recovery at that speed was causing spurious no-progress triggers.
       } else if (
-        command.v > 0.25 && (stamp - last_progress_time_).seconds() > no_progress_timeout_s_) {
+        (command.v > 0.25 || (command.v < 0.08 && std::abs(command.w) < 0.15)) &&
+        (stamp - last_progress_time_).seconds() > no_progress_timeout_s_) {
         recovery_start_pose_ = state.pose;
         recovery_.trigger(scan_view(scan));
         status = "no_progress_recovery";
+        RCLCPP_INFO(get_logger(), "[Recovery] Triggered due to: no_progress. Action taken: %s", to_string(recovery_.state()));
       }
 
       const int turn_sign = command.w > 0.35 ? 1 : (command.w < -0.35 ? -1 : 0);
@@ -672,7 +774,7 @@ void ClassicalMpcNode::control_step()
       // Bug 4 fix: only treat oscillation as pathological when the robot is
       // nearly stopped. Legitimate corridor turning at speed generates many
       // yaw-rate sign changes that would otherwise trip this counter.
-      if (oscillation_count_ >= 6 && command.v < 0.15) {
+      if (oscillation_count_ >= 4 && command.v < 0.25) {
         recovery_start_pose_ = state.pose;
         recovery_.trigger(scan_view(scan));
         oscillation_count_ = 0;

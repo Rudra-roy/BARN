@@ -55,11 +55,6 @@ std::uint64_t make_key(const barn_core::GridIndex & cell, int yaw_bin, std::size
     static_cast<std::uint64_t>(cell.col)) * static_cast<std::uint64_t>(bins) + yaw_bin;
 }
 
-double heuristic(const barn_core::Pose2D & pose, const barn_core::Goal2D & goal)
-{
-  return std::hypot(goal.x - pose.x, goal.y - pose.y);
-}
-
 }  // namespace
 
 Path2D GlobalPlannerAStar::plan(
@@ -83,9 +78,79 @@ Path2D GlobalPlannerAStar::plan(
 
   barn_core::DistanceField2D distance_field;
   distance_field.rebuild(grid);
-  const double bin_angle = 2.0 * M_PI / params_.yaw_bins;
   const int start_bin = yaw_to_bin(start.yaw, params_.yaw_bins);
   const auto start_key = make_key(start_cell, start_bin, grid.width(), params_.yaw_bins);
+
+  std::vector<double> h_grid(grid.width() * grid.height(), std::numeric_limits<double>::infinity());
+  {
+    struct DijkstraEntry {
+      double dist;
+      barn_core::GridIndex cell;
+      bool operator>(const DijkstraEntry & other) const { return dist > other.dist; }
+    };
+    std::priority_queue<DijkstraEntry, std::vector<DijkstraEntry>, std::greater<DijkstraEntry>> pq;
+    h_grid[goal_cell.row * grid.width() + goal_cell.col] = 0.0;
+    pq.push({0.0, goal_cell});
+
+    const int dx[] = {1, -1, 0, 0, 1, -1, 1, -1};
+    const int dy[] = {0, 0, 1, -1, 1, 1, -1, -1};
+    const double dc[] = {1.0, 1.0, 1.0, 1.0, 1.414, 1.414, 1.414, 1.414};
+
+    double start_dist = std::numeric_limits<double>::infinity();
+
+    while (!pq.empty()) {
+      auto top = pq.top();
+      pq.pop();
+      const int idx = top.cell.row * grid.width() + top.cell.col;
+      if (top.dist > h_grid[idx]) {
+        continue;
+      }
+      
+      if (top.cell.row == start_cell.row && top.cell.col == start_cell.col) {
+        start_dist = top.dist;
+      }
+      if (top.dist > start_dist + 5.0) {
+        break; // Reached past start cell, no need to evaluate the rest of the map
+      }
+
+      for (int i = 0; i < 8; ++i) {
+        barn_core::GridIndex n{top.cell.col + dx[i], top.cell.row + dy[i]};
+        if (!grid.in_bounds(n)) continue;
+        const auto state = grid.classify(n);
+        if (state == barn_core::CellState::kOccupied || 
+            (!params_.allow_unknown && state == barn_core::CellState::kUnknown)) {
+          continue;
+        }
+        
+        double penalty = 0.0;
+        const double clearance = distance_field.distance(n);
+        if (std::isfinite(clearance)) {
+          penalty = params_.clearance_weight / std::max(clearance, 0.05);
+        }
+        double step_cost = params_.distance_weight * dc[i] * grid.resolution();
+        if (state == barn_core::CellState::kUnknown) {
+          step_cost *= params_.unknown_cost_multiplier;
+        }
+        
+        const double new_d = top.dist + step_cost + penalty;
+        const int nidx = n.row * grid.width() + n.col;
+        if (new_d < h_grid[nidx]) {
+          h_grid[nidx] = new_d;
+          pq.push({new_d, n});
+        }
+      }
+    }
+  }
+
+  if (std::isinf(h_grid[start_cell.row * grid.width() + start_cell.col])) {
+    return {}; // Goal is completely walled off from start
+  }
+
+  auto heuristic = [&](const barn_core::Pose2D & pose) {
+    const auto cell = grid.world_to_cell(pose.x, pose.y);
+    if (!grid.in_bounds(cell)) return std::numeric_limits<double>::infinity();
+    return h_grid[cell.row * grid.width() + cell.col];
+  };
 
   std::unordered_map<std::uint64_t, SearchNode> nodes;
   nodes.reserve(100000);
@@ -96,7 +161,7 @@ Path2D GlobalPlannerAStar::plan(
   nodes.emplace(start_key, initial);
 
   std::priority_queue<QueueEntry> open;
-  open.push({params_.heuristic_weight * heuristic(start, goal), start_key});
+  open.push({params_.heuristic_weight * heuristic(start), start_key});
   std::uint64_t reached_key = 0;
   bool reached = false;
 
@@ -116,13 +181,13 @@ Path2D GlobalPlannerAStar::plan(
     }
     const SearchNode current = current_it->second;
     if (current_entry.f >
-      current.g + params_.heuristic_weight * heuristic(current.pose, goal) + 1e-9)
+      current.g + params_.heuristic_weight * heuristic(current.pose) + 1e-9)
     {
       continue;
     }
     ++stats_.expanded;
 
-    if (heuristic(current.pose, goal) <= params_.goal_tolerance) {
+    if (std::hypot(current.pose.x - goal.x, current.pose.y - goal.y) <= params_.goal_tolerance) {
       reached_key = current_entry.key;
       reached = true;
       break;
@@ -131,7 +196,7 @@ Path2D GlobalPlannerAStar::plan(
     std::vector<std::pair<barn_core::Pose2D, double>> neighbors;
     neighbors.reserve(5);
     for (int turn : {-1, 0, 1}) {
-      const double yaw_delta = turn * bin_angle;
+      const double yaw_delta = turn * (2.0 * M_PI / params_.yaw_bins);
       const double mid_yaw = current.pose.yaw + yaw_delta * 0.5;
       barn_core::Pose2D next{
         current.pose.x + params_.step_size * std::cos(mid_yaw),
@@ -141,8 +206,8 @@ Path2D GlobalPlannerAStar::plan(
     }
     for (int turn : {-1, 1}) {
       barn_core::Pose2D next = current.pose;
-      next.yaw = barn_core::wrap_angle(next.yaw + turn * bin_angle);
-      neighbors.emplace_back(next, params_.rotate_weight * bin_angle);
+      next.yaw = barn_core::wrap_angle(next.yaw + turn * (2.0 * M_PI / params_.yaw_bins));
+      neighbors.emplace_back(next, params_.rotate_weight * (2.0 * M_PI / params_.yaw_bins));
     }
 
     for (auto & candidate : neighbors) {
@@ -153,6 +218,7 @@ Path2D GlobalPlannerAStar::plan(
       }
       const int next_bin = yaw_to_bin(next.yaw, params_.yaw_bins);
       next.yaw = bin_to_yaw(next_bin, params_.yaw_bins);
+      
       if (!swept_segment_is_clear(
           grid, current.pose, next, params_.footprint, false, grid.resolution()))
       {
@@ -165,7 +231,7 @@ Path2D GlobalPlannerAStar::plan(
         continue;
       }
 
-      double transition = candidate.second;
+      double transition = params_.distance_weight * candidate.second;
       if (state == barn_core::CellState::kUnknown) {
         transition *= params_.unknown_cost_multiplier;
       }
@@ -182,7 +248,7 @@ Path2D GlobalPlannerAStar::plan(
         it->second.g = tentative;
         it->second.parent = current_entry.key;
         it->second.has_parent = true;
-        open.push({tentative + params_.heuristic_weight * heuristic(next, goal), key});
+        open.push({tentative + params_.heuristic_weight * heuristic(next), key});
       }
     }
   }
@@ -209,6 +275,31 @@ Path2D GlobalPlannerAStar::plan(
       grid, reverse_path.back(), goal_pose, params_.footprint, false, grid.resolution()))
   {
     reverse_path.push_back(goal_pose);
+  }
+
+  // Corner smoothing: Simple moving average filter to round off the sharp lattice turns
+  if (reverse_path.size() > 2) {
+    Path2D smoothed_path = reverse_path;
+    const int half_window = 2; // 5-point moving average
+    for (size_t i = 1; i < reverse_path.size() - 1; ++i) {
+      double sum_x = 0.0;
+      double sum_y = 0.0;
+      double sum_sin = 0.0;
+      double sum_cos = 0.0;
+      int count = 0;
+      for (int j = -half_window; j <= half_window; ++j) {
+        int idx = std::clamp(static_cast<int>(i) + j, 0, static_cast<int>(reverse_path.size()) - 1);
+        sum_x += reverse_path[idx].x;
+        sum_y += reverse_path[idx].y;
+        sum_sin += std::sin(reverse_path[idx].yaw);
+        sum_cos += std::cos(reverse_path[idx].yaw);
+        count++;
+      }
+      smoothed_path[i].x = sum_x / count;
+      smoothed_path[i].y = sum_y / count;
+      smoothed_path[i].yaw = std::atan2(sum_sin, sum_cos);
+    }
+    return smoothed_path;
   }
   return reverse_path;
 }

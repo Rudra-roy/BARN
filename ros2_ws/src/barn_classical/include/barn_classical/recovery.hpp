@@ -12,13 +12,33 @@ namespace barn_classical
 enum class RecoveryState
 {
   kInactive,
-  kStop,
-  kVetoEscape,
-  kRotateToGap,
+  kRotateOpposite,
   kBackUp,
+  kRotateOpposite2,
+  kRotateToGap,
+  kBackUp2,
+  kBackUp1m,
   kRequestReplan,
+  kRequestReplanClearance,
   kFailed
 };
+
+inline const char* to_string(RecoveryState state)
+{
+  switch (state) {
+    case RecoveryState::kInactive: return "Inactive";
+    case RecoveryState::kRotateOpposite: return "RotateOpposite";
+    case RecoveryState::kBackUp: return "BackUp";
+    case RecoveryState::kRotateOpposite2: return "RotateOpposite2";
+    case RecoveryState::kRotateToGap: return "RotateToGap";
+    case RecoveryState::kBackUp2: return "BackUp2";
+    case RecoveryState::kBackUp1m: return "BackUp1m";
+    case RecoveryState::kRequestReplan: return "RequestReplan";
+    case RecoveryState::kRequestReplanClearance: return "RequestReplanClearance";
+    case RecoveryState::kFailed: return "Failed";
+    default: return "Unknown";
+  }
+}
 
 struct RecoveryParams
 {
@@ -54,7 +74,8 @@ public:
 
   RecoveryState state() const { return state_; }
   bool active() const { return state_ != RecoveryState::kInactive; }
-  bool request_replan() const { return state_ == RecoveryState::kRequestReplan; }
+  bool request_replan() const { return state_ == RecoveryState::kRequestReplan || state_ == RecoveryState::kRequestReplanClearance; }
+  bool is_clearance_replan() const { return state_ == RecoveryState::kRequestReplanClearance; }
   int attempts() const { return attempts_; }
   double target_yaw() const { return target_yaw_; }
 

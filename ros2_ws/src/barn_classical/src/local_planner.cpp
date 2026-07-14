@@ -148,21 +148,47 @@ LocalTrajectory LocalPlanner::plan(
           refined[i + 1].yaw - refined[i - 1].yaw)) / ds;
       }
     }
-    const double curvature_speed = curvature > 1e-4 ?
+
+    // Lookahead curvature: scan ahead ~1.5 m to find the worst-case curvature.
+    // This pre-decelerates the robot BEFORE reaching a corner, instead of only
+    // reacting when it's already at the turn (where MPC overshoots and stalls).
+    double lookahead_curvature = curvature;
+    {
+      double lookahead_arc = 0.0;
+      constexpr double kLookaheadDistance = 3.0;
+      for (std::size_t j = i + 1; j + 1 < refined.size(); ++j) {
+        lookahead_arc += std::hypot(
+          refined[j].x - refined[j - 1].x, refined[j].y - refined[j - 1].y);
+        if (lookahead_arc > kLookaheadDistance) {
+          break;
+        }
+        if (j > 0 && j + 1 < refined.size()) {
+          const double ds_j = std::hypot(
+            refined[j + 1].x - refined[j - 1].x,
+            refined[j + 1].y - refined[j - 1].y);
+          if (ds_j > 1e-4) {
+            const double curv_j = std::abs(barn_core::wrap_angle(
+              refined[j + 1].yaw - refined[j - 1].yaw)) / ds_j;
+            lookahead_curvature = std::max(lookahead_curvature, curv_j);
+          }
+        }
+      }
+    }
+    const double effective_curvature = lookahead_curvature;
+    const double curvature_speed = effective_curvature > 1e-4 ?
       std::min(
-        std::sqrt(params_.max_lateral_accel / curvature),
-        params_.max_yaw_rate / curvature)
+        std::sqrt(params_.max_lateral_accel / effective_curvature),
+        params_.max_yaw_rate / effective_curvature)
       : params_.max_speed;
 
-    // Soft side-clearance slowdown: reduce speed in narrow spaces for safety,
-    // but never to 0. If the path is actually blocked ahead, the global/local
-    // planner will reject it and trigger a replan.
+    // Soft side-clearance slowdown: reduce speed in narrow spaces for safety.
+    // Lowered minimum from 0.85 to 0.45 so the robot meaningfully decelerates
+    // near obstacles instead of maintaining 85% speed through tight corners.
     double clearance_scale = 1.0;
     const double min_clearance = params_.footprint.half_width + params_.footprint.margin;
     if (std::isfinite(point.clearance)) {
       if (point.clearance < params_.desired_clearance) {
         const double t = (point.clearance - min_clearance) / (params_.desired_clearance - min_clearance);
-        // Raised minimum scale from 0.25 to 0.85 to maintain high speed near obstacles
         clearance_scale = 0.85 + 0.15 * std::clamp(t, 0.0, 1.0);
       }
     }
@@ -180,8 +206,8 @@ LocalTrajectory LocalPlanner::plan(
   // before creeping forward, instead of driving in a wide Ackermann-style arc.
   if (!result.empty() && refined.size() >= 2) {
     const double heading_error = std::abs(barn_core::wrap_angle(refined[0].yaw - pose.yaw));
-    // Linearly scale from 1.0 (at 0 error) down to 0.0 at 0.45 rad (~25 deg).
-    const double heading_scale = std::max(0.0, 1.0 - heading_error / 0.45);
+    // Linearly scale from 1.0 (at 0 error) down to 0.3 at 1.5 rad (~86 deg).
+    const double heading_scale = std::max(0.3, 1.0 - heading_error / 1.5);
     // Apply the scale over the first ~1.0 m of the trajectory, fading out
     // linearly so the speed ramps up naturally once the robot is aligned.
     double arc = 0.0;

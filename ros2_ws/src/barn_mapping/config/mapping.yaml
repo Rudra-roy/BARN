@@ -16,3 +16,4 @@ mapping_node:
     log_odds_miss: -0.40
     log_odds_min: -4.0
     log_odds_max: 4.0
+    map_decay_rate: 0.15

@@ -25,6 +25,7 @@ struct AStarParams
   // broad equal-cost wavefront. The lattice is deliberately weighted: BARN
   // needs a safe feasible path inside the 100 ms deadline, not an optimal one.
   double heuristic_weight{3.0};
+  double distance_weight{1.0};
   double clearance_weight{0.08};
   double turn_weight{0.12};
   double rotate_weight{0.20};
@@ -52,6 +53,7 @@ public:
 
   const PlannerStats & stats() const { return stats_; }
   const AStarParams & params() const { return params_; }
+  void set_params(const AStarParams & params) { params_ = params; }
 
 private:
   AStarParams params_;

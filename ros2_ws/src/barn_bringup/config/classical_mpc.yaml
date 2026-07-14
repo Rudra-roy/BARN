@@ -48,18 +48,27 @@ classical_mpc_node:
     planning_frame: odom
     cmd_frame: base_link
     goal_tolerance: 0.70
-    global_planner_budget_ms: 100.0
-    unknown_cost_multiplier: 1.8
-    heuristic_weight: 3.0
-    clearance_weight: 0.08
-    local_horizon_m: 4.0
-    max_speed: 2.0
-    unknown_speed: 0.4
+    global_planner_budget_ms: 500.0
+    unknown_cost_multiplier: 1.0
+    heuristic_weight: 2.0
+    distance_weight: 0.5
+    clearance_weight: 1.5
+    local_horizon_m: 6.0
+    mpc_horizon: 10
+    mpc_dt: 0.1
+    obstacle_margin: 0.30
+    max_obstacle_slack: 1.20
+    max_speed: 4.0
+    max_yaw_rate: 3.0
+    max_accel: 5.0
+    max_yaw_accel: 6.0
+    max_lateral_accel: 3.0
+    unknown_speed: 2.0
     mpc_deadline_ms: 35.0
     startup_creep_delay_s: 1.0
-    startup_creep_speed: 0.15
+    startup_creep_speed: 0.25
     no_progress_timeout_s: 3.0
-    max_recovery_attempts: 3
+    max_recovery_attempts: 5
 
 safety_node:
   ros__parameters:
@@ -67,14 +76,14 @@ safety_node:
     safe_topic: /barn/cmd_safe
     scan_topic: /barn/scan
     base_frame: base_link
-    v_max: 2.0
-    w_max: 1.5
-    max_lin_accel: 2.5
-    max_ang_accel: 3.0
+    v_max: 4.5
+    w_max: 3.0
+    max_lin_accel: 5.0
+    max_ang_accel: 6.0
     cmd_timeout_s: 0.4
     scan_timeout_s: 0.5
     watchdog_period_s: 0.05
-    emergency_margin: 0.10
-    shield_latency_s: 0.15
+    emergency_margin: 0.05
+    shield_latency_s: 0.05
     braking_decel: 2.5
-    shield_horizon_s: 1.0
+    shield_horizon_s: 0.0

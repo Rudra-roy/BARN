@@ -34,6 +34,7 @@ MappingNode::MappingNode(const rclcpp::NodeOptions & options)
   sensor_model_.miss = declare_parameter<double>("log_odds_miss", -0.40);
   sensor_model_.clamp_min = declare_parameter<double>("log_odds_min", -4.0);
   sensor_model_.clamp_max = declare_parameter<double>("log_odds_max", 4.0);
+  map_decay_rate_ = declare_parameter<double>("map_decay_rate", 0.0);
 
   if (resolution_ <= 0.0 || width_m_ <= 0.0 || height_m_ <= 0.0 ||
     publish_rate_hz_ <= 0.0 || max_usable_range_ <= 0.0)
@@ -100,8 +101,6 @@ void MappingNode::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg
   }
 
   const auto & q = sensor_tf.transform.rotation;
-  const double sensor_yaw = std::atan2(
-    2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
   const double sx = sensor_tf.transform.translation.x;
   const double sy = sensor_tf.transform.translation.y;
   const auto & robot_q = last_pose_.pose.orientation;
@@ -132,10 +131,13 @@ void MappingNode::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg
       continue;
     }
 
-    const double angle = sensor_yaw + msg->angle_min +
-      static_cast<double>(i) * msg->angle_increment;
-    const double ex = sx + range * std::cos(angle);
-    const double ey = sy + range * std::sin(angle);
+    const double local_angle = msg->angle_min + static_cast<double>(i) * msg->angle_increment;
+    const double lx = range * std::cos(local_angle);
+    const double ly = range * std::sin(local_angle);
+    
+    // Apply full 3D rotation to handle inverted (roll=PI) LiDAR mounts correctly
+    const double ex = sx + (1.0 - 2.0*(q.y*q.y + q.z*q.z))*lx + 2.0*(q.x*q.y - q.w*q.z)*ly;
+    const double ey = sy + 2.0*(q.x*q.y + q.w*q.z)*lx + (1.0 - 2.0*(q.x*q.x + q.z*q.z))*ly;
     if (finite_hit) {
       const double dx = ex - last_pose_.pose.position.x;
       const double dy = ey - last_pose_.pose.position.y;
@@ -170,9 +172,21 @@ void MappingNode::publish_grid()
   message.info.origin.orientation.w = 1.0;
   message.data.resize(grid_.width() * grid_.height());
 
+  const double decay_per_tick = map_decay_rate_ / publish_rate_hz_;
+
   for (std::size_t row = 0; row < grid_.height(); ++row) {
     for (std::size_t col = 0; col < grid_.width(); ++col) {
       const barn_core::GridIndex idx{static_cast<int>(col), static_cast<int>(row)};
+      
+      if (decay_per_tick > 0.0) {
+        double current = grid_.log_odds(idx);
+        if (current > 0.0) {
+          grid_.set_log_odds(idx, std::max(0.0, current - decay_per_tick));
+        } else if (current < 0.0) {
+          grid_.set_log_odds(idx, std::min(0.0, current + decay_per_tick));
+        }
+      }
+
       const auto state = grid_.classify(idx);
       int8_t value = -1;
       if (state == barn_core::CellState::kFree) {

@@ -104,9 +104,41 @@ MpcResult Controller::control(
     previous_yaw = point.pose.yaw;
   }
 
+  if (warm_start_.size() == static_cast<std::size_t>(n_vars)) {
+    double max_divergence = 0.0;
+    for (int k = 0; k <= n_steps; ++k) {
+      const double dx = warm_start_[sx(k, 0)] - reference[k].pose.x;
+      const double dy = warm_start_[sx(k, 1)] - reference[k].pose.y;
+      max_divergence = std::max(max_divergence, std::hypot(dx, dy));
+    }
+    if (max_divergence > 0.5) {
+      warm_start_.clear();
+    }
+  }
+
   std::vector<double> linearization(n_vars, 0.0);
   if (warm_start_.size() == static_cast<std::size_t>(n_vars)) {
-    linearization = warm_start_;
+    for (int k = 0; k < n_steps; ++k) {
+      for (int c = 0; c < kStateSize; ++c) {
+        linearization[sx(k, c)] = warm_start_[sx(k + 1, c)];
+      }
+    }
+    for (int c = 0; c < kStateSize; ++c) {
+      linearization[sx(n_steps, c)] = warm_start_[sx(n_steps, c)];
+    }
+    for (int k = 0; k < n_steps - 1; ++k) {
+      for (int c = 0; c < kInputSize; ++c) {
+        linearization[ui(k, c)] = warm_start_[ui(k + 1, c)];
+      }
+    }
+    for (int c = 0; c < kInputSize; ++c) {
+      linearization[ui(n_steps - 1, c)] = warm_start_[ui(n_steps - 1, c)];
+    }
+    linearization[sx(0, 0)] = state.pose.x;
+    linearization[sx(0, 1)] = state.pose.y;
+    linearization[sx(0, 2)] = state.pose.yaw;
+    linearization[sx(0, 3)] = std::clamp(state.v, 0.0, params_.max_speed);
+    linearization[sx(0, 4)] = std::clamp(state.w, -params_.max_yaw_rate, params_.max_yaw_rate);
   } else {
     for (int k = 0; k <= n_steps; ++k) {
       linearization[sx(k, 0)] = reference[k].pose.x;
@@ -144,10 +176,14 @@ MpcResult Controller::control(
       const double terminal = k == n_steps ? 3.0 : 1.0;
       add_square(sx(k, 0), 14.0 * terminal, reference[k].pose.x);
       add_square(sx(k, 1), 14.0 * terminal, reference[k].pose.y);
-      add_square(sx(k, 2), 8.0 * terminal, reference[k].pose.yaw);
-      add_square(sx(k, 3), 3.0, std::clamp(reference[k].v_ref, 0.0, params_.max_speed));
-      add_square(sx(k, 4), 0.20, 0.0);
-      add_square(slack_offset + k, 5000.0, 0.0);
+      // Yaw tracking raised to 14.0 (was 8.0) — equal to position weight.
+      // At corners, turning is as important as following x,y reference.
+      add_square(sx(k, 2), 14.0 * terminal, reference[k].pose.yaw);
+      // Velocity tracking lowered to 1.5 (was 3.0) so MPC freely slows for turns.
+      add_square(sx(k, 3), 1.5, std::clamp(reference[k].v_ref, 0.0, params_.max_speed));
+      add_square(sx(k, 4), 0.02, 0.0);
+      // Obstacle slack penalty doubled (5000→10000) to prevent corner-cutting.
+      add_square(slack_offset + k, 10000.0, 0.0);
     }
     for (int k = 0; k < n_steps; ++k) {
       add_square(ui(k, 0), 0.10, 0.0);
@@ -298,7 +334,10 @@ MpcResult Controller::control(
     const c_int setup_status = osqp_setup(&workspace, &data, &settings);
     QpSolution candidate;
     if (setup_status == 0 && workspace != nullptr) {
-      if (linearization.size() == static_cast<std::size_t>(n_vars)) {
+      if (warm_start_.size() == static_cast<std::size_t>(n_vars)) {
+        std::vector<c_float> warm(warm_start_.begin(), warm_start_.end());
+        (void)osqp_warm_start_x(workspace, warm.data());
+      } else {
         std::vector<c_float> warm(linearization.begin(), linearization.end());
         (void)osqp_warm_start_x(workspace, warm.data());
       }
@@ -328,6 +367,7 @@ MpcResult Controller::control(
   result.timed_out = latest.timed_out || result.solve_ms > params_.solve_deadline_ms;
   result.status = latest.status;
   if (!latest.solved || latest.x.size() != static_cast<std::size_t>(n_vars) || result.timed_out) {
+    warm_start_.clear();
     result.success = false;
     return result;
   }

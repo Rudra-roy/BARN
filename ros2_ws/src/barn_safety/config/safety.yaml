@@ -6,10 +6,11 @@ safety_node:
     desired_topic: /barn/cmd_desired
     safe_topic: /barn/cmd_safe
     scan_topic: /barn/scan
-    v_max: 2.0            # m/s  (BARN maximum robot speed)
-    w_max: 1.5            # rad/s
-    max_lin_accel: 2.5    # m/s^2
-    max_ang_accel: 3.0    # rad/s^2
+    v_max: 4.0            # m/s  (BARN maximum robot speed)
+    w_max: 3.0            # rad/s
+    max_lin_accel: 5.0    # m/s^2
+    max_ang_accel: 6.0    # rad/s^2
     cmd_timeout_s: 0.4    # zero output if desired command older than this
     scan_timeout_s: 0.5   # treat sensors as stale if scan older than this
     watchdog_period_s: 0.05
+    shield_horizon_s: 0.0

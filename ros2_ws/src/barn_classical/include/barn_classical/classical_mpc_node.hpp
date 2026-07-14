@@ -84,6 +84,9 @@ private:
   double planner_ms_{0.0};
   std::size_t planner_expanded_{0};
   std::string planner_status_{"waiting"};
+  bool is_los_path_{false};
+  rclcpp::Time last_path_swap_time_;
+  double path_cooldown_s_{2.0};
 
   GlobalPlannerAStar global_planner_;
   LocalPlanner local_planner_;
@@ -129,7 +132,7 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_pub_;
   // Inflated planning grid published for RViz visualisation.
-  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr inflated_grid_pub_;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr planning_grid_pub_;
   rclcpp::TimerBase::SharedPtr local_timer_;
   rclcpp::TimerBase::SharedPtr control_timer_;
   rclcpp::TimerBase::SharedPtr replan_timer_;

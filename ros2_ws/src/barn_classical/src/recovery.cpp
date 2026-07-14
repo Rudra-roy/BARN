@@ -29,11 +29,14 @@ double Recovery::widest_gap_heading(const barn_core::ScanView & scan) const
   }
   double best_angle = 0.0;
   double best_score = -std::numeric_limits<double>::infinity();
-  constexpr double half_window = 20.0 * M_PI / 180.0;
-  for (double angle = -M_PI; angle <= M_PI; angle += 10.0 * M_PI / 180.0) {
+  // Finer 15° half-window and 5° steps (was 20°/10°) for better gap detection
+  // at tight corners where the corridor opening may be narrow.
+  constexpr double half_window = 15.0 * M_PI / 180.0;
+  for (double angle = -M_PI; angle <= M_PI; angle += 5.0 * M_PI / 180.0) {
     const double clearance = barn_core::min_range_in_sector(
       scan, angle - half_window, angle + half_window);
-    // Prefer a large gap, with a mild preference for forward-facing options.
+    // Reduced forward bias (0.15) so it doesn't force driving straight into obstacles
+    // and can properly pick a clear side gap.
     const double score = clearance - 0.15 * std::abs(angle);
     if (score > best_score) {
       best_score = score;
@@ -53,20 +56,9 @@ void Recovery::trigger(const barn_core::ScanView & scan)
     return;
   }
   ++attempts_;
-  state_ = RecoveryState::kStop;
-  state_elapsed_ = 0.0;
-  target_yaw_ = widest_gap_heading(scan);
-}
-
-void Recovery::trigger_veto_escape(const barn_core::ScanView & scan)
-{
-  if (state_ == RecoveryState::kFailed) {
-    return;
-  }
-  // Veto escape takes priority.
-  state_ = RecoveryState::kVetoEscape;
   state_elapsed_ = 0.0;
   
+  // Find closest obstacle direction for opposite-rotation phases
   double closest_angle = 0.0;
   double min_range = std::numeric_limits<double>::infinity();
   if (scan.valid()) {
@@ -79,8 +71,38 @@ void Recovery::trigger_veto_escape(const barn_core::ScanView & scan)
       }
     }
   }
-  // Rotate in the opposite direction to the closest obstacle.
-  target_yaw_ = closest_angle >= 0.0 ? -1.0 : 1.0;
+  // Rotate AWAY from the obstacle
+  target_yaw_ = closest_angle >= 0.0 ? 1.0 : -1.0;
+
+  // Progressive escalation: each successive trigger starts at a later phase
+  switch (attempts_) {
+    case 1:
+      // First attempt: just rotate opposite
+      state_ = RecoveryState::kRotateOpposite;
+      break;
+    case 2:
+      // Second attempt: back up first, then rotate opposite
+      state_ = RecoveryState::kBackUp;
+      break;
+    case 3:
+      // Third attempt: rotate to widest gap
+      state_ = RecoveryState::kRotateToGap;
+      target_yaw_ = barn_core::wrap_angle(0.0 + widest_gap_heading(scan));
+      break;
+    case 4:
+      // Fourth attempt: back up further, then try gap
+      state_ = RecoveryState::kBackUp2;
+      break;
+    default:
+      // Last resort: 1m backup with clearance boost
+      state_ = RecoveryState::kBackUp1m;
+      break;
+  }
+}
+
+void Recovery::trigger_veto_escape(const barn_core::ScanView & scan)
+{
+  trigger(scan);
 }
 
 barn_core::VelocityCommand Recovery::step(
@@ -92,66 +114,94 @@ barn_core::VelocityCommand Recovery::step(
     case RecoveryState::kInactive:
     case RecoveryState::kFailed:
       return {0.0, 0.0};
-    case RecoveryState::kVetoEscape:
-      if (!veto_active) {
-        state_ = RecoveryState::kRequestReplan;
-        return {0.0, 0.0};
-      }
+      
+    // Phase 1: Rotate away from nearest obstacle for the full timeout.
+    case RecoveryState::kRotateOpposite:
       if (state_elapsed_ >= params_.rotate_timeout) {
-        state_ = RecoveryState::kInactive;
-        trigger(scan);
+        state_ = RecoveryState::kRequestReplan;
+        state_elapsed_ = 0.0;
         return {0.0, 0.0};
       }
       return {0.0, target_yaw_ * params_.rotate_speed};
-    case RecoveryState::kRequestReplan:
-      if (state_elapsed_ >= params_.replan_timeout) {
-        state_ = RecoveryState::kInactive;
-        trigger(scan);
-      }
-      return {0.0, 0.0};
-    case RecoveryState::kStop:
-      if (state_elapsed_ >= params_.stop_duration) {
-        target_yaw_ = barn_core::wrap_angle(current_yaw + target_yaw_);
-        state_ = RecoveryState::kRotateToGap;
+
+    // Phase 2: Back up a bit. If physically blocked behind, skip to phase 3.
+    case RecoveryState::kBackUp:
+      if (rear_clearance(scan) < params_.rear_clearance && state_elapsed_ > 0.2) {
+        state_ = RecoveryState::kRotateOpposite2;
         state_elapsed_ = 0.0;
+        return {0.0, 0.0};
       }
-      return {0.0, 0.0};
+      if (distance_backed >= params_.backup_distance) {
+        state_ = RecoveryState::kRotateOpposite2;
+        state_elapsed_ = 0.0;
+        return {0.0, 0.0};
+      }
+      return {-params_.backup_speed, 0.0};
+
+    // Phase 3: Rotate opposite again with the space gained from backing up.
+    case RecoveryState::kRotateOpposite2:
+      if (state_elapsed_ >= params_.rotate_timeout) {
+        state_ = RecoveryState::kRequestReplan;
+        state_elapsed_ = 0.0;
+        return {0.0, 0.0};
+      }
+      return {0.0, target_yaw_ * params_.rotate_speed};
+
+    // Phase 4: Rotate towards the widest LiDAR gap.
     case RecoveryState::kRotateToGap: {
         const double error = barn_core::wrap_angle(target_yaw_ - current_yaw);
-        if (std::abs(error) <= params_.heading_tolerance) {
+        if (std::abs(error) <= params_.heading_tolerance || state_elapsed_ >= params_.rotate_timeout) {
           state_ = RecoveryState::kRequestReplan;
-          return {0.0, 0.0};
-        }
-        if (state_elapsed_ >= params_.rotate_timeout) {
-          const double rear = rear_clearance(scan);
-          if (rear >= params_.rear_clearance) {
-            state_ = RecoveryState::kBackUp;
-            state_elapsed_ = 0.0;
-          } else {
-            state_ = RecoveryState::kRequestReplan;
-          }
+          state_elapsed_ = 0.0;
           return {0.0, 0.0};
         }
         return {0.0, std::copysign(params_.rotate_speed, error)};
       }
-    case RecoveryState::kBackUp:
-      if (distance_backed >= params_.backup_distance) {
-        state_ = RecoveryState::kRequestReplan;
+
+    // Phase 5: Back up further. If physically blocked, skip to phase 6.
+    case RecoveryState::kBackUp2:
+      if (rear_clearance(scan) < params_.rear_clearance && state_elapsed_ > 0.2) {
+        state_ = RecoveryState::kBackUp1m;
+        state_elapsed_ = 0.0;
         return {0.0, 0.0};
       }
-      if (rear_clearance(scan) < params_.rear_clearance)
-      {
-        state_ = RecoveryState::kRequestReplan;
+      if (distance_backed >= params_.backup_distance * 2.0) {
+        // Try the gap rotation again with more space
+        state_ = RecoveryState::kRotateToGap;
+        state_elapsed_ = 0.0;
+        target_yaw_ = barn_core::wrap_angle(current_yaw + widest_gap_heading(scan));
         return {0.0, 0.0};
       }
       return {-params_.backup_speed, 0.0};
+
+    // Phase 6: Last resort - back up 1m and replan with increased clearance.
+    case RecoveryState::kBackUp1m:
+      if (rear_clearance(scan) < params_.rear_clearance && state_elapsed_ > 0.2) {
+        state_ = RecoveryState::kRequestReplanClearance;
+        state_elapsed_ = 0.0;
+        return {0.0, 0.0};
+      }
+      if (distance_backed >= 1.0) {
+        state_ = RecoveryState::kRequestReplanClearance;
+        state_elapsed_ = 0.0;
+        return {0.0, 0.0};
+      }
+      return {-params_.backup_speed, 0.0};
+
+    case RecoveryState::kRequestReplan:
+    case RecoveryState::kRequestReplanClearance:
+      if (state_elapsed_ >= params_.replan_timeout) {
+        state_ = RecoveryState::kInactive;
+        // Don't re-trigger here; let control_step detect MPC failure again
+      }
+      return {0.0, 0.0};
   }
   return {0.0, 0.0};
 }
 
 void Recovery::finish_replan()
 {
-  if (state_ == RecoveryState::kRequestReplan) {
+  if (state_ == RecoveryState::kRequestReplan || state_ == RecoveryState::kRequestReplanClearance) {
     state_ = RecoveryState::kInactive;
     state_elapsed_ = 0.0;
   }

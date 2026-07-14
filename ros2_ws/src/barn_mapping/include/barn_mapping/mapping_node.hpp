@@ -46,6 +46,7 @@ private:
   double height_m_;
   double publish_rate_hz_;
   double max_usable_range_;
+  double map_decay_rate_{0.0};
   barn_core::InverseSensorModel sensor_model_;
 
   barn_core::OccupancyGrid2D grid_;
