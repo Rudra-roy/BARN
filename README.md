@@ -68,6 +68,7 @@ For in-depth details on how the system is built, evaluated, and structured, plea
 
 ### 🌟 New Features & Stack Updates
 - **[Classical MPC & Recovery Feature Updates](docs/features/classical_mpc_updates.md)** - Details on the new 6-phase robust recovery, global planner stability, high-speed local planner tuning, and advanced map decay.
+- **[Classical MPC Configuration Guide](docs/features/configuration_guide.md)** - A guide explaining the tunable parameters in the MPC, A* global planner, and safety node, including how to tune them for speed and tight spaces.
 
 ### Architecture & Guidelines
 - **[System Architecture & Data Flow](docs/architecture/overview.md)**

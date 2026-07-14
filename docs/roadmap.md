@@ -38,16 +38,14 @@ Fix failures before optimizing speed (see [failure_taxonomy.md](./benchmark/fail
 
 ```
    Track A (shared / classical vertical slice)
-   M0 --- M1 --- M2 --- M3 === M4 ... M11        M0-M3 DONE, M4+ pending
-   [DONE][DONE][DONE][DONE]  ^ runnable slice ends here
-                              nodes: goal_adapter_node, robot_adapter_node,
-                                     goal_seeker_node, safety_node
+   M0 --- M1 --- M2 --- M3 === M4 ... M10 === M11      M0-M10 DONE, M11 (benchmark) pending
+   [DONE][DONE][DONE][DONE]  [DONE]...[DONE]  ^
+                                             Full stack runnable
 ```
 
-- **M0–M3 are DONE** via the runnable classical vertical slice: `goal_adapter_node`,
-  `robot_adapter_node`, `goal_seeker_node`, `safety_node`.
-- **M4–M21 are scaffolded stubs** — directories and interfaces exist, implementations
-  pending.
+- **M0–M10 are DONE**. The complete Classical MPC stack is fully implemented, tuned, and robust.
+- **M11 is the current focus**: Running the formal 500-trial baseline benchmark.
+- **M12–M21 are scaffolded stubs** — directories and interfaces exist, implementations pending.
 
 ---
 
@@ -57,18 +55,18 @@ Tracks: **A** = shared/classical, **B** = RL, **C** = hybrid.
 
 | ID | Track | Milestone | Status |
 |---|---|---|---|
-| M0 | A | 2026 BARN baseline runs unchanged | **DONE** (runnable slice) |
-| M1 | A | Custom `NavigateToPose` adapter | **DONE** (runnable slice) |
-| M2 | A | Custom robot adapter publishes valid commands | **DONE** (runnable slice) |
-| M3 | A | Trivial goal seeker runs under the evaluator | **DONE** (runnable slice) |
-| M4 | A | Online LiDAR occupancy map | Pending / stub |
-| M5 | A | A* through free + unknown space | Pending / stub |
-| M6 | A | Path invalidation and on-the-fly replanning | Pending / stub |
-| M7 | A | Local passage planner | Pending / stub |
-| M8 | A | Curvature / clearance-aware control | Pending / stub |
-| M9 | A | Safety shield | Pending / stub |
-| M10 | A | Recovery behavior | Pending / stub |
-| M11 | A | Classical 500-trial benchmark | Pending / stub |
+| M0 | A | 2026 BARN baseline runs unchanged | **DONE** |
+| M1 | A | Custom `NavigateToPose` adapter | **DONE** |
+| M2 | A | Custom robot adapter publishes valid commands | **DONE** |
+| M3 | A | Trivial goal seeker runs under the evaluator | **DONE** |
+| M4 | A | Online LiDAR occupancy map | **DONE** |
+| M5 | A | A* through free + unknown space | **DONE** |
+| M6 | A | Path invalidation and on-the-fly replanning | **DONE** |
+| M7 | A | Local passage planner | **DONE** |
+| M8 | A | Curvature / clearance-aware control | **DONE** |
+| M9 | A | Safety shield | **DONE** |
+| M10 | A | Recovery behavior | **DONE** |
+| M11 | A | Classical 500-trial benchmark | Pending (Current focus) |
 | M12 | B | Fast 2-D RL environment | Pending / stub |
 | M13 | B | E2E PPO baseline | Pending / stub |
 | M14 | B | E2E SAC candidate | Pending / stub |
