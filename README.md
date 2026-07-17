@@ -5,7 +5,6 @@
 **Preparation programme for the ICRA BARN Challenge 2027**
 *benchmarked against the completed BARN 2026 ROS 2 evaluation pipeline*
 
-[![ci](https://img.shields.io/badge/ci-colcon%20build%20%2B%20test-blue)](.github/workflows/ci.yml)
 [![ROS 2](https://img.shields.io/badge/ROS%202-Jazzy-22314E)](https://docs.ros.org/en/jazzy/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
