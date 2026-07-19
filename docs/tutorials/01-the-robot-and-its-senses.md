@@ -264,28 +264,28 @@ A 2-D rigid transform is a rotation plus a translation. To express a point known
 in frame *B* (say the robot body) in frame *A* (say `odom`), you rotate it by the
 angle between the frames and then shift it by the offset between their origins.
 
-> ### 📐 The math — a planar transform, and yaw from a quaternion
->
-> Let frame *B*'s origin sit at $(t_x, t_y)$ in frame *A*, rotated by angle
-> $\theta$. A point $p_B = (x_B, y_B)$ expressed in *A* is
->
-> ```math
-> \begin{bmatrix} x_A \\ y_A \end{bmatrix} = \begin{bmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{bmatrix} \begin{bmatrix} x_B \\ y_B \end{bmatrix} + \begin{bmatrix} t_x \\ t_y \end{bmatrix}.
-> ```
->
-> That "rotate then translate" pattern is exactly what the adapter applies when it
-> folds the drift correction into the pose (`robot_adapter_node.cpp:113`) — same
-> $\cos\theta / \sin\theta$ mixing, same additive offset.
->
-> **Where does $\theta$ come from?** ROS stores 3-D orientation as a **quaternion**
-> $(x, y, z, w)$ — four numbers that avoid the singularities of Euler angles. For a
-> robot on flat ground only the *yaw* (rotation about vertical) matters, and it is
-> recovered by
->
-> $$\theta = \text{atan2}\!\big(2(wz + xy),\; 1 - 2(y^2 + z^2)\big).$$
->
-> Symbols: $(x,y,z,w)$ are the quaternion components; $\theta$ is the planar
-> heading; `atan2` is the two-argument arctangent that returns the correct quadrant.
+**📐 The math — a planar transform, and yaw from a quaternion**
+
+Let frame *B*'s origin sit at $(t_x, t_y)$ in frame *A*, rotated by angle
+$\theta$. A point $p_B = (x_B, y_B)$ expressed in *A* is
+
+```math
+\begin{bmatrix} x_A \\ y_A \end{bmatrix} = \begin{bmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{bmatrix} \begin{bmatrix} x_B \\ y_B \end{bmatrix} + \begin{bmatrix} t_x \\ t_y \end{bmatrix}.
+```
+
+That "rotate then translate" pattern is exactly what the adapter applies when it
+folds the drift correction into the pose (`robot_adapter_node.cpp:113`) — same
+$\cos\theta / \sin\theta$ mixing, same additive offset.
+
+**Where does $\theta$ come from?** ROS stores 3-D orientation as a **quaternion**
+$(x, y, z, w)$ — four numbers that avoid the singularities of Euler angles. For a
+robot on flat ground only the *yaw* (rotation about vertical) matters, and it is
+recovered by
+
+$$\theta = \text{atan2}\!\big(2(wz + xy),\; 1 - 2(y^2 + z^2)\big).$$
+
+Symbols: $(x,y,z,w)$ are the quaternion components; $\theta$ is the planar
+heading; `atan2` is the two-argument arctangent that returns the correct quadrant.
 
 > ### 🔍 In the code
 > That yaw formula is precisely what `to_pose2d` uses to turn an `Odometry`

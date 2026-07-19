@@ -364,28 +364,31 @@ know `d`, the metres of clearance at a cell. The planner adds a **soft cost** th
 grows as you approach an obstacle — but only within a band of `r =
 clearance_penalty_radius` around it, and charged **per metre travelled**.
 
-> ### 📐 The math — the clearance penalty
-> (`global_planner_astar.cpp:241`, and the identical Phase-1 form at `:127`)
->
-> For a move of length $\Delta s$ ending at a cell with clearance $d$, the added
-> cost is
-> ```math
-> \text{penalty} = \begin{cases} w_c \left( \dfrac{1}{\max(d,\,0.05)} - \dfrac{1}{r} \right) \Delta s, & d < r,\\ 0, & d \ge r. \end{cases}
-> ```
-> with $w_c$ the `clearance_weight` and $r$ the `clearance_penalty_radius`.
->
-> | symbol | meaning |
-> |---|---|
-> | $d$ | clearance (m) at the cell, from the distance field |
-> | $r$ | penalty radius; beyond it the term is zero |
-> | $w_c$ | clearance weight |
-> | $\Delta s$ | length of the move (`candidate.second`) |
-> | $0.05$ | floor on $d$ so the $1/d$ term can't blow up |
->
-> Two design choices are baked into this shape. The $-\,1/r$ makes the penalty
-> **exactly zero at $d = r$** and rise smoothly as $d \to 0$ — no discontinuity at
-> the band edge. And multiplying by $\Delta s$ makes it a **per-metre** cost: a
-> penalty *rate*, integrated along the path.
+**📐 The math — the clearance penalty**
+
+(`global_planner_astar.cpp:241`, and the identical Phase-1 form at `:127`)
+
+For a move of length $\Delta s$ ending at a cell with clearance $d$, the added
+cost is
+
+```math
+\text{penalty} = \begin{cases} w_c \left( \dfrac{1}{\max(d,\,0.05)} - \dfrac{1}{r} \right) \Delta s, & d < r,\\ 0, & d \ge r. \end{cases}
+```
+
+with $w_c$ the `clearance_weight` and $r$ the `clearance_penalty_radius`.
+
+| symbol | meaning |
+|---|---|
+| $d$ | clearance (m) at the cell, from the distance field |
+| $r$ | penalty radius; beyond it the term is zero |
+| $w_c$ | clearance weight |
+| $\Delta s$ | length of the move (`candidate.second`) |
+| $0.05$ | floor on $d$ so the $1/d$ term can't blow up |
+
+Two design choices are baked into this shape. The $-\,1/r$ makes the penalty
+**exactly zero at $d = r$** and rise smoothly as $d \to 0$ — no discontinuity at
+the band edge. And multiplying by $\Delta s$ makes it a **per-metre** cost: a
+penalty *rate*, integrated along the path.
 
 Why per-metre and capped-radius? Because the alternative — a flat per-*cell*
 `1/d` penalty — misbehaves. The header comment explains it
