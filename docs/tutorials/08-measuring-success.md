@@ -95,14 +95,16 @@ To judge "quick," you need something to be quick *relative to*. That yardstick i
 The BARN Jackal tops out at 2 m/s. So if the reference path through a world is, say, 20 m
 long, the best conceivable traversal time is `20 / 2 = 10 s`. That's OT.
 
-> ### 📐 The math
->
-> $$OT_i = \frac{\text{reference path length}_i}{v_{\max}}, \qquad v_{\max} = 2\ \text{m/s}$$
->
-> $OT_i$ is the **Optimal Time** for world $i$ — a per-world constant, not something your
-> robot influences. The reference path is a Dijkstra shortest path through the world; note
-> it is used **only** to set this yardstick, never as something your controller is allowed
-> to drive along (`barn_2026_contract.md:126`).
+**📐 The math**
+
+```math
+OT_i = \frac{\text{reference path length}_i}{v_{\max}}, \qquad v_{\max} = 2\ \text{m/s}
+```
+
+$OT_i$ is the **Optimal Time** for world $i$ — a per-world constant, not something your
+robot influences. The reference path is a Dijkstra shortest path through the world; note
+it is used **only** to set this yardstick, never as something your controller is allowed
+to drive along (`barn_2026_contract.md:126`).
 
 > ### 🔍 In the code
 > `evaluation/metrics/_common.py:71`
@@ -177,28 +179,32 @@ always beat a failure.
 
 ### 3.2 The formula
 
-> ### 📐 The math
->
-> The per-trial score is
->
-> $$s_i = \text{success}_i \cdot \frac{OT_i}{\text{clip}\!\big(AT_i,\ 2\,OT_i,\ 8\,OT_i\big)}$$
->
-> where
->
-> $$\text{clip}(x, \text{lo}, \text{hi}) = \max\big(\text{lo},\ \min(\text{hi},\ x)\big).$$
->
-> | Symbol | Meaning |
-> |---|---|
-> | $s_i$ | Score for trial $i$, in $[0,\,0.5]$ |
-> | $\text{success}_i$ | $1$ if goal reached (≤ 1 m) without collision before timeout, else $0$ |
-> | $OT_i$ | Optimal Time (§2.3) |
-> | $AT_i$ | Actual Time (§2.4) |
-> | $2\,OT_i$ | Clip **lower** bound — caps the reward for implausible speed |
-> | $8\,OT_i$ | Clip **upper** bound — floors the penalty for crawling |
->
-> The two bounds do exactly what the two "edges" above demanded:
-> $AT < 2\,OT \Rightarrow s = OT/(2\,OT) = 0.5$ (the flat top), and
-> $AT > 8\,OT \Rightarrow s = OT/(8\,OT) = 0.125$ (the floor).
+**📐 The math**
+
+The per-trial score is
+
+```math
+s_i = \text{success}_i \cdot \frac{OT_i}{\text{clip}\!\big(AT_i,\ 2\,OT_i,\ 8\,OT_i\big)}
+```
+
+where
+
+```math
+\text{clip}(x, \text{lo}, \text{hi}) = \max\big(\text{lo},\ \min(\text{hi},\ x)\big).
+```
+
+| Symbol | Meaning |
+|---|---|
+| $s_i$ | Score for trial $i$, in $[0,\,0.5]$ |
+| $\text{success}_i$ | $1$ if goal reached (≤ 1 m) without collision before timeout, else $0$ |
+| $OT_i$ | Optimal Time (§2.3) |
+| $AT_i$ | Actual Time (§2.4) |
+| $2\,OT_i$ | Clip **lower** bound — caps the reward for implausible speed |
+| $8\,OT_i$ | Clip **upper** bound — floors the penalty for crawling |
+
+The two bounds do exactly what the two "edges" above demanded:
+$AT < 2\,OT \Rightarrow s = OT/(2\,OT) = 0.5$ (the flat top), and
+$AT > 8\,OT \Rightarrow s = OT/(8\,OT) = 0.125$ (the floor).
 
 > ### 🔍 In the code
 > `evaluation/metrics/_common.py:81`
@@ -337,14 +343,16 @@ spaced across the 300 public worlds — indices `0, 6, 12, …, 294` — chosen 
 for the 50 *hidden* worlds you'll actually be graded on at competition time. The final
 number is just the mean.
 
-> ### 📐 The math
->
-> $$\bar s = \frac{1}{N}\sum_{i=1}^{N} s_i, \qquad N = 500.$$
->
-> Because every failed trial contributes $s_i = 0$, the mean folds success rate and speed
-> into one figure: you raise $\bar s$ either by failing less often or by finishing more
-> efficiently, and there is no way to raise it by being reckless (recklessness collides,
-> which zeroes the trial).
+**📐 The math**
+
+```math
+\bar s = \frac{1}{N}\sum_{i=1}^{N} s_i, \qquad N = 500.
+```
+
+Because every failed trial contributes $s_i = 0$, the mean folds success rate and speed
+into one figure: you raise $\bar s$ either by failing less often or by finishing more
+efficiently, and there is no way to raise it by being reckless (recklessness collides,
+which zeroes the trial).
 
 > ### 🔍 In the code
 > `evaluation/metrics/_common.py:94`

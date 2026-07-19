@@ -81,12 +81,21 @@ stateDiagram-v2
 
 The **decision at trigger time** is the heart of it — and it's what the naive spinner got wrong:
 
-> ### 📐 The math
-> Let $d$ be the robot's clearance (distance-field value at its centre, from [Chapter 02](./02-mapping-occupancy-and-distance-fields.md)) and $\rho$ the **rotation radius** — the clearance needed to spin without a corner clipping anything, i.e. the footprint's half-diagonal plus a margin:
-> $$\rho \approx \sqrt{h_x^2 + h_y^2} + \text{margin} = \sqrt{0.254^2 + 0.216^2} + \text{margin} \approx 0.40\ \text{m}.$$
-> The rule:
-> $$\text{if } d < \rho:\ \textbf{reverse first (can't turn here)} \qquad \text{else}:\ \textbf{turn / re-plan}.$$
-> Rotation is only ever *commanded where it is geometrically possible*, so it can never again be vetoed into a freeze.
+**📐 The math**
+
+Let $d$ be the robot's clearance (distance-field value at its centre, from [Chapter 02](./02-mapping-occupancy-and-distance-fields.md)) and $\rho$ the **rotation radius** — the clearance needed to spin without a corner clipping anything, i.e. the footprint's half-diagonal plus a margin:
+
+```math
+\rho \approx \sqrt{h_x^2 + h_y^2} + \text{margin} = \sqrt{0.254^2 + 0.216^2} + \text{margin} \approx 0.40\ \text{m}.
+```
+
+The rule:
+
+```math
+\text{if } d < \rho:\ \textbf{reverse first (can't turn here)} \qquad \text{else}:\ \textbf{turn / re-plan}.
+```
+
+Rotation is only ever *commanded where it is geometrically possible*, so it can never again be vetoed into a freeze.
 
 > ### 🔍 In the code
 > `Recovery::begin_episode` (`recovery.cpp`) branches on `ctx.clearance < ctx.rotation_radius`. The threshold is the `rotation_clearance_m` parameter (0.40 m). Escalation is by attempt count: attempt 1 reverses then re-plans; attempt 2+ also rotates toward the widest gap; attempt 3+ re-plans with a boosted clearance weight so A\* routes wider next time.
@@ -103,12 +112,21 @@ The trick for going backward is beautifully simple: **pretend the robot's rear i
 
 ![Reverse pure pursuit: aim the virtual (rear-facing) heading at a breadcrumb point one lookahead behind; the arc's yaw rate is what the real robot commands while driving backward.](./figures/reverse-pursuit.svg)
 
-> ### 📐 The math
-> Let the robot be at $(x, y, \theta)$. Define the **virtual heading** $\psi = \theta + \pi$ (pointing backward). Find the breadcrumb target $\mathbf{g}$ one lookahead $L$ behind along the trail, and its bearing $\beta = \text{atan2}(g_y - y,\ g_x - x)$. The **look-ahead angle** is
-> $$\alpha = \text{wrap}(\beta - \psi).$$
-> Pure pursuit's steering curvature gives the yaw rate for a speed $s$:
-> $$\omega = \frac{2\,s\,\sin\alpha}{L}, \qquad v = -s \ \ (\text{drive backward}).$$
-> The yaw rate of the "virtual forward" robot equals the real robot's yaw rate, so this is exactly right — only the linear velocity flips sign.
+**📐 The math**
+
+Let the robot be at $(x, y, \theta)$. Define the **virtual heading** $\psi = \theta + \pi$ (pointing backward). Find the breadcrumb target $\mathbf{g}$ one lookahead $L$ behind along the trail, and its bearing $\beta = \text{atan2}(g_y - y,\ g_x - x)$. The **look-ahead angle** is
+
+```math
+\alpha = \text{wrap}(\beta - \psi).
+```
+
+Pure pursuit's steering curvature gives the yaw rate for a speed $s$:
+
+```math
+\omega = \frac{2\,s\,\sin\alpha}{L}, \qquad v = -s \ \ (\text{drive backward}).
+```
+
+The yaw rate of the "virtual forward" robot equals the real robot's yaw rate, so this is exactly right — only the linear velocity flips sign.
 
 > ### 🔍 In the code
 > `Recovery::reverse_command` (`recovery.cpp`) computes exactly this: the nearest breadcrumb index, a walk back by `reverse_lookahead` (0.5 m) to the target, `virtual_heading = wrap(pose.yaw + M_PI)`, and `w = 2 * reverse_speed * sin(alpha) / lookahead`, returning `{-reverse_speed, w}`. If there is no usable breadcrumb, it backs straight out (`{-reverse_speed, 0}`) and lets the shield guard the motion.

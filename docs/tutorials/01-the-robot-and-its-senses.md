@@ -96,27 +96,31 @@ will meet it properly in a moment.
    but can never translate along +y.
 ```
 
-> ### 📐 The math — differential-drive kinematics & the nonholonomic constraint
->
-> Let the robot's pose in a fixed plane be $(x, y, \theta)$: position
-> $(x,y)$ and heading $\theta$ (the angle of the +x body axis, measured
-> counter-clockwise from the world +x axis). The two control inputs are the body
-> **twist**: linear speed $v$ (along the nose) and yaw rate $\omega$ (positive =
-> turning left). The motion of the robot is
->
-> $$\dot{x} = v\cos\theta, \qquad \dot{y} = v\sin\theta, \qquad \dot{\theta} = \omega .$$
->
-> Read it as: the robot always moves *in the direction it is pointing*, at speed
-> $v$, while its heading turns at rate $\omega$. Because velocity is locked to the
-> heading, the sideways component of motion is always zero. Eliminate $v$ from the
-> first two equations and you get the **nonholonomic constraint**:
->
-> $$\dot{x}\,\sin\theta - \dot{y}\,\cos\theta = 0 .$$
->
-> This says the velocity vector $(\dot x, \dot y)$ has no component along the body
-> +y axis — the robot cannot move sideways, at any instant, ever. It is not a
-> boundary you can approach and touch; it is a wall built into the equations.
-> See [Siegwart 2011] for the full derivation and the wheeled-robot zoo.
+**📐 The math — differential-drive kinematics & the nonholonomic constraint**
+
+Let the robot's pose in a fixed plane be $(x, y, \theta)$: position
+$(x,y)$ and heading $\theta$ (the angle of the +x body axis, measured
+counter-clockwise from the world +x axis). The two control inputs are the body
+**twist**: linear speed $v$ (along the nose) and yaw rate $\omega$ (positive =
+turning left). The motion of the robot is
+
+```math
+\dot{x} = v\cos\theta, \qquad \dot{y} = v\sin\theta, \qquad \dot{\theta} = \omega .
+```
+
+Read it as: the robot always moves *in the direction it is pointing*, at speed
+$v$, while its heading turns at rate $\omega$. Because velocity is locked to the
+heading, the sideways component of motion is always zero. Eliminate $v$ from the
+first two equations and you get the **nonholonomic constraint**:
+
+```math
+\dot{x}\,\sin\theta - \dot{y}\,\cos\theta = 0 .
+```
+
+This says the velocity vector $(\dot x, \dot y)$ has no component along the body
++y axis — the robot cannot move sideways, at any instant, ever. It is not a
+boundary you can approach and touch; it is a wall built into the equations.
+See [Siegwart 2011] for the full derivation and the wheeled-robot zoo.
 
 ---
 
@@ -282,7 +286,9 @@ $(x, y, z, w)$ — four numbers that avoid the singularities of Euler angles. Fo
 robot on flat ground only the *yaw* (rotation about vertical) matters, and it is
 recovered by
 
-$$\theta = \text{atan2}\!\big(2(wz + xy),\; 1 - 2(y^2 + z^2)\big).$$
+```math
+\theta = \text{atan2}\!\big(2(wz + xy),\; 1 - 2(y^2 + z^2)\big).
+```
 
 Symbols: $(x,y,z,w)$ are the quaternion components; $\theta$ is the planar
 heading; `atan2` is the two-argument arctangent that returns the correct quadrant.

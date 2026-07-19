@@ -71,10 +71,15 @@ A smooth *shape* still isn't enough — we need a target speed at each point. Tw
 
 The planner also brakes toward zero near the goal and gates speed while the robot is still turning to align with the path entry.
 
-> ### 📐 The math
-> For a path of local curvature $\kappa$ (inverse radius of the turn), the reference speed is the smallest of the ceilings:
-> $$v_\text{ref} = \min\!\left(v_{\max},\ \underbrace{\frac{\omega_{\max}}{\kappa}}_{\text{yaw-rate limit}},\ \underbrace{\sqrt{\frac{a_\text{lat}^{\max}}{\kappa}}}_{\text{lateral-accel limit}},\ \underbrace{\sqrt{2\,a_\text{brake}\,d_\text{goal}}}_{\text{braking to a stop}}\right)$$
-> where $d_\text{goal}$ is the remaining distance and $a_\text{brake}$ is `braking_decel`. The last term is the classic "how fast can I be going and still stop in $d$ metres" relation, $v = \sqrt{2 a d}$.
+**📐 The math**
+
+For a path of local curvature $\kappa$ (inverse radius of the turn), the reference speed is the smallest of the ceilings:
+
+```math
+v_\text{ref} = \min\!\left(v_{\max},\ \underbrace{\frac{\omega_{\max}}{\kappa}}_{\text{yaw-rate limit}},\ \underbrace{\sqrt{\frac{a_\text{lat}^{\max}}{\kappa}}}_{\text{lateral-accel limit}},\ \underbrace{\sqrt{2\,a_\text{brake}\,d_\text{goal}}}_{\text{braking to a stop}}\right)
+```
+
+where $d_\text{goal}$ is the remaining distance and $a_\text{brake}$ is `braking_decel`. The last term is the classic "how fast can I be going and still stop in $d$ metres" relation, $v = \sqrt{2 a d}$.
 
 The output is a `LocalTrajectory` — a list of `TrajectoryPoint`s, each carrying a pose *and* a `v_ref`. **That is the reference the MPC will chase.**
 
@@ -125,7 +130,11 @@ We deliberately make **acceleration** the input, not velocity. That way the opti
 ```
 
 **Continuous-time unicycle dynamics:**
-$$\dot x = v\cos\theta,\quad \dot y = v\sin\theta,\quad \dot\theta = \omega,\quad \dot v = a,\quad \dot\omega = \alpha.$$
+
+```math
+\dot x = v\cos\theta,\quad \dot y = v\sin\theta,\quad \dot\theta = \omega,\quad \dot v = a,\quad \dot\omega = \alpha.
+```
+
 **Discretized** with a forward-Euler step of $\Delta t$ (this is what the MPC predicts with):
 
 ```math
@@ -153,25 +162,28 @@ Weights say how much each thing matters relative to the others. Tuning an MPC is
 
 Every penalty is written as a **squared** error — $(\text{value} - \text{target})^2$ — for two reasons: squaring punishes big errors much more than small ones (so the robot cares a lot about being *way* off and shrugs at millimetres), and a sum of squares makes the whole problem a **Quadratic Program**, which we can solve fast and reliably (§8).
 
-> ### 📐 The math
-> Over the horizon $k = 0 \dots N$, minimize
-> $$
-> J = \sum_{k=0}^{N} \Big[\, \underbrace{q_p\,\lVert \mathbf{p}_k - \mathbf{p}_k^\text{ref}\rVert^2 + q_\theta(\theta_k-\theta_k^\text{ref})^2}_{\text{track the reference}} + \underbrace{q_v(v_k - v_k^\text{ref})^2}_{\text{track speed}} + \underbrace{q_s\, s_k^2}_{\text{obstacle slack}} \,\Big]
-> \;+\; \sum_{k=0}^{N-1}\Big[\, \underbrace{r_a a_k^2 + r_\alpha \alpha_k^2}_{\text{small inputs}} + \underbrace{\rho\,\lVert \mathbf{u}_k - \mathbf{u}_{k-1}\rVert^2}_{\text{smooth inputs (slew)}}\,\Big]
-> $$
-> with the actual weights from `controller.cpp:175–201`:
->
-> | Term | Symbol | Weight | Note |
-> |------|--------|-------:|------|
-> | position $x,y$ | $q_p$ | 14 | ×3 at the terminal step $k=N$ |
-> | heading $\theta$ | $q_\theta$ | 14 | equal to position — corners need committed turning |
-> | speed $v$ | $q_v$ | 1.5 | low, so the MPC freely slows for turns |
-> | yaw rate $\omega$ | — | 0.02 | tiny regularizer toward 0 |
-> | obstacle slack $s_k$ | $q_s$ | 10 000 | huge — see §7 |
-> | accel $a$, $\alpha$ | $r_a, r_\alpha$ | 0.10, 0.08 | keep commands modest |
-> | input slew | $\rho$ | 0.20 / 0.15 | penalize change between consecutive commands |
->
-> The **terminal weight** (×3 on the last step's position and heading) is a standard MPC trick [Rawlings 2017]: leaning on the end of the horizon improves stability and stops the robot from being lazy about where it ends up.
+**📐 The math**
+
+Over the horizon $k = 0 \dots N$, minimize
+
+```math
+J = \sum_{k=0}^{N} \Big[\, \underbrace{q_p\,\lVert \mathbf{p}_k - \mathbf{p}_k^\text{ref}\rVert^2 + q_\theta(\theta_k-\theta_k^\text{ref})^2}_{\text{track the reference}} + \underbrace{q_v(v_k - v_k^\text{ref})^2}_{\text{track speed}} + \underbrace{q_s\, s_k^2}_{\text{obstacle slack}} \,\Big]
+\;+\; \sum_{k=0}^{N-1}\Big[\, \underbrace{r_a a_k^2 + r_\alpha \alpha_k^2}_{\text{small inputs}} + \underbrace{\rho\,\lVert \mathbf{u}_k - \mathbf{u}_{k-1}\rVert^2}_{\text{smooth inputs (slew)}}\,\Big]
+```
+
+with the actual weights from `controller.cpp:175–201`:
+
+| Term | Symbol | Weight | Note |
+|------|--------|-------:|------|
+| position $x,y$ | $q_p$ | 14 | ×3 at the terminal step $k=N$ |
+| heading $\theta$ | $q_\theta$ | 14 | equal to position — corners need committed turning |
+| speed $v$ | $q_v$ | 1.5 | low, so the MPC freely slows for turns |
+| yaw rate $\omega$ | — | 0.02 | tiny regularizer toward 0 |
+| obstacle slack $s_k$ | $q_s$ | 10 000 | huge — see §7 |
+| accel $a$, $\alpha$ | $r_a, r_\alpha$ | 0.10, 0.08 | keep commands modest |
+| input slew | $\rho$ | 0.20 / 0.15 | penalize change between consecutive commands |
+
+The **terminal weight** (×3 on the last step's position and heading) is a standard MPC trick [Rawlings 2017]: leaning on the end of the horizon improves stability and stops the robot from being lazy about where it ends up.
 
 > ### 🔍 In the code
 > Each squared penalty is added by the `add_square` helper (`controller.cpp:170`), which puts $2w$ on the diagonal of the QP's $P$ matrix and $-2w\cdot\text{target}$ into the linear term $q$ — precisely the expansion of $w(\text{var}-\text{target})^2$. The input-slew penalty (`controller.cpp:191–200`) couples consecutive inputs $u_{k-1}, u_k$, which is what makes commands smooth rather than jumpy.
@@ -217,12 +229,21 @@ The fix is the oldest trick in applied maths: **near a point you already believe
  ...     (a few passes; stop early if out of time budget)
 ```
 
-> ### 📐 The math
-> Take the $x$-update, $x_{k+1} = x_k + \Delta t\, v_k\cos\theta_k$. The nonlinear part is $g(v,\theta)=v\cos\theta$. Its **first-order Taylor expansion** about the nominal $(\bar v,\bar\theta)$ is
-> $$g(v,\theta)\ \approx\ \underbrace{\bar v\cos\bar\theta}_{g(\bar v,\bar\theta)} + \underbrace{\cos\bar\theta}_{\partial g/\partial v}\,(v-\bar v) + \underbrace{(-\bar v\sin\bar\theta)}_{\partial g/\partial\theta}\,(\theta-\bar\theta).$$
-> Collecting terms gives a **linear** relation in the unknowns $x_{k+1}, x_k, v_k, \theta_k$:
-> $$x_{k+1} - x_k - \Delta t\cos\bar\theta\; v_k + \Delta t\,\bar v\sin\bar\theta\; \theta_k \;=\; \Delta t\,\bar v\sin\bar\theta\,\bar\theta.$$
-> That is *exactly* the first `add_equality(...)` in `controller.cpp:253–256` — read off the coefficients: $\cos\bar\theta \to$ `dt*ct`, $\bar v\sin\bar\theta \to$ `dt*velocity*st`, and the right-hand side `dt*velocity*st*theta`. The $y$-row (`controller.cpp:257–260`) is the same expansion of $v\sin\theta$. The other three state updates ($\theta, v, \omega$) are already linear, so they pass through unchanged.
+**📐 The math**
+
+Take the $x$-update, $x_{k+1} = x_k + \Delta t\, v_k\cos\theta_k$. The nonlinear part is $g(v,\theta)=v\cos\theta$. Its **first-order Taylor expansion** about the nominal $(\bar v,\bar\theta)$ is
+
+```math
+g(v,\theta)\ \approx\ \underbrace{\bar v\cos\bar\theta}_{g(\bar v,\bar\theta)} + \underbrace{\cos\bar\theta}_{\partial g/\partial v}\,(v-\bar v) + \underbrace{(-\bar v\sin\bar\theta)}_{\partial g/\partial\theta}\,(\theta-\bar\theta).
+```
+
+Collecting terms gives a **linear** relation in the unknowns $x_{k+1}, x_k, v_k, \theta_k$:
+
+```math
+x_{k+1} - x_k - \Delta t\cos\bar\theta\; v_k + \Delta t\,\bar v\sin\bar\theta\; \theta_k \;=\; \Delta t\,\bar v\sin\bar\theta\,\bar\theta.
+```
+
+That is *exactly* the first `add_equality(...)` in `controller.cpp:253–256` — read off the coefficients: $\cos\bar\theta \to$ `dt*ct`, $\bar v\sin\bar\theta \to$ `dt*velocity*st`, and the right-hand side `dt*velocity*st*theta`. The $y$-row (`controller.cpp:257–260`) is the same expansion of $v\sin\theta$. The other three state updates ($\theta, v, \omega$) are already linear, so they pass through unchanged.
 
 > ### 🔍 In the code
 > The SQP loop is `for (int pass = 0; pass < max_linearization_passes; ++pass)` (`controller.cpp:158`). Each pass rebuilds the QP around the current `linearization`, solves it, and sets `linearization = candidate.x` for the next pass (`controller.cpp:362`). Crucially it also watches the clock: `max_linearization_passes` is only 3–4, and the loop **breaks early** if it has spent more than ~55 % of `solve_deadline_ms` — control must be *timely* even more than it must be *perfect*.
@@ -245,12 +266,21 @@ We don't check just the robot's centre — a rectangle can clip a corner while i
 
 The `slack` variables from the cost (§5) make these constraints **soft**: the robot is allowed to violate the margin *a little* if it must, but each metre of intrusion costs $q_s = 10\,000$ — enormous. So in practice it never cuts a corner unless the alternative is worse than catastrophic, and the QP never becomes *infeasible* (unsolvable) just because the world got tight. Soft constraints are what keep the controller from simply giving up in a narrow gap.
 
-> ### 📐 The math
-> A footprint sample sits at world point $\mathbf{p} = \mathbf{c} + R(\theta)\,\mathbf{b}$, where $\mathbf{c}=(x,y)$ is the robot centre, $R(\theta)$ is the rotation, and $\mathbf{b}=(\pm h_x, \pm h_y)$ is the sample's offset in the body frame. We want clearance $d(\mathbf{p}) \ge \text{margin}$, softened by slack $s_k \ge 0$:
-> $$d(\mathbf{p}) + s_k \;\ge\; \text{margin}.$$
-> Linearize $d$ about the nominal point $\bar{\mathbf{p}}$ using $\nabla d = (g_x, g_y)$ and the chain rule through the pose. With $\dfrac{\partial \mathbf{p}}{\partial\theta} = R'(\theta)\mathbf{b} = (-\sin\theta\,b_x - \cos\theta\,b_y,\ \cos\theta\,b_x - \sin\theta\,b_y)$, define the heading sensitivity $g_\theta = \nabla d \cdot \partial\mathbf{p}/\partial\theta$. The constraint becomes **linear** in $(x, y, \theta, s_k)$:
-> $$g_x\,x + g_y\,y + g_\theta\,\theta + s_k \;\ge\; \text{margin} - d_0 + g_x\bar x + g_y\bar y + g_\theta\bar\theta.$$
-> This is a first-order **control-barrier-style** safety constraint [Ames 2019]: it keeps the body on the safe side of the obstacle's linearized boundary.
+**📐 The math**
+
+A footprint sample sits at world point $\mathbf{p} = \mathbf{c} + R(\theta)\,\mathbf{b}$, where $\mathbf{c}=(x,y)$ is the robot centre, $R(\theta)$ is the rotation, and $\mathbf{b}=(\pm h_x, \pm h_y)$ is the sample's offset in the body frame. We want clearance $d(\mathbf{p}) \ge \text{margin}$, softened by slack $s_k \ge 0$:
+
+```math
+d(\mathbf{p}) + s_k \;\ge\; \text{margin}.
+```
+
+Linearize $d$ about the nominal point $\bar{\mathbf{p}}$ using $\nabla d = (g_x, g_y)$ and the chain rule through the pose. With $\dfrac{\partial \mathbf{p}}{\partial\theta} = R'(\theta)\mathbf{b} = (-\sin\theta\,b_x - \cos\theta\,b_y,\ \cos\theta\,b_x - \sin\theta\,b_y)$, define the heading sensitivity $g_\theta = \nabla d \cdot \partial\mathbf{p}/\partial\theta$. The constraint becomes **linear** in $(x, y, \theta, s_k)$:
+
+```math
+g_x\,x + g_y\,y + g_\theta\,\theta + s_k \;\ge\; \text{margin} - d_0 + g_x\bar x + g_y\bar y + g_\theta\bar\theta.
+```
+
+This is a first-order **control-barrier-style** safety constraint [Ames 2019]: it keeps the body on the safe side of the obstacle's linearized boundary.
 
 > ### 🔍 In the code
 > This is `controller.cpp:266–297`. The 8 `boundary_points` are defined at `controller.cpp:153–156`; `hx`/`hy` are the footprint half-extents plus a margin; `distance_field.distance_world` gives $d_0$ and `distance_field.gradient_world` gives $(g_x, g_y)$; `gt` is the heading sensitivity; and the right-hand side matches the equation above exactly. If the field can't return a value/gradient at a point (unknown space), that sample is simply skipped (`continue`).
@@ -261,10 +291,15 @@ The `slack` variables from the cost (§5) make these constraints **soft**: the r
 
 Assemble everything from §5–§8 and you have a **Quadratic Program**: minimize a quadratic cost subject to linear equalities and inequalities.
 
-> ### 📐 The math
-> Stacking all states, inputs and slacks into one big vector $\mathbf{z}$, the per-tick problem is the standard QP form [Boyd 2004]:
-> $$\min_{\mathbf{z}} \ \tfrac12 \mathbf{z}^\top P\,\mathbf{z} + q^\top\mathbf{z} \quad \text{s.t.}\quad l \le A\mathbf{z} \le u.$$
-> $P$ (positive semidefinite) holds the squared-cost weights; $q$ the linear cost terms; and the single matrix $A$ with bounds $l, u$ encodes **all three** kinds of constraint at once — an equality is just a row with $l = u$, a one-sided inequality sets $u = +\infty$, and a box bound is a single-variable row.
+**📐 The math**
+
+Stacking all states, inputs and slacks into one big vector $\mathbf{z}$, the per-tick problem is the standard QP form [Boyd 2004]:
+
+```math
+\min_{\mathbf{z}} \ \tfrac12 \mathbf{z}^\top P\,\mathbf{z} + q^\top\mathbf{z} \quad \text{s.t.}\quad l \le A\mathbf{z} \le u.
+```
+
+$P$ (positive semidefinite) holds the squared-cost weights; $q$ the linear cost terms; and the single matrix $A$ with bounds $l, u$ encodes **all three** kinds of constraint at once — an equality is just a row with $l = u$, a one-sided inequality sets $u = +\infty$, and a box bound is a single-variable row.
 
 We solve it with **OSQP** [Stellato 2020], a fast, robust operator-splitting QP solver used widely in real-time control. Three details make it work at 30 Hz:
 

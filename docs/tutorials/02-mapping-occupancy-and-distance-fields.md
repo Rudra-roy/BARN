@@ -136,32 +136,36 @@ fractions and re-normalising every update — fiddly and numerically touchy near
 *logarithm of the odds* instead and Bayesian fusion collapses into plain **addition**. Adding a
 scan's evidence becomes `+=`. That's it.
 
-> ### 📐 The math
->
-> Store each cell as its **log-odds** $l = \log\dfrac{p}{1-p}$, where $p$ is the probability the
-> cell is occupied. Integrating one measurement $z$ under an inverse sensor model is a single add:
->
-> $$ l_{t} \;=\; l_{t-1} \;+\; \text{logodds}\!\big(p(m \mid z)\big) $$
->
-> In BARN the increment takes one of two constant values — the **inverse sensor model** —
-> depending on whether the cell is the beam's endpoint or merely on its path, and the result is
-> **clamped** so no cell can become infinitely certain:
->
-> $$
-> l_t \;=\; \text{clamp}\!\Big(\, l_{t-1} + \underbrace{\ell_{\text{hit}}}_{+0.45\ \text{if endpoint}}
-> \ \text{or}\ \underbrace{\ell_{\text{miss}}}_{-0.85\ \text{if crossed}},\ \; l_{\min},\ l_{\max}\Big)
-> $$
->
-> To read a probability back out, invert the transform:
->
-> $$ p \;=\; \frac{1}{1 + e^{-l}} $$
->
-> | symbol | meaning | value (config) |
-> |---|---|---|
-> | $l$ | cell log-odds (the stored number) | starts at $0$ (unknown) |
-> | $\ell_{\text{hit}}$ | evidence added at an occupied endpoint | $0.45$ |
-> | $\ell_{\text{miss}}$ | evidence added along a free ray | $-0.85$ |
-> | $l_{\min}, l_{\max}$ | clamp bounds | $-4.0,\ 2.5$ |
+**📐 The math**
+
+Store each cell as its **log-odds** $l = \log\dfrac{p}{1-p}$, where $p$ is the probability the
+cell is occupied. Integrating one measurement $z$ under an inverse sensor model is a single add:
+
+```math
+l_{t} \;=\; l_{t-1} \;+\; \text{logodds}\!\big(p(m \mid z)\big)
+```
+
+In BARN the increment takes one of two constant values — the **inverse sensor model** —
+depending on whether the cell is the beam's endpoint or merely on its path, and the result is
+**clamped** so no cell can become infinitely certain:
+
+```math
+l_t \;=\; \text{clamp}\!\Big(\, l_{t-1} + \underbrace{\ell_{\text{hit}}}_{+0.45\ \text{if endpoint}}
+\ \text{or}\ \underbrace{\ell_{\text{miss}}}_{-0.85\ \text{if crossed}},\ \; l_{\min},\ l_{\max}\Big)
+```
+
+To read a probability back out, invert the transform:
+
+```math
+p \;=\; \frac{1}{1 + e^{-l}}
+```
+
+| symbol | meaning | value (config) |
+|---|---|---|
+| $l$ | cell log-odds (the stored number) | starts at $0$ (unknown) |
+| $\ell_{\text{hit}}$ | evidence added at an occupied endpoint | $0.45$ |
+| $\ell_{\text{miss}}$ | evidence added along a free ray | $-0.85$ |
+| $l_{\min}, l_{\max}$ | clamp bounds | $-4.0,\ 2.5$ |
 
 A cell starts at $l = 0$, i.e. $p = 0.5$ — pure "unknown", no evidence either way. The classifier
 then reads the tally against two thresholds:
@@ -299,23 +303,27 @@ Two things fall out of this map for free:
 Formally the distance field is the **Euclidean Distance Transform (EDT)** of the set of occupied
 cells. In words: for every point, take the distance to the *closest* occupied point.
 
-> ### 📐 The math
->
-> Let $\mathrm{Occ}$ be the set of occupied cells. The distance field is
->
-> $$ D(p) \;=\; \min_{q \,\in\, \mathrm{Occ}} \lVert p - q \rVert . $$
->
-> Computed naively this is $O(n \cdot |\mathrm{Occ}|)$ — hopeless at map scale. The trick is that
-> the squared transform is **separable**: you can run an exact 1-D distance transform down every
-> **column**, then run the same 1-D transform across every **row** of that intermediate result, and
-> the two passes compose into the exact 2-D answer. Each 1-D pass is the
-> **Felzenszwalb–Huttenlocher** lower-envelope-of-parabolas algorithm, which is **linear**, so the
-> whole field is
->
-> $$ O(n) \quad\text{for } n = \text{cells}, $$
->
-> independent of how many obstacles there are. Distances come out in *cells*; BARN multiplies by
-> `resolution` (0.05 m) to get metres. [Felzenszwalb 2012]
+**📐 The math**
+
+Let $\mathrm{Occ}$ be the set of occupied cells. The distance field is
+
+```math
+D(p) \;=\; \min_{q \,\in\, \mathrm{Occ}} \lVert p - q \rVert .
+```
+
+Computed naively this is $O(n \cdot |\mathrm{Occ}|)$ — hopeless at map scale. The trick is that
+the squared transform is **separable**: you can run an exact 1-D distance transform down every
+**column**, then run the same 1-D transform across every **row** of that intermediate result, and
+the two passes compose into the exact 2-D answer. Each 1-D pass is the
+**Felzenszwalb–Huttenlocher** lower-envelope-of-parabolas algorithm, which is **linear**, so the
+whole field is
+
+```math
+O(n) \quad\text{for } n = \text{cells},
+```
+
+independent of how many obstacles there are. Distances come out in *cells*; BARN multiplies by
+`resolution` (0.05 m) to get metres. [Felzenszwalb 2012]
 
 > ### 🔍 In the code
 > `ros2_ws/src/barn_core/src/distance_field.cpp:94` — the two separable passes. The 1-D primitive

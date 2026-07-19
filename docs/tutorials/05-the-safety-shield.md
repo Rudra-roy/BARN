@@ -119,23 +119,25 @@ deceleration $a_\text{brake}$, it takes $|v| / a_\text{brake}$ seconds to reach 
 $t_\text{lat}$ for the latency between deciding to stop and the wheels actually responding. That
 sum is the stopping time.
 
-> ### 📐 The math
->
-> The shield sweeps over a horizon
->
-> $$ t_\text{stop} = \frac{|v|}{a_\text{brake}} + t_\text{lat}, \qquad t_\text{horizon} = \max\!\big(t_\text{floor},\; t_\text{stop}\big). $$
->
-> | symbol | meaning | value (deployed) |
-> |---|---|---|
-> | $v$ | linear speed of the *scaled* candidate command | — |
-> | $a_\text{brake}$ | assumed braking deceleration | `braking_decel = 2.5` m/s² |
-> | $t_\text{lat}$ | actuation/reaction latency | `shield_latency_s = 0.05` s |
-> | $t_\text{floor}$ | a floor on the horizon (`shield_horizon_s`) | `shield_horizon_s = 0.0` s |
->
-> The `max(...)` lets you enforce a *minimum* sweep length regardless of speed. In BARN's tuned
-> config the floor is `0.0`, so the horizon is purely the physical stopping time — the sweep is as
-> short as physics allows and no shorter. The horizon is then chopped into steps of
-> `integration_dt = 0.05 s`.
+**📐 The math**
+
+The shield sweeps over a horizon
+
+```math
+t_\text{stop} = \frac{|v|}{a_\text{brake}} + t_\text{lat}, \qquad t_\text{horizon} = \max\!\big(t_\text{floor},\; t_\text{stop}\big).
+```
+
+| symbol | meaning | value (deployed) |
+|---|---|---|
+| $v$ | linear speed of the *scaled* candidate command | — |
+| $a_\text{brake}$ | assumed braking deceleration | `braking_decel = 2.5` m/s² |
+| $t_\text{lat}$ | actuation/reaction latency | `shield_latency_s = 0.05` s |
+| $t_\text{floor}$ | a floor on the horizon (`shield_horizon_s`) | `shield_horizon_s = 0.0` s |
+
+The `max(...)` lets you enforce a *minimum* sweep length regardless of speed. In BARN's tuned
+config the floor is `0.0`, so the horizon is purely the physical stopping time — the sweep is as
+short as physics allows and no shorter. The horizon is then chopped into steps of
+`integration_dt = 0.05 s`.
 
 > ### 🔍 In the code
 > `ros2_ws/src/barn_safety/src/swept_footprint_shield.cpp:19`
@@ -184,22 +186,26 @@ Subtract the pose position, rotate by minus the pose heading, and you get the po
 $(x', y')$ in a frame where the box is a plain rectangle centered at the origin. Then it's two
 comparisons.
 
-> ### 📐 The math
->
-> With the swept pose at position $(p_x, p_y)$ and heading $\theta$, let $dx = x - p_x$,
-> $dy = y - p_y$. Rotate into the body frame:
->
-> $$ x' = \cos\theta\,dx + \sin\theta\,dy, \qquad y' = -\sin\theta\,dx + \cos\theta\,dy. $$
->
-> The point is **inside** (unsafe) exactly when
->
-> $$ |x'| \le h_x \;\wedge\; |y'| \le h_y, \qquad
-> h_x = \tfrac{L}{2} + m_\text{em}, \quad h_y = \tfrac{W}{2} + m_\text{em}, $$
->
-> where $\tfrac{L}{2} = 0.254$ m, $\tfrac{W}{2} = 0.2159$ m, and $m_\text{em}$ is the
-> `emergency_margin` (deployed value `0.05` m). For points *outside* the box the shield also
-> records a clearance $\sqrt{\max(0,|x'|-h_x)^2 + \max(0,|y'|-h_y)^2}$ — the distance from the box
-> edge — and reports the minimum over the whole sweep as diagnostics.
+**📐 The math**
+
+With the swept pose at position $(p_x, p_y)$ and heading $\theta$, let $dx = x - p_x$,
+$dy = y - p_y$. Rotate into the body frame:
+
+```math
+x' = \cos\theta\,dx + \sin\theta\,dy, \qquad y' = -\sin\theta\,dx + \cos\theta\,dy.
+```
+
+The point is **inside** (unsafe) exactly when
+
+```math
+|x'| \le h_x \;\wedge\; |y'| \le h_y, \qquad
+h_x = \tfrac{L}{2} + m_\text{em}, \quad h_y = \tfrac{W}{2} + m_\text{em},
+```
+
+where $\tfrac{L}{2} = 0.254$ m, $\tfrac{W}{2} = 0.2159$ m, and $m_\text{em}$ is the
+`emergency_margin` (deployed value `0.05` m). For points *outside* the box the shield also
+records a clearance $\sqrt{\max(0,|x'|-h_x)^2 + \max(0,|y'|-h_y)^2}$ — the distance from the box
+edge — and reports the minimum over the whole sweep as diagnostics.
 
 > ### 🔍 In the code
 > `ros2_ws/src/barn_safety/src/swept_footprint_shield.cpp:48`
@@ -244,16 +250,18 @@ Return the FIRST (largest) s whose swept footprint is clear.
   `"braking_distance_clamp"`. This is the spotter saying *"slower."*
 - **nothing clear, not even s = 0** → full stop. Reason `"emergency_veto"`. This is *"stop."*
 
-> ### 📐 The math
->
-> The shield returns the command $s^\star u$ where
->
-> $$ s^\star = \max\;\{\, s \in [0,1] : \text{swept}(s\,u)\ \text{is clear} \,\}. $$
->
-> It doesn't solve this in closed form — it *samples* $s$ from 1.0 downward in steps of
-> `scale_step = 0.05` and returns the first clear one (which, scanning top-down, is the largest).
-> If even $s = 0$ is unsafe — an obstacle already inside the emergency box at the current pose —
-> the search falls through and the result is a hard veto, $s^\star = 0$.
+**📐 The math**
+
+The shield returns the command $s^\star u$ where
+
+```math
+s^\star = \max\;\{\, s \in [0,1] : \text{swept}(s\,u)\ \text{is clear} \,\}.
+```
+
+It doesn't solve this in closed form — it *samples* $s$ from 1.0 downward in steps of
+`scale_step = 0.05` and returns the first clear one (which, scanning top-down, is the largest).
+If even $s = 0$ is unsafe — an obstacle already inside the emergency box at the current pose —
+the search falls through and the result is a hard veto, $s^\star = 0$.
 
 > ### 🔍 In the code
 > `ros2_ws/src/barn_safety/src/swept_footprint_shield.cpp:97`

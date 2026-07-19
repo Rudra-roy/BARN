@@ -108,7 +108,9 @@ A\* keeps Dijkstra's `g` but adds a second number: `h`, a *guess* of the cost
 still to go from a cell to the goal. Instead of expanding the cell with the
 smallest `g`, you expand the one with the smallest
 
-$$ f = g + h. $$
+```math
+f = g + h.
+```
 
 `g` is what a route has cost *so far* (known, exact). `h` is what it's *estimated*
 to cost from here to the goal (a guess, the "compass"). Their sum `f` estimates
@@ -139,30 +141,38 @@ never scares you off a cell that was actually good. Straight-line ("as the crow
 flies") distance is the classic admissible heuristic: no real route is ever shorter
 than the straight line.
 
-> ### 📐 The math — A\*, admissibility, and the ε-bound
->
-> For a search node $n$, define
-> $$ f(n) = g(n) + \varepsilon\, h(n), $$
-> where $g(n)$ is the exact cost of the best path found from the start to $n$,
-> $h(n)$ is an estimate of the cost from $n$ to the goal, and $\varepsilon \ge 1$
-> is the **heuristic weight**.
->
-> | symbol | meaning |
-> |---|---|
-> | $g(n)$ | cost-so-far, start → $n$ (exact) |
-> | $h(n)$ | estimated cost-to-go, $n$ → goal |
-> | $\varepsilon$ | heuristic weight (`heuristic_weight`) |
-> | $f(n)$ | priority key; smallest is expanded first |
->
-> - **$\varepsilon = 1$, $h$ admissible** ($h(n) \le h^*(n)$ for the true
->   cost-to-go $h^*$): A\* returns the **optimal** path and expands the fewest
->   nodes any optimal search can [Hart 1968].
-> - **$\varepsilon > 1$** (*weighted A\**): you inflate the compass, biasing the
->   search harder toward the goal. It expands far fewer nodes and finishes sooner,
->   at a price — the returned path cost $C$ obeys the bound
->   $$ C \le \varepsilon \, C^{*}, $$
->   where $C^{*}$ is the optimal cost. So $\varepsilon = 2$ guarantees a path no
->   worse than **twice** optimal, usually *much* better in practice.
+**📐 The math — A\*, admissibility, and the ε-bound**
+
+For a search node $n$, define
+
+```math
+f(n) = g(n) + \varepsilon\, h(n),
+```
+
+where $g(n)$ is the exact cost of the best path found from the start to $n$,
+$h(n)$ is an estimate of the cost from $n$ to the goal, and $\varepsilon \ge 1$
+is the **heuristic weight**.
+
+| symbol | meaning |
+|---|---|
+| $g(n)$ | cost-so-far, start → $n$ (exact) |
+| $h(n)$ | estimated cost-to-go, $n$ → goal |
+| $\varepsilon$ | heuristic weight (`heuristic_weight`) |
+| $f(n)$ | priority key; smallest is expanded first |
+
+- **$\varepsilon = 1$, $h$ admissible** ($h(n) \le h^*(n)$ for the true
+  cost-to-go $h^*$): A\* returns the **optimal** path and expands the fewest
+  nodes any optimal search can [Hart 1968].
+- **$\varepsilon > 1$** (*weighted A\**): you inflate the compass, biasing the
+  search harder toward the goal. It expands far fewer nodes and finishes sooner,
+  at a price — the returned path cost $C$ obeys the bound
+
+```math
+C \le \varepsilon \, C^{*},
+```
+
+  where $C^{*}$ is the optimal cost. So $\varepsilon = 2$ guarantees a path no
+  worse than **twice** optimal, usually *much* better in practice.
 
 > **💡 Why BARN weights the heuristic.** BARN scores you on reaching the goal
 > inside a deadline, not on shaving centimetres off an already-safe route. A path
