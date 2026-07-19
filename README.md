@@ -24,9 +24,17 @@
 
 <div align="center">
 
-![BARN worlds of increasing difficulty](docs/media/barn_worlds_strip.png)
+<table>
+<tr>
+<td align="center"><img src="docs/media/world_5.png" width="150" alt="BARN world 5"><br><sub><b>World 5</b> · open</sub></td>
+<td align="center"><img src="docs/media/world_32.png" width="150" alt="BARN world 32"><br><sub><b>World 32</b></sub></td>
+<td align="center"><img src="docs/media/world_62.png" width="150" alt="BARN world 62"><br><sub><b>World 62</b></sub></td>
+<td align="center"><img src="docs/media/world_155.png" width="150" alt="BARN world 155"><br><sub><b>World 155</b></sub></td>
+<td align="center"><img src="docs/media/world_299.png" width="150" alt="BARN world 299"><br><sub><b>World 299</b> · dense</sub></td>
+</tr>
+</table>
 
-*BARN environments range from open corridors (world 5) to highly constrained obstacle fields (world 244).*
+*BARN drops the Jackal into hidden worlds ranging from open (world 5) to densely packed obstacle fields (world 299) — the yellow ball is the goal.*
 
 </div>
 
