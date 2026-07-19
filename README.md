@@ -5,11 +5,16 @@
 **Preparation programme for the ICRA BARN Challenge 2027**
 *benchmarked against the completed BARN 2026 ROS 2 evaluation pipeline*
 
+### [**▶  Explore the Interactive Visualization**](https://rudra-roy.github.io/BARN/)
+
+[![Live interactive demo](https://img.shields.io/badge/%E2%96%B6%20Live%20Interactive%20Demo-rudra--roy.github.io%2FBARN-0aa2b3?style=for-the-badge&labelColor=0b1220)](https://rudra-roy.github.io/BARN/)
+
 [![ROS 2](https://img.shields.io/badge/ROS%202-Jazzy-22314E)](https://docs.ros.org/en/jazzy/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![tutorial](https://img.shields.io/badge/📚_learn-the%20tutorial-8250df)](docs/tutorials/README.md)
 
 *A working autonomous-navigation stack — **and** a course that teaches how it works.*
+*7 live demos: LiDAR · mapping · A\* · elastic band · MPC · safety shield · recovery.*
 
 </div>
 
