@@ -236,7 +236,7 @@ the planner returns an empty path immediately, no A\* needed
 > a **lattice** with turning penalties and a kinematic step. Relaxing those
 > constraints can only make the grid route *cheaper* than the true lattice route,
 > so `h_grid` tends to *under*-estimate — the admissible direction. Then Phase 2
-> multiplies it by $\varepsilon = \texttt{heuristic\_weight} > 1$, which
+> multiplies it by $\varepsilon > 1$ (the `heuristic_weight` parameter), which
 > knowingly gives up the guarantee for speed. Be honest with yourself: this
 > planner is a fast *satisficer*, not a certified-optimal one. On BARN that is the
 > correct trade.
@@ -370,7 +370,7 @@ clearance_penalty_radius` around it, and charged **per metre travelled**.
 > For a move of length $\Delta s$ ending at a cell with clearance $d$, the added
 > cost is
 > $$\text{penalty} = \begin{cases} w_c \left( \dfrac{1}{\max(d,\,0.05)} - \dfrac{1}{r} \right) \Delta s, & d < r,\\ 0, & d \ge r. \end{cases}$$
-> with $w_c = \texttt{clearance\_weight}$ and $r = \texttt{clearance\_penalty\_radius}$.
+> with $w_c$ the `clearance_weight` and $r$ the `clearance_penalty_radius`.
 >
 > | symbol | meaning |
 > |---|---|

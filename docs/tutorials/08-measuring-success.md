@@ -97,7 +97,7 @@ long, the best conceivable traversal time is `20 / 2 = 10 s`. That's OT.
 
 > ### 📐 The math
 >
-> $$OT_i = \frac{\text{reference\_path\_length}_i}{v_{\max}}, \qquad v_{\max} = 2\ \text{m/s}$$
+> $$OT_i = \frac{\text{reference path length}_i}{v_{\max}}, \qquad v_{\max} = 2\ \text{m/s}$$
 >
 > $OT_i$ is the **Optimal Time** for world $i$ — a per-world constant, not something your
 > robot influences. The reference path is a Dijkstra shortest path through the world; note

@@ -118,7 +118,7 @@ We deliberately make **acceleration** the input, not velocity. That way the opti
 
 > ### 📐 The math
 > **State** (5 numbers) and **input** (2 numbers):
-> $$\mathbf{x} = \begin{bmatrix} x \\ y \\ \theta \\ v \\ \omega \end{bmatrix}\ (\text{position, heading, speed, yaw rate}), \qquad \mathbf{u} = \begin{bmatrix} a \\ \alpha \end{bmatrix}\ (\text{linear \& angular acceleration}).$$
+> $$\mathbf{x} = \begin{bmatrix} x \\ y \\ \theta \\ v \\ \omega \end{bmatrix}\ (\text{position, heading, speed, yaw rate}), \qquad \mathbf{u} = \begin{bmatrix} a \\ \alpha \end{bmatrix}\ (\text{linear and angular acceleration}).$$
 > **Continuous-time unicycle dynamics:**
 > $$\dot x = v\cos\theta,\quad \dot y = v\sin\theta,\quad \dot\theta = \omega,\quad \dot v = a,\quad \dot\omega = \alpha.$$
 > **Discretized** with a forward-Euler step of $\Delta t$ (this is what the MPC predicts with):

@@ -123,15 +123,14 @@ sum is the stopping time.
 >
 > The shield sweeps over a horizon
 >
-> $$ t_\text{stop} = \frac{|v|}{a_\text{brake}} + t_\text{lat}, \qquad
-> t_\text{horizon} = \max\!\big(t_\text{horizon\_s},\; t_\text{stop}\big). $$
+> $$ t_\text{stop} = \frac{|v|}{a_\text{brake}} + t_\text{lat}, \qquad t_\text{horizon} = \max\!\big(t_\text{floor},\; t_\text{stop}\big). $$
 >
 > | symbol | meaning | value (deployed) |
 > |---|---|---|
 > | $v$ | linear speed of the *scaled* candidate command | — |
 > | $a_\text{brake}$ | assumed braking deceleration | `braking_decel = 2.5` m/s² |
 > | $t_\text{lat}$ | actuation/reaction latency | `shield_latency_s = 0.05` s |
-> | $t_\text{horizon\_s}$ | a floor on the horizon | `shield_horizon_s = 0.0` s |
+> | $t_\text{floor}$ | a floor on the horizon (`shield_horizon_s`) | `shield_horizon_s = 0.0` s |
 >
 > The `max(...)` lets you enforce a *minimum* sweep length regardless of speed. In BARN's tuned
 > config the floor is `0.0`, so the horizon is purely the physical stopping time — the sweep is as
