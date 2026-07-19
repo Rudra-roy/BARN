@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2288%22%3E%F0%9F%A7%AD%3C/text%3E%3C/svg%3E">
+<title>BARN · A Visual Guide to Robot Navigation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#eceff3; --panel:#f8fafb; --panel-2:#eef2f5;
+    --ink:#10151c; --muted:#5b6672; --faint:#8794a1;
+    --line:#d3dae1; --grid:rgba(16,21,28,.06);
+    --accent:#0a8b99; --accent-ink:#06666f; --accent-soft:rgba(10,139,153,.12);
+    --ok:#1f9d57; --warn:#c1801a; --stop:#d64545; --gold:#b8860b;
+    --shadow:0 1px 2px rgba(16,21,28,.05), 0 12px 32px rgba(16,21,28,.06);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --maxw:1080px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0c1116; --panel:#121a22; --panel-2:#0f171e; --ink:#e6edf3; --muted:#8fa0af; --faint:#647585;
+      --line:#22303b; --grid:rgba(255,255,255,.05);
+      --accent:#2bd4e6; --accent-ink:#7fe6f1; --accent-soft:rgba(43,212,230,.10);
+      --ok:#3fb984; --warn:#e0a63a; --stop:#ef5f5f; --gold:#e3b341;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#eceff3; --panel:#f8fafb; --panel-2:#eef2f5; --ink:#10151c; --muted:#5b6672; --faint:#8794a1;
+    --line:#d3dae1; --grid:rgba(16,21,28,.06);
+    --accent:#0a8b99; --accent-ink:#06666f; --accent-soft:rgba(10,139,153,.12);
+    --ok:#1f9d57; --warn:#c1801a; --stop:#d64545; --gold:#b8860b;
+    --shadow:0 1px 2px rgba(16,21,28,.05), 0 12px 32px rgba(16,21,28,.06);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0c1116; --panel:#121a22; --panel-2:#0f171e; --ink:#e6edf3; --muted:#8fa0af; --faint:#647585;
+    --line:#22303b; --grid:rgba(255,255,255,.05);
+    --accent:#2bd4e6; --accent-ink:#7fe6f1; --accent-soft:rgba(43,212,230,.10);
+    --ok:#3fb984; --warn:#e0a63a; --stop:#ef5f5f; --gold:#e3b341;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+  }
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px}
+  .mono{font-family:var(--mono)}
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent-ink); font-weight:600}
+  a{color:var(--accent-ink); text-decoration:none}
+  a:hover{text-decoration:underline}
+  h1,h2,h3{text-wrap:balance; line-height:1.12; margin:0}
+  h2{font-size:clamp(1.5rem,3.4vw,2.2rem); font-weight:800; letter-spacing:-.02em}
+  h3{font-size:1.12rem; font-weight:700; letter-spacing:-.01em}
+  p{margin:.6em 0}
+  :focus-visible{outline:2.5px solid var(--accent); outline-offset:3px; border-radius:4px}
+
+  .topbar{position:sticky; top:0; z-index:20; backdrop-filter:blur(8px);
+    background:color-mix(in srgb,var(--bg) 82%,transparent); border-bottom:1px solid var(--line)}
+  .topbar .wrap{display:flex; align-items:center; gap:16px; height:56px}
+  .brand{font-family:var(--mono); font-weight:700; letter-spacing:.02em; font-size:14px}
+  .brand b{color:var(--accent-ink)}
+  .navlinks{display:flex; gap:16px; margin-left:8px}
+  .navlinks a{font-family:var(--mono); font-size:12px; color:var(--muted); letter-spacing:.03em}
+  .navlinks a:hover{color:var(--accent-ink); text-decoration:none}
+  @media (max-width:720px){.navlinks{display:none}}
+  .spacer{flex:1}
+  .toggle{font-family:var(--mono); font-size:12px; letter-spacing:.05em; cursor:pointer;
+    background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:7px 12px}
+  .toggle:hover{border-color:var(--accent)}
+
+  .hero{position:relative; overflow:hidden; border-bottom:1px solid var(--line)}
+  #heroCanvas{position:absolute; inset:0; width:100%; height:100%; display:block; opacity:.9}
+  .hero-inner{position:relative; z-index:2; padding:80px 0 68px}
+  .hero h1{font-size:clamp(2.1rem,6vw,3.8rem); font-weight:850; letter-spacing:-.03em; max-width:16ch}
+  .hero .lede{font-size:clamp(1.05rem,2.2vw,1.28rem); color:var(--muted); max-width:56ch; margin-top:20px}
+  .kicker{display:inline-flex; align-items:center; gap:10px; margin-bottom:20px}
+  .kicker .dot{width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px var(--accent-soft)}
+  .cta-row{display:flex; flex-wrap:wrap; gap:12px; margin-top:30px}
+  .btn{font-family:var(--mono); font-size:13px; letter-spacing:.03em; font-weight:600; cursor:pointer;
+    padding:11px 18px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); transition:transform .12s,border-color .12s}
+  .btn.primary{background:var(--accent); color:#04222a; border-color:transparent}
+  .btn:hover{transform:translateY(-1px); border-color:var(--accent)}
+  .btn.primary:hover{border-color:transparent}
+  .stats{display:flex; flex-wrap:wrap; gap:28px; margin-top:40px; padding-top:22px; border-top:1px solid var(--line)}
+  .stat .n{font-family:var(--mono); font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums}
+  .stat .l{font-size:12px; color:var(--muted); letter-spacing:.04em}
+
+  section{padding:66px 0}
+  .sec-head{max-width:62ch}
+  .sec-head .eyebrow{display:block; margin-bottom:12px}
+  .sec-head p{color:var(--muted); font-size:1.05rem}
+
+  .chain{display:flex; align-items:stretch; gap:0; margin-top:34px; overflow-x:auto; padding-bottom:8px}
+  .node{flex:0 0 auto; min-width:112px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:13px 13px 15px}
+  .node .ix{font-family:var(--mono); font-size:11px; color:var(--faint); letter-spacing:.1em}
+  .node .nm{font-weight:700; font-size:.96rem; margin-top:6px}
+  .node .ch{font-family:var(--mono); font-size:11px; color:var(--accent-ink); margin-top:8px}
+  .arrow{flex:0 0 auto; align-self:center; width:30px; text-align:center; color:var(--faint); font-family:var(--mono)}
+  .feedback{margin-top:14px; font-family:var(--mono); font-size:12px; color:var(--muted)}
+  .feedback b{color:var(--stop)}
+
+  .module{background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); margin-top:30px; overflow:hidden}
+  .module-head{display:flex; align-items:center; gap:14px; padding:15px 20px; border-bottom:1px solid var(--line); background:var(--panel-2); flex-wrap:wrap}
+  .module-head .tag{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent-ink); border:1px solid var(--line); border-radius:999px; padding:4px 10px}
+  .module-head h3{flex:1; min-width:180px}
+  .module-body{display:grid; grid-template-columns:1.35fr .9fr; gap:0}
+  @media (max-width:780px){.module-body{grid-template-columns:1fr}}
+  .stage{position:relative; background:var(--panel-2); border-right:1px solid var(--line); min-height:340px; touch-action:none}
+  @media (max-width:780px){.stage{border-right:none; border-bottom:1px solid var(--line); min-height:300px}}
+  .stage canvas{display:block; width:100%; height:100%}
+  .panel{padding:20px}
+  .panel p{color:var(--muted); font-size:.95rem; margin-top:0}
+  .ctrl{margin:14px 0}
+  .ctrl label{display:flex; justify-content:space-between; font-family:var(--mono); font-size:12px; letter-spacing:.03em; color:var(--muted); margin-bottom:7px}
+  .ctrl label .v{color:var(--ink)}
+  input[type=range]{width:100%; accent-color:var(--accent); height:22px}
+  .btns{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
+  .btns .btn{padding:8px 14px; font-size:12px}
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  .seg button{font-family:var(--mono); font-size:12px; padding:7px 11px; border:none; background:var(--panel); color:var(--muted); cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--accent); color:#04222a}
+  .readout{display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin-top:18px; border-top:1px dashed var(--line); padding-top:16px}
+  .readout .k{font-family:var(--mono); font-size:11px; color:var(--faint); letter-spacing:.05em}
+  .readout .val{font-family:var(--mono); font-size:1.02rem; font-weight:600; font-variant-numeric:tabular-nums; margin-top:2px}
+  .state-pill{display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:.06em; padding:6px 12px; border-radius:999px; border:1px solid var(--line)}
+  .state-pill .sd{width:9px; height:9px; border-radius:50%}
+  .legend{display:flex; flex-wrap:wrap; gap:12px 16px; margin-top:14px; font-family:var(--mono); font-size:11px; color:var(--muted)}
+  .legend .it{display:inline-flex; align-items:center; gap:6px}
+  .legend .sw{width:12px; height:12px; border-radius:3px; display:inline-block}
+  .hint{font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:12px}
+
+  .grid-ch{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-top:32px}
+  .chcard{display:block; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; color:var(--ink); transition:border-color .15s,transform .15s}
+  .chcard:hover{border-color:var(--accent); transform:translateY(-2px); text-decoration:none}
+  .chcard .no{font-family:var(--mono); font-size:12px; color:var(--accent-ink); letter-spacing:.08em}
+  .chcard .t{font-weight:700; margin-top:6px}
+  .chcard .d{color:var(--muted); font-size:.86rem; margin-top:6px}
+  .chcard.star{border-color:var(--accent)}
+
+  footer{border-top:1px solid var(--line); padding:40px 0 64px; color:var(--muted); font-size:.9rem}
+  footer .wrap{display:flex; flex-wrap:wrap; gap:16px; align-items:baseline}
+  .note{font-family:var(--mono); font-size:12px; color:var(--faint)}
+  @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <span class="brand">BARN·<b>nav</b></span>
+  <nav class="navlinks">
+    <a href="#sense">sense</a><a href="#map">map</a><a href="#astar">A*</a>
+    <a href="#band">band</a><a href="#mpc">MPC</a><a href="#shield">shield</a><a href="#recovery">recover</a>
+  </nav>
+  <span class="spacer"></span>
+  <button class="toggle" id="themeBtn" aria-label="Toggle colour theme">◐ theme</button>
+</div></div>
+
+<header class="hero">
+  <canvas id="heroCanvas" aria-hidden="true"></canvas>
+  <div class="wrap hero-inner">
+    <span class="kicker eyebrow"><span class="dot"></span>Benchmark Autonomous Robot Navigation</span>
+    <h1>How a robot finds its way through a maze it has never seen.</h1>
+    <p class="lede">A ground robot, a single spinning laser, and a dense field of obstacles it has no map for — at up to 2&nbsp;m/s. Below is the whole classical pipeline as <b>seven live demos</b>: see, map, search, smooth, predict, guard, and recover. Drag, play, and break every one.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="#astar">See A* search ↓</a>
+      <a class="btn" href="#course">The full course</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n">7</div><div class="l">interactive demos</div></div>
+      <div class="stat"><div class="n">5</div><div class="l">MPC state variables</div></div>
+      <div class="stat"><div class="n">~30&nbsp;Hz</div><div class="l">control re-plans / sec</div></div>
+      <div class="stat"><div class="n">2&nbsp;m/s</div><div class="l">top speed, no prior map</div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+<section id="chain" style="padding-bottom:24px">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">The signal chain</span>
+      <h2>Sensors in, wheel commands out</h2>
+      <p>Each stage does one job and hands its result to the next. Two feedback paths matter: mapping corrects drift, and the safety shield can <b>veto</b> a command straight back to the planner. Every stage below has its own live panel.</p>
+    </div>
+    <div class="chain" role="list">
+      <div class="node" role="listitem"><div class="ix">01</div><div class="nm">Sense</div><div class="ch">LiDAR + odom</div></div>
+      <div class="arrow">→</div>
+      <div class="node" role="listitem"><div class="ix">02</div><div class="nm">Map</div><div class="ch">grid + field</div></div>
+      <div class="arrow">→</div>
+      <div class="node" role="listitem"><div class="ix">03</div><div class="nm">Route</div><div class="ch">A* lattice</div></div>
+      <div class="arrow">→</div>
+      <div class="node" role="listitem"><div class="ix">04</div><div class="nm">Smooth</div><div class="ch">elastic band</div></div>
+      <div class="arrow">→</div>
+      <div class="node" role="listitem"><div class="ix">05</div><div class="nm">MPC</div><div class="ch">OSQP, 30 Hz</div></div>
+      <div class="arrow">→</div>
+      <div class="node" role="listitem"><div class="ix">06</div><div class="nm">Shield</div><div class="ch">swept body</div></div>
+      <div class="arrow">→</div>
+      <div class="node" role="listitem"><div class="ix">07</div><div class="nm">Wheels</div><div class="ch">/cmd_vel</div></div>
+    </div>
+    <div class="feedback">↺ map → drift correction &nbsp;·&nbsp; shield → <b>veto</b> → recovery (reverse &amp; re-plan)</div>
+  </div>
+</section>
+
+<!-- 01 SENSE -->
+<section id="sense" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Demo 01 · sensing</span>
+      <h2>What the robot actually sees</h2>
+      <p>No camera, no map — just one 2-D LiDAR firing hundreds of rays a spin, each returning the distance to the first thing it hits. That sparse ring of hit points is the <em>entire</em> picture the robot works from. Drag the robot around.</p></div>
+    <div class="module">
+      <div class="module-head"><span class="tag">2-D LiDAR</span><h3>A single laser scan</h3></div>
+      <div class="module-body">
+        <div class="stage"><canvas id="lidarCanvas"></canvas></div>
+        <div class="panel">
+          <p>Each faint line is a laser ray; each dot is where it struck an obstacle or wall. Everything <em>between</em> the dots and the robot is inferred free space — everything beyond is unknown.</p>
+          <div class="legend">
+            <span class="it"><span class="sw" style="background:var(--accent)"></span>hit point</span>
+            <span class="it"><span class="sw" style="background:var(--faint)"></span>ray (free space)</span>
+          </div>
+          <div class="readout">
+            <div><div class="k">RAYS / SCAN</div><div class="val">180</div></div>
+            <div><div class="k">RANGE SEEN</div><div class="val" id="liRange">—</div></div>
+          </div>
+          <p class="hint">drag the robot · this is the raw input to every later stage</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 MAP -->
+<section id="map" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Demo 02 · mapping</span>
+      <h2>From hit points to a clearance field</h2>
+      <p>Those scattered hits get folded into an <b>occupancy grid</b> (which cells are blocked), and then into a <b>distance field</b> — for every cell, how far is the nearest obstacle, and which way is “away”. That field is what the planner and MPC lean on. Paint walls and watch it recompute.</p></div>
+    <div class="module">
+      <div class="module-head"><span class="tag">distance transform</span><h3>Clearance heatmap + gradient</h3></div>
+      <div class="module-body">
+        <div class="stage"><canvas id="edtCanvas"></canvas></div>
+        <div class="panel">
+          <p>Warm cells are close to a wall (dangerous); cool cells are open (safe). The little arrows point <b>up-gradient</b> — the direction that increases clearance fastest. The MPC uses exactly this arrow to push the robot off obstacles.</p>
+          <div class="legend">
+            <span class="it"><span class="sw" style="background:#d64545"></span>near wall</span>
+            <span class="it"><span class="sw" style="background:#e0a63a"></span>mid</span>
+            <span class="it"><span class="sw" style="background:var(--accent)"></span>open</span>
+          </div>
+          <div class="ctrl" style="margin-top:16px"><label>show gradient arrows <span class="v" id="edtArrVal">on</span></label>
+            <div class="seg" id="edtArr"><button data-v="1" aria-pressed="true">on</button><button data-v="0" aria-pressed="false">off</button></div></div>
+          <div class="btns"><button class="btn" id="edtClear">clear walls</button><button class="btn" id="edtReset">reset</button></div>
+          <p class="hint">click / drag on the grid to add or remove walls</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 A* -->
+<section id="astar" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Demo 03 · global planning</span>
+      <h2>A* search — and the cost that shapes it</h2>
+      <p>To find a route, A* explores cells in order of <span class="mono">f = g + w·h</span>: <b>g</b> = cost so far, <b>h</b> = estimated cost to the goal. Slide <b>w</b> from 0 and watch the search transform — from Dijkstra flooding everywhere, to A* aiming at the goal, to greedy beelining (fast, but it can miss the best route). Then turn on the <b>clearance cost</b> and watch the path pull to the center of corridors.</p></div>
+    <div class="module">
+      <div class="module-head"><span class="tag">informed search</span><h3>Frontier expansion</h3>
+        <span class="state-pill" id="asPill" style="margin-left:auto"><span class="sd" style="background:var(--accent)"></span><span id="asMode">A*</span></span>
+      </div>
+      <div class="module-body">
+        <div class="stage"><canvas id="astarCanvas"></canvas></div>
+        <div class="panel">
+          <p>Faint teal = cells already <b>explored</b> (closed). Bright teal = the <b>frontier</b> (open set, waiting). Gold = the final <b>path</b>.</p>
+          <div class="ctrl"><label>heuristic weight&nbsp;&nbsp;w <span class="v" id="asWval">1.0 · A*</span></label>
+            <input type="range" id="asW" min="0" max="30" value="10" aria-label="heuristic weight"></div>
+          <div class="ctrl"><label>clearance cost (avoid walls) <span class="v" id="asCval">off</span></label>
+            <div class="seg" id="asC"><button data-v="0" aria-pressed="true">off</button><button data-v="1" aria-pressed="false">on</button></div></div>
+          <div class="btns"><button class="btn primary" id="asRun">▶ search</button><button class="btn" id="asMaze">new maze</button></div>
+          <div class="readout">
+            <div><div class="k">CELLS EXPANDED</div><div class="val" id="asExp">—</div></div>
+            <div><div class="k">PATH LENGTH</div><div class="val" id="asLen">—</div></div>
+          </div>
+          <div class="legend">
+            <span class="it"><span class="sw" style="background:var(--accent-soft)"></span>explored</span>
+            <span class="it"><span class="sw" style="background:var(--accent)"></span>frontier</span>
+            <span class="it"><span class="sw" style="background:var(--gold)"></span>path</span>
+          </div>
+          <p class="hint">expanded-count is the punchline: a good heuristic explores far fewer cells</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 BAND -->
+<section id="band" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Demo 04 · local planning</span>
+      <h2>The elastic band: a path pulled taut</h2>
+      <p>A raw A* route staircases and hugs walls. The local planner treats it like a stretchy band — an <b>internal tension</b> straightens it, an <b>obstacle repulsion</b> pushes it toward open space — and lets it settle into a smooth, clearance-aware reference. Drag the obstacle through the band.</p></div>
+    <div class="module">
+      <div class="module-head"><span class="tag">elastic band</span><h3>Path relaxation</h3></div>
+      <div class="module-body">
+        <div class="stage"><canvas id="bandCanvas"></canvas></div>
+        <div class="panel">
+          <p>Faint line = the original jagged route. Solid line = the band after relaxation. Every point is nudged each tick by a blend of smoothing, repulsion, and a pull back toward the original.</p>
+          <div class="ctrl"><label>smoothing (tension) <span class="v" id="bnSval">0.35</span></label>
+            <input type="range" id="bnS" min="0" max="60" value="35" aria-label="smoothing weight"></div>
+          <div class="ctrl"><label>obstacle repulsion <span class="v" id="bnOval">0.55</span></label>
+            <input type="range" id="bnO" min="0" max="100" value="55" aria-label="obstacle weight"></div>
+          <div class="btns"><button class="btn" id="bnReset">↺ re-jagged</button></div>
+          <p class="hint">drag the red obstacle · high tension = straighter, high repulsion = wider berth</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 MPC -->
+<section id="mpc" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Demo 05 · the controller</span>
+      <h2>MPC: rolling the model forward</h2>
+      <p>Here's how a prediction is <em>generated</em>. Starting from the robot's real state, the MPC applies a trial command, steps the <b>motion model</b> forward (<span class="mono">x&#8345;₊₁ = x&#8345; + Δt·v·cosθ …</span>), applies the next, and so on — <b>N</b> steps into the future. Push the <b>prediction range</b> up and watch the ghost chain reach further; push speed up and watch it slow itself in the corners.</p></div>
+    <div class="module">
+      <div class="module-head"><span class="tag">receding horizon</span><h3>Model rollout</h3></div>
+      <div class="module-body">
+        <div class="stage"><canvas id="mpcCanvas"></canvas></div>
+        <div class="panel">
+          <p>Dashed purple = the reference. Each blue <b>ghost</b> is a predicted pose from rolling the model forward. The green mark is the single step actually sent to the wheels — the rest is recomputed next tick (the “receding horizon”).</p>
+          <div class="ctrl"><label>prediction range&nbsp;&nbsp;N <span class="v" id="mpcHval">14 steps</span></label>
+            <input type="range" id="mpcH" min="4" max="34" value="14" aria-label="prediction range"></div>
+          <div class="ctrl"><label>cruise speed <span class="v" id="mpcVval">1.4 m/s</span></label>
+            <input type="range" id="mpcV" min="4" max="20" value="14" aria-label="cruise speed"></div>
+          <div class="btns"><button class="btn" id="mpcPlay">⏸ pause</button></div>
+          <div class="readout">
+            <div><div class="k">HORIZON REACH</div><div class="val" id="mpcReach">—</div></div>
+            <div><div class="k">CURRENT v</div><div class="val" id="mpcVnow">—</div></div>
+          </div>
+          <p class="hint">longer N = sees further, plans smoother, costs more to solve</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 SHIELD -->
+<section id="shield" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Demo 06 · the safety net</span>
+      <h2>The shield can only say “slower” or “stop”</h2>
+      <p>An independent last check with no planner state. It sweeps the body forward over its <b>stopping distance</b> and, if anything blocks it, scales the whole command down to the largest collision-free version. Push the speed up, or drag the wall in.</p></div>
+    <div class="module">
+      <div class="module-head"><span class="tag">swept footprint</span><h3>Stopping envelope</h3>
+        <span class="state-pill" id="shieldPill" style="margin-left:auto"><span class="sd" style="background:var(--ok)"></span><span id="shieldState">CLEAR</span></span></div>
+      <div class="module-body">
+        <div class="stage"><canvas id="shieldCanvas"></canvas></div>
+        <div class="panel">
+          <p>Each faint outline is the <b>body swept forward</b> over its braking distance <span class="mono">d = v²/2a + v·t</span> — the ghosts that would touch the wall turn <b style="color:var(--stop)">red</b>. The green fill is the fastest speed the shield will actually allow.</p>
+          <div class="ctrl"><label>desired speed <span class="v" id="shVval">1.6 m/s</span></label>
+            <input type="range" id="shV" min="0" max="20" value="16" aria-label="desired speed"></div>
+          <div class="readout">
+            <div><div class="k">STOPPING DIST</div><div class="val" id="shStop">—</div></div>
+            <div><div class="k">GAP TO WALL</div><div class="val" id="shGap">—</div></div>
+            <div><div class="k">DESIRED v</div><div class="val" id="shDes">—</div></div>
+            <div><div class="k">SAFE v</div><div class="val" id="shSafe" style="color:var(--accent-ink)">—</div></div>
+          </div>
+          <p class="hint">drag the obstacle · red ghosts = the swept body would collide</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 RECOVERY -->
+<section id="recovery" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Demo 07 · getting unstuck</span>
+      <h2>When spinning fails, back out the way you came</h2>
+      <p>Wedged in a pinch, a rectangular robot can't rotate — its corners hit the walls and the shield freezes it. The fix is <b>backtracking</b>: reverse along the breadcrumb trail it just drove (guaranteed clear) to open space, then re-plan. Run a full episode.</p></div>
+    <div class="module">
+      <div class="module-head"><span class="tag">breadcrumb recovery</span><h3>Reverse to clearance</h3>
+        <span class="state-pill" id="recPill" style="margin-left:auto"><span class="sd" id="recDot" style="background:var(--accent)"></span><span id="recState">DRIVING</span></span></div>
+      <div class="module-body">
+        <div class="stage"><canvas id="recCanvas"></canvas></div>
+        <div class="panel">
+          <p>The robot drives into a dead-end pinch, dropping <b style="color:var(--accent-ink)">breadcrumbs</b>. It wedges, then <b>reverses along the trail</b> to a spot wide enough to rotate, and re-plans a route out.</p>
+          <div class="btns" style="margin-top:14px"><button class="btn primary" id="recRun">▶ run episode</button><button class="btn" id="recReset">↺ reset</button></div>
+          <div class="readout"><div><div class="k">PHASE</div><div class="val" id="recPhase">idle</div></div>
+            <div><div class="k">CLEARANCE</div><div class="val" id="recClear">—</div></div></div>
+          <p class="hint">rotation is only commanded where clearance ≥ turning radius (~0.40 m)</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="course">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Read the full course</span>
+      <h2>Nine chapters, from first laser to last constraint</h2>
+      <p>This page is the playground; the depth lives in the written tutorial — every idea in three layers: intuition, the math, and the exact code. <b>Each card opens its chapter on GitHub</b> (<span class="mono">docs/tutorials/</span>).</p></div>
+    <div class="grid-ch">
+      <a class="chcard" target="_blank" rel="noopener" href="https://github.com/Rudra-roy/BARN/blob/main/docs/tutorials/00-the-barn-problem.md"><div class="no">00 ↗</div><div class="t">The BARN problem</div><div class="d">Why unseen dense obstacle fields are hard.</div></a>
+      <a class="chcard" target="_blank" rel="noopener" href="https://github.com/Rudra-roy/BARN/blob/main/docs/tutorials/01-the-robot-and-its-senses.md"><div class="no">01 ↗</div><div class="t">The robot &amp; its senses</div><div class="d">Jackal, LiDAR, frames, the adapter.</div></a>
+      <a class="chcard" target="_blank" rel="noopener" href="https://github.com/Rudra-roy/BARN/blob/main/docs/tutorials/02-mapping-occupancy-and-distance-fields.md"><div class="no">02 ↗</div><div class="t">Mapping &amp; distance fields</div><div class="d">Log-odds grids and clearance gradients.</div></a>
+      <a class="chcard" target="_blank" rel="noopener" href="https://github.com/Rudra-roy/BARN/blob/main/docs/tutorials/03-global-planning-with-a-star.md"><div class="no">03 ↗</div><div class="t">Global planning with A*</div><div class="d">Two-phase lattice search to a route.</div></a>
+      <a class="chcard star" target="_blank" rel="noopener" href="https://github.com/Rudra-roy/BARN/blob/main/docs/tutorials/04-local-planning-and-mpc.md"><div class="no">04 ★ ↗</div><div class="t">Local planning &amp; MPC</div><div class="d">Elastic band + optimization as control.</div></a>
+      <a class="chcard" target="_blank" rel="noopener" href="https://github.com/Rudra-roy/BARN/blob/main/docs/tutorials/05-the-safety-shield.md"><div class="no">05 ↗</div><div class="t">The safety shield</div><div class="d">Swept-footprint veto, last line of defense.</div></a>
+      <a class="chcard" target="_blank" rel="noopener" href="https://github.com/Rudra-roy/BARN/blob/main/docs/tutorials/06-recovery-and-backtracking.md"><div class="no">06 ↗</div><div class="t">Recovery &amp; backtracking</div><div class="d">Reverse-along-breadcrumb unsticking.</div></a>
+      <a class="chcard" target="_blank" rel="noopener" href="https://github.com/Rudra-roy/BARN/blob/main/docs/tutorials/07-the-system-as-a-whole.md"><div class="no">07 ↗</div><div class="t">The system as a whole</div><div class="d">Nodes, topics, rates, threads.</div></a>
+      <a class="chcard" target="_blank" rel="noopener" href="https://github.com/Rudra-roy/BARN/blob/main/docs/tutorials/08-measuring-success.md"><div class="no">08 ↗</div><div class="t">Measuring success</div><div class="d">The metric, read critically.</div></a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap">
+  <span class="mono">barn-2027-prep · classical navigation stack</span>
+  <span class="spacer" style="flex:1"></span>
+  <span class="note">A visual companion to the written tutorial. Built to be read, run, and broken.</span>
+</div></footer>
+
+<script>
+(function(){
+  "use strict";
+  var reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+  var root=document.documentElement, tbtn=document.getElementById("themeBtn");
+  function cur(){ return root.dataset.theme || (matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"); }
+  tbtn.addEventListener("click",function(){ root.dataset.theme = cur()==="dark"?"light":"dark"; window.dispatchEvent(new Event("themechange")); });
+  function css(v){ return getComputedStyle(root).getPropertyValue(v).trim(); }
+  function fit(cv){ var dpr=Math.min(devicePixelRatio||1,2), r=cv.getBoundingClientRect();
+    var w=Math.max(1,r.width), h=Math.max(1,r.height); cv.width=w*dpr; cv.height=h*dpr;
+    var ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); return {ctx:ctx,w:w,h:h}; }
+  function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  // run rAF loop only while element is on screen
+  function onView(el,fn){ var vis=false;
+    var io=new IntersectionObserver(function(e){ e.forEach(function(x){ vis=x.isIntersecting; if(vis&&!reduce) fn(); }); },{threshold:.05});
+    io.observe(el); return function(){ return vis&&!reduce; }; }
+  function pointerXY(cv,e){ var r=cv.getBoundingClientRect();
+    var cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY);
+    return {x:cx-r.left, y:cy-r.top}; }
+
+  /* ===== HERO ambient ===== */
+  (function(){ var cv=document.getElementById("heroCanvas"); if(!cv)return; var d=fit(cv),t=0,tr=[];
+    addEventListener("resize",function(){d=fit(cv);});
+    for(var i=0;i<3;i++) tr.push({ph:Math.random()*6.28,sp:.18+Math.random()*.12,a:.5+Math.random()*.4});
+    var running=false, alive=onView(cv,start);
+    function start(){ if(running) return; running=true; loop(); }
+    function loop(){ var ctx=d.ctx,w=d.w,h=d.h; ctx.clearRect(0,0,w,h); var ac=css("--accent");
+      for(var k=0;k<tr.length;k++){ ctx.beginPath();
+        for(var x=0;x<=w;x+=6){ var y=h*.5+Math.sin(x*.006+t*tr[k].sp+tr[k].ph)*h*.16*tr[k].a+Math.sin(x*.013-t*tr[k].sp*.7+tr[k].ph)*h*.08*tr[k].a;
+          x?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.globalAlpha=.10+.05*k; ctx.strokeStyle=ac; ctx.lineWidth=1.5; ctx.stroke(); }
+      ctx.globalAlpha=1; t++; if(alive()){ requestAnimationFrame(loop); } else { running=false; } }
+    start();
+  })();
+
+  /* ===== 01 LiDAR ===== */
+  (function(){ var cv=document.getElementById("lidarCanvas"); if(!cv)return; var d=fit(cv);
+    var rangeEl=document.getElementById("liRange"); var rob={x:0,y:0}, obs=[], drag=false;
+    function layout(){ d=fit(cv); var w=d.w,h=d.h; rob={x:w*.28,y:h*.55};
+      obs=[[w*.55,h*.35,26],[w*.68,h*.62,34],[w*.82,h*.30,22],[w*.44,h*.72,20],[w*.86,h*.68,28],[w*.60,h*.20,16]]; }
+    layout(); addEventListener("resize",function(){layout();draw();}); addEventListener("themechange",draw);
+    function castRay(a){ var w=d.w,h=d.h, dx=Math.cos(a),dy=Math.sin(a), best=1e9;
+      // walls (rect 8..w-8, 8..h-8)
+      if(dx>1e-6) best=Math.min(best,((w-8)-rob.x)/dx); if(dx<-1e-6) best=Math.min(best,(8-rob.x)/dx);
+      if(dy>1e-6) best=Math.min(best,((h-8)-rob.y)/dy); if(dy<-1e-6) best=Math.min(best,(8-rob.y)/dy);
+      for(var i=0;i<obs.length;i++){ var ox=obs[i][0]-rob.x, oy=obs[i][1]-rob.y, r=obs[i][2];
+        var b=ox*dx+oy*dy; if(b<0) continue; var c=ox*ox+oy*oy-r*r, disc=b*b-c; if(disc<0) continue;
+        var t=b-Math.sqrt(disc); if(t>0&&t<best) best=t; }
+      return best; }
+    function draw(){ var ctx=d.ctx,w=d.w,h=d.h; ctx.clearRect(0,0,w,h);
+      for(var i=0;i<obs.length;i++){ ctx.beginPath(); ctx.arc(obs[i][0],obs[i][1],obs[i][2],0,6.28);
+        ctx.fillStyle=css("--faint"); ctx.globalAlpha=.35; ctx.fill(); ctx.globalAlpha=1; }
+      var N=180, ac=css("--accent"), maxR=0;
+      for(var k=0;k<N;k++){ var a=k/N*6.28, t=castRay(a); if(t>maxR&&t<1e8) maxR=t;
+        var hx=rob.x+Math.cos(a)*t, hy=rob.y+Math.sin(a)*t;
+        ctx.strokeStyle=css("--faint"); ctx.globalAlpha=.16; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(rob.x,rob.y); ctx.lineTo(hx,hy); ctx.stroke();
+        ctx.globalAlpha=1; ctx.beginPath(); ctx.arc(hx,hy,2,0,6.28); ctx.fillStyle=ac; ctx.fill(); }
+      ctx.fillStyle=css("--panel"); ctx.strokeStyle=css("--ink"); ctx.lineWidth=2;
+      rr(ctx,rob.x-11,rob.y-8,22,16,4); ctx.fill(); ctx.stroke();
+      rangeEl.textContent=(maxR/60).toFixed(1)+" m"; }
+    cv.addEventListener("pointerdown",function(e){ drag=true; var p=pointerXY(cv,e); rob.x=p.x; rob.y=p.y; draw(); });
+    addEventListener("pointermove",function(e){ if(drag){ var p=pointerXY(cv,e);
+      rob.x=Math.max(16,Math.min(d.w-16,p.x)); rob.y=Math.max(16,Math.min(d.h-16,p.y)); draw(); }});
+    addEventListener("pointerup",function(){drag=false;}); draw();
+  })();
+
+  /* ===== 02 occupancy + distance field ===== */
+  (function(){ var cv=document.getElementById("edtCanvas"); if(!cv)return; var d=fit(cv);
+    var cols=34,rows=22,cell,ox,oy,occ,dist,showArr=true,drag=false,dragVal=1;
+    var arrSeg=document.getElementById("edtArr"), arrVal=document.getElementById("edtArrVal");
+    function seed(){ occ=[]; for(var r=0;r<rows;r++){ occ[r]=[]; for(var c=0;c<cols;c++) occ[r][c]=0; }
+      // a couple of wall clusters
+      for(var i=8;i<16;i++) occ[6][i]=1; for(var j=6;j<14;j++) occ[j][20]=1;
+      for(var k=14;k<24;k++) occ[15][k]=1; occ[10][10]=occ[11][10]=occ[12][10]=1; }
+    function layout(){ d=fit(cv); var pad=10; cell=Math.min((d.w-2*pad)/cols,(d.h-2*pad)/rows);
+      ox=(d.w-cell*cols)/2; oy=(d.h-cell*rows)/2; }
+    function edt(){ dist=[]; for(var r=0;r<rows;r++){ dist[r]=[]; for(var c=0;c<cols;c++){
+      if(occ[r][c]){ dist[r][c]=0; continue; } var best=1e9;
+      for(var rr2=0;rr2<rows;rr2++) for(var cc=0;cc<cols;cc++) if(occ[rr2][cc]){ var dd=(rr2-r)*(rr2-r)+(cc-c)*(cc-c); if(dd<best) best=dd; }
+      dist[r][c]=Math.sqrt(best); } } }
+    function recompute(){ edt(); draw(); }
+    function heat(dn){ // dn 0(near)..1(far) → red→amber→teal, translucent over panel
+      var a=[214,69,69], b=[224,166,58], t=[42,150,170];
+      var col= dn<.5 ? mix(a,b,dn/.5) : mix(b,t,(dn-.5)/.5);
+      return "rgba("+col[0]+","+col[1]+","+col[2]+",.55)"; }
+    function mix(p,q,f){ return [Math.round(p[0]+(q[0]-p[0])*f),Math.round(p[1]+(q[1]-p[1])*f),Math.round(p[2]+(q[2]-p[2])*f)]; }
+    function draw(){ var ctx=d.ctx; ctx.clearRect(0,0,d.w,d.h); var maxD=0,r,c;
+      for(r=0;r<rows;r++)for(c=0;c<cols;c++) if(dist[r][c]<1e8&&dist[r][c]>maxD) maxD=dist[r][c];
+      for(r=0;r<rows;r++)for(c=0;c<cols;c++){ var x=ox+c*cell,y=oy+r*cell;
+        if(occ[r][c]){ ctx.fillStyle=css("--ink"); ctx.globalAlpha=.85; ctx.fillRect(x,y,cell-1,cell-1); ctx.globalAlpha=1; }
+        else { var dn=maxD>0?Math.min(1,dist[r][c]/maxD):1; ctx.fillStyle=heat(dn); ctx.fillRect(x,y,cell-1,cell-1); } }
+      if(showArr){ ctx.strokeStyle=css("--ink"); ctx.globalAlpha=.5; ctx.lineWidth=1.3;
+        for(r=1;r<rows-1;r+=2)for(c=1;c<cols-1;c+=2){ if(occ[r][c]) continue;
+          var gx=(dist[r][c+1]-dist[r][c-1]), gy=(dist[r+1][c]-dist[r-1][c]); var gl=Math.hypot(gx,gy); if(gl<.15) continue;
+          gx/=gl; gy/=gl; var cx=ox+c*cell+cell/2, cy=oy+r*cell+cell/2, L=cell*.42;
+          ctx.beginPath(); ctx.moveTo(cx-gx*L,cy-gy*L); ctx.lineTo(cx+gx*L,cy+gy*L); ctx.stroke();
+          ctx.beginPath(); ctx.arc(cx+gx*L,cy+gy*L,1.6,0,6.28); ctx.fillStyle=css("--ink"); ctx.fill(); }
+        ctx.globalAlpha=1; } }
+    function cellAt(p){ var c=Math.floor((p.x-ox)/cell), r=Math.floor((p.y-oy)/cell);
+      if(r<0||c<0||r>=rows||c>=cols) return null; return [r,c]; }
+    cv.addEventListener("pointerdown",function(e){ var rc=cellAt(pointerXY(cv,e)); if(!rc)return; drag=true;
+      dragVal=occ[rc[0]][rc[1]]?0:1; occ[rc[0]][rc[1]]=dragVal; recompute(); });
+    addEventListener("pointermove",function(e){ if(!drag)return; var rc=cellAt(pointerXY(cv,e)); if(!rc)return;
+      if(occ[rc[0]][rc[1]]!==dragVal){ occ[rc[0]][rc[1]]=dragVal; recompute(); } });
+    addEventListener("pointerup",function(){drag=false;});
+    arrSeg.addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return;
+      [].forEach.call(arrSeg.children,function(x){x.setAttribute("aria-pressed","false");}); b.setAttribute("aria-pressed","true");
+      showArr=b.dataset.v==="1"; arrVal.textContent=showArr?"on":"off"; draw(); });
+    document.getElementById("edtClear").addEventListener("click",function(){ for(var r=0;r<rows;r++)for(var c=0;c<cols;c++)occ[r][c]=0; recompute(); });
+    document.getElementById("edtReset").addEventListener("click",function(){ seed(); recompute(); });
+    addEventListener("resize",function(){layout();draw();}); addEventListener("themechange",draw);
+    seed(); layout(); recompute();
+  })();
+
+  /* ===== 03 A* ===== */
+  (function(){ var cv=document.getElementById("astarCanvas"); if(!cv)return; var d=fit(cv);
+    var cols=32,rows=20,cell,ox,oy,occ,clr,start,goal;
+    var Ws=document.getElementById("asW"),Wval=document.getElementById("asWval"),Cval=document.getElementById("asCval"),
+        expEl=document.getElementById("asExp"),lenEl=document.getElementById("asLen"),modeEl=document.getElementById("asMode"),
+        pillDot=document.querySelector("#asPill .sd"), Cseg=document.getElementById("asC");
+    var clearOn=false, raf=null, search=null, seedN=1;
+    function rnd(){ seedN=(seedN*1103515245+12345)&0x7fffffff; return seedN/0x7fffffff; }
+    function layout(){ d=fit(cv); var pad=10; cell=Math.min((d.w-2*pad)/cols,(d.h-2*pad)/rows);
+      ox=(d.w-cell*cols)/2; oy=(d.h-cell*rows)/2; }
+    function maze(){ occ=[]; for(var r=0;r<rows;r++){occ[r]=[]; for(var c=0;c<cols;c++) occ[r][c]=0;}
+      // random vertical wall segments with gaps
+      for(var c2=4;c2<cols-3;c2+=4){ var gap=2+Math.floor(rnd()*(rows-6)); for(var r2=1;r2<rows-1;r2++){ if(r2>=gap&&r2<gap+3) continue; occ[r2][c2]=1; } }
+      start=[Math.floor(rows/2),1]; goal=[Math.floor(rows/2),cols-2]; occ[start[0]][start[1]]=0; occ[goal[0]][goal[1]]=0;
+      clearance(); }
+    function clearance(){ clr=[]; for(var r=0;r<rows;r++){clr[r]=[]; for(var c=0;c<cols;c++){ if(occ[r][c]){clr[r][c]=0;continue;}
+      var best=99; for(var rr2=Math.max(0,r-4);rr2<Math.min(rows,r+5);rr2++)for(var cc=Math.max(0,c-4);cc<Math.min(cols,c+5);cc++)
+        if(occ[rr2][cc]){ var dd=Math.hypot(rr2-r,cc-c); if(dd<best) best=dd; } clr[r][c]=best; }}}
+    function h(r,c){ var dr=Math.abs(r-goal[0]),dc=Math.abs(c-goal[1]); return (dr+dc)+(1.4142-2)*Math.min(dr,dc); }
+    function newSearch(){ var w=+Ws.value/10;
+      var open=[{r:start[0],c:start[1],g:0,f:w*h(start[0],start[1])}];
+      var g={}, came={}, closed={}; g[start[0]*cols+start[1]]=0;
+      search={open:open,g:g,came:came,closed:closed,w:w,done:false,expanded:0,path:null}; }
+    function step(){ var s=search; if(!s||s.done) return; var k, bi=0, bf=1e18;
+      for(k=0;k<s.open.length;k++){ if(s.open[k].f<bf){bf=s.open[k].f;bi=k;} }
+      var cur=s.open.splice(bi,1)[0]; var id=cur.r*cols+cur.c;
+      if(s.closed[id]) return; s.closed[id]=1; s.expanded++;
+      if(cur.r===goal[0]&&cur.c===goal[1]){ // reconstruct
+        var path=[], cid=id; while(cid!==undefined){ var pr=Math.floor(cid/cols),pc=cid%cols; path.push([pr,pc]); cid=s.came[cid]; }
+        s.path=path.reverse(); s.done=true; return; }
+      var dirs=[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.4142],[1,-1,1.4142],[-1,1,1.4142],[-1,-1,1.4142]];
+      for(k=0;k<8;k++){ var nr=cur.r+dirs[k][0], nc=cur.c+dirs[k][1]; if(nr<0||nc<0||nr>=rows||nc>=cols) continue;
+        if(occ[nr][nc]) continue; var nid=nr*cols+nc; if(s.closed[nid]) continue;
+        var pen = clearOn ? 2.6*Math.max(0,(1/Math.max(clr[nr][nc],.5) - 1/4.0)) : 0;
+        var ng=cur.g+dirs[k][2]*(1+pen);
+        if(s.g[nid]===undefined||ng<s.g[nid]){ s.g[nid]=ng; s.came[nid]=id;
+          s.open.push({r:nr,c:nc,g:ng,f:ng+s.w*h(nr,nc)}); } } }
+    function draw(){ var ctx=d.ctx; ctx.clearRect(0,0,d.w,d.h); var r,c;
+      for(r=0;r<rows;r++)for(c=0;c<cols;c++){ var x=ox+c*cell,y=oy+r*cell;
+        if(occ[r][c]){ ctx.fillStyle=css("--ink"); ctx.globalAlpha=.8; ctx.fillRect(x,y,cell-1,cell-1); ctx.globalAlpha=1; continue; }
+        var id=r*cols+c; if(search&&search.closed[id]){ ctx.fillStyle=css("--accent"); ctx.globalAlpha=.14; ctx.fillRect(x,y,cell-1,cell-1); ctx.globalAlpha=1; } }
+      if(search){ for(var k=0;k<search.open.length;k++){ var o=search.open[k]; ctx.fillStyle=css("--accent"); ctx.globalAlpha=.4;
+        ctx.fillRect(ox+o.c*cell,oy+o.r*cell,cell-1,cell-1); ctx.globalAlpha=1; }
+        if(search.path){ ctx.strokeStyle=css("--gold"); ctx.lineWidth=Math.max(3,cell*.28); ctx.lineJoin="round"; ctx.beginPath();
+          for(var p=0;p<search.path.length;p++){ var px=ox+search.path[p][1]*cell+cell/2, py=oy+search.path[p][0]*cell+cell/2; p?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.stroke(); } }
+      // start/goal
+      ctx.fillStyle=css("--ok"); ctx.beginPath(); ctx.arc(ox+start[1]*cell+cell/2,oy+start[0]*cell+cell/2,cell*.32,0,6.28); ctx.fill();
+      ctx.strokeStyle=css("--stop"); ctx.lineWidth=3; ctx.beginPath(); ctx.arc(ox+goal[1]*cell+cell/2,oy+goal[0]*cell+cell/2,cell*.34,0,6.28); ctx.stroke();
+      expEl.textContent=search?search.expanded:"—"; lenEl.textContent=(search&&search.path)?(search.path.length):"—"; }
+    function loop(){ if(!search||search.done){ draw(); return; } for(var i=0;i<6;i++) step(); draw();
+      if(!search.done) raf=requestAnimationFrame(loop); }
+    function run(){ if(raf) cancelAnimationFrame(raf); newSearch(); loop(); }
+    function label(){ var w=+Ws.value/10; var m = w<0.05?"Dijkstra":(w<=1.05?"A*":"Greedy"); modeEl.textContent=m;
+      pillDot.style.background = w<0.05?css("--muted"):(w<=1.05?css("--accent"):css("--warn"));
+      Wval.textContent=w.toFixed(1)+" · "+m; }
+    Ws.addEventListener("input",function(){ label(); run(); });
+    Cseg.addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return;
+      [].forEach.call(Cseg.children,function(x){x.setAttribute("aria-pressed","false");}); b.setAttribute("aria-pressed","true");
+      clearOn=b.dataset.v==="1"; Cval.textContent=clearOn?"on":"off"; clearance(); run(); });
+    document.getElementById("asRun").addEventListener("click",run);
+    document.getElementById("asMaze").addEventListener("click",function(){ seedN=(Date.now?1:1); seedN=Math.floor(Math.random()*1e6)+1; maze(); run(); });
+    addEventListener("resize",function(){layout();draw();}); addEventListener("themechange",draw);
+    layout(); maze(); label();
+    var started=false, alive=onView(cv,function(){ if(!started){started=true; run();} });
+    if(reduce){ newSearch(); while(!search.done) step(); draw(); }
+  })();
+
+  /* ===== 04 elastic band ===== */
+  (function(){ var cv=document.getElementById("bandCanvas"); if(!cv)return; var d=fit(cv);
+    var pts,orig,obst,drag=false,Ss=document.getElementById("bnS"),Os=document.getElementById("bnO"),
+        Sval=document.getElementById("bnSval"),Oval=document.getElementById("bnOval");
+    function build(){ d=fit(cv); var w=d.w,h=d.h; pts=[]; orig=[]; var N=26;
+      for(var i=0;i<=N;i++){ var t=i/N, x=w*.08+ (w*.84)*t; var jag=(i>2&&i<N-2)?(Math.sin(i*1.7)*h*.10+(i%2?1:-1)*h*.06):0;
+        var y=h*.5+Math.sin(t*3.1)*h*.04+jag; pts.push({x:x,y:y}); orig.push({x:x,y:h*.5}); }
+      obst={x:w*.5,y:h*.42,r:34}; }
+    build(); addEventListener("resize",build); addEventListener("themechange",draw);
+    function relax(){ var sm=+Ss.value/100, ow=+Os.value/100;
+      for(var i=1;i<pts.length-1;i++){ var p=pts[i], a=pts[i-1], b=pts[i+1];
+        var mx=(a.x+b.x)/2-p.x, my=(a.y+b.y)/2-p.y; // smoothing toward neighbour midpoint
+        var ax=(orig[i].x-p.x), ay=(orig[i].y-p.y); // anchor
+        var dx=p.x-obst.x, dy=p.y-obst.y, dl=Math.hypot(dx,dy), rx=0,ry=0;
+        if(dl<obst.r+42){ var f=(obst.r+42-dl)/(obst.r+42); rx=dx/(dl||1)*f*ow*8; ry=dy/(dl||1)*f*ow*8; }
+        p.x+=mx*sm+ax*0.04+rx; p.y+=my*sm+ay*0.04+ry; } }
+    function draw(){ var ctx=d.ctx,w=d.w,h=d.h; ctx.clearRect(0,0,w,h);
+      ctx.strokeStyle=css("--faint"); ctx.globalAlpha=.4; ctx.lineWidth=1.5; ctx.setLineDash([4,4]); ctx.beginPath();
+      for(var i=0;i<orig.length;i++) i?ctx.lineTo(orig[i].x,orig[i].y):ctx.moveTo(orig[i].x,orig[i].y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.arc(obst.x,obst.y,obst.r,0,6.28); ctx.fillStyle=css("--stop"); ctx.globalAlpha=.85; ctx.fill(); ctx.globalAlpha=1;
+      ctx.strokeStyle=css("--accent"); ctx.lineWidth=3; ctx.lineJoin="round"; ctx.beginPath();
+      for(i=0;i<pts.length;i++) i?ctx.lineTo(pts[i].x,pts[i].y):ctx.moveTo(pts[i].x,pts[i].y); ctx.stroke();
+      for(i=0;i<pts.length;i+=2){ ctx.beginPath(); ctx.arc(pts[i].x,pts[i].y,2.2,0,6.28); ctx.fillStyle=css("--accent"); ctx.fill(); }
+      ctx.fillStyle=css("--ok"); ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,5,0,6.28); ctx.fill();
+      ctx.fillStyle=css("--gold"); ctx.beginPath(); ctx.arc(pts[pts.length-1].x,pts[pts.length-1].y,5,0,6.28); ctx.fill(); }
+    Ss.addEventListener("input",function(){Sval.textContent=(Ss.value/100).toFixed(2);});
+    Os.addEventListener("input",function(){Oval.textContent=(Os.value/100).toFixed(2);});
+    document.getElementById("bnReset").addEventListener("click",build);
+    cv.addEventListener("pointerdown",function(e){ drag=true; var p=pointerXY(cv,e); obst.x=p.x; obst.y=p.y; });
+    addEventListener("pointermove",function(e){ if(drag){ var p=pointerXY(cv,e);
+      obst.x=Math.max(20,Math.min(d.w-20,p.x)); obst.y=Math.max(20,Math.min(d.h-20,p.y)); }});
+    addEventListener("pointerup",function(){drag=false;});
+    var running=false, alive=onView(cv,start);
+    function start(){ if(running) return; running=true; loop(); }
+    function loop(){ relax(); draw(); if(alive()){ requestAnimationFrame(loop); } else { running=false; } }
+    if(reduce){ for(var i=0;i<200;i++) relax(); draw(); } else start();
+  })();
+
+  /* ===== 05 MPC (model rollout) ===== */
+  (function(){ var cv=document.getElementById("mpcCanvas"); if(!cv)return; var d=fit(cv);
+    var Hs=document.getElementById("mpcH"),Vs=document.getElementById("mpcV"),Hval=document.getElementById("mpcHval"),
+        Vval=document.getElementById("mpcVval"),reachEl=document.getElementById("mpcReach"),vnowEl=document.getElementById("mpcVnow"),
+        play=document.getElementById("mpcPlay"), playing=!reduce;
+    var refPts=[], cum=[], total=0, s=30;
+    function refY(x,w,h){ return h*.52+Math.sin(x*.012)*h*.20+Math.sin(x*.028+1)*h*.09; }
+    function build(){ d=fit(cv); var w=d.w,h=d.h; refPts=[];cum=[];total=0; var px=24,py=refY(24,w,h); refPts.push([px,py]);
+      for(var x=24;x<=w-16;x+=4){ var y=refY(x,w,h); total+=Math.hypot(x-px,y-py); cum.push(total); refPts.push([x,y]); px=x;py=y; } }
+    build(); addEventListener("resize",build); addEventListener("themechange",function(){ if(lastRob) draw(lastPred,lastRob); });
+    function at(dist){ if(dist<=0) return {x:refPts[0][0],y:refPts[0][1],a:0}; if(dist>=total){var n=refPts.length-1;
+        return {x:refPts[n][0],y:refPts[n][1],a:Math.atan2(refPts[n][1]-refPts[n-1][1],refPts[n][0]-refPts[n-1][0])};}
+      var lo=0; for(var i=0;i<cum.length;i++){ if(cum[i]>=dist){lo=i;break;} } var d0=lo>0?cum[lo-1]:0,seg=cum[lo]-d0,f=seg>0?(dist-d0)/seg:0;
+      var A=refPts[lo],B=refPts[lo+1]; return {x:A[0]+(B[0]-A[0])*f,y:A[1]+(B[1]-A[1])*f,a:Math.atan2(B[1]-A[1],B[0]-A[0])}; }
+    // roll the unicycle model forward under a tracking controller
+    var lastPred=[], lastRob=null;
+    function rollout(H,cruise){ var rob=at(s); var st={x:rob.x,y:rob.y,th:rob.a}; var pred=[{x:st.x,y:st.y,th:st.th}];
+      var dt=1, look=18, curV=cruise;
+      for(var k=1;k<=H;k++){ var ahead=at(s+ (k)*curV*10); // arc-length target ahead
+        var desA=Math.atan2(ahead.y-st.y,ahead.x-st.x); var err=Math.atan2(Math.sin(desA-st.th),Math.cos(desA-st.th));
+        // curvature limit: slow when turning hard
+        var w=Math.max(-.4,Math.min(.4,err*1.4)); var v=cruise*(1-Math.min(.7,Math.abs(err)*0.9));
+        st.th+=w; st.x+=Math.cos(st.th)*v*10; st.y+=Math.sin(st.th)*v*10; pred.push({x:st.x,y:st.y,th:st.th,v:v}); }
+      return {pred:pred,rob:rob,vend:pred[1]?pred[1].v:cruise}; }
+    function draw(pred,rob){ var ctx=d.ctx,w=d.w,h=d.h; ctx.clearRect(0,0,w,h);
+      ctx.setLineDash([6,6]); ctx.strokeStyle="#8250df"; ctx.globalAlpha=.5; ctx.lineWidth=2; ctx.beginPath();
+      for(var i=0;i<refPts.length;i++) i?ctx.lineTo(refPts[i][0],refPts[i][1]):ctx.moveTo(refPts[i][0],refPts[i][1]); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha=1;
+      if(!pred) return; var H=pred.length-1, ac=css("--accent");
+      // predicted ghosts (oriented)
+      for(var k=1;k<=H;k++){ var p=pred[k], al=1-k/(H+3);
+        ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.th); ctx.globalAlpha=.18+.5*al;
+        ctx.strokeStyle=ac; ctx.lineWidth=1.4; rr(ctx,-8,-6,16,12,3); ctx.stroke(); ctx.restore(); }
+      ctx.globalAlpha=1;
+      // committed step
+      var c1=pred[1]; ctx.strokeStyle=css("--ok"); ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(rob.x,rob.y); ctx.lineTo(c1.x,c1.y); ctx.stroke();
+      ctx.fillStyle=css("--ok"); ctx.beginPath(); ctx.arc(c1.x,c1.y,5,0,6.28); ctx.fill();
+      // robot
+      ctx.save(); ctx.translate(rob.x,rob.y); ctx.rotate(rob.a); ctx.fillStyle=css("--panel"); ctx.strokeStyle=css("--ink"); ctx.lineWidth=1.9;
+      rr(ctx,-13,-9,26,18,4); ctx.fill(); ctx.stroke(); ctx.strokeStyle=css("--ink"); ctx.beginPath(); ctx.moveTo(13,0); ctx.lineTo(20,0); ctx.stroke(); ctx.restore(); }
+    Hs.addEventListener("input",function(){Hval.textContent=Hs.value+" steps";});
+    Vs.addEventListener("input",function(){Vval.textContent=(Vs.value/10).toFixed(1)+" m/s";});
+    play.addEventListener("click",function(){ playing=!playing; play.textContent=playing?"⏸ pause":"▶ play"; if(playing) start(); });
+    var running=false, alive=onView(cv,start);
+    function start(){ if(running) return; running=true; loop(); }
+    function loop(){ var H=+Hs.value, cruise=+Vs.value/10; var out=rollout(H,cruise); lastPred=out.pred; lastRob=out.rob;
+      draw(out.pred,out.rob); reachEl.textContent=(H*cruise*10/40).toFixed(1)+" m"; vnowEl.textContent=out.vend.toFixed(2)+" m/s";
+      if(playing){ s+=cruise*1.3; if(s>total-H*cruise*10-20) s=20; }
+      if(playing&&alive()){ requestAnimationFrame(loop); } else { running=false; } }
+    if(reduce){ var o=rollout(+Hs.value,+Vs.value/10); draw(o.pred,o.rob); } else start();
+  })();
+
+  /* ===== 06 shield ===== */
+  (function(){ var cv=document.getElementById("shieldCanvas"); if(!cv)return; var d=fit(cv);
+    var Vs=document.getElementById("shV"),Vval=document.getElementById("shVval"),stopEl=document.getElementById("shStop"),
+        gapEl=document.getElementById("shGap"),desEl=document.getElementById("shDes"),safeEl=document.getElementById("shSafe"),
+        pill=document.getElementById("shieldPill"),stEl=document.getElementById("shieldState");
+    var A=2.5,TL=0.15,SCALE=64,obX=null,drag=false,ph=0;
+    function calc(){ var w=d.w,h=d.h; if(obX===null) obX=w*.74;
+      var cy=h*.55,robX=66,hl=0.26*SCALE,hw=0.24*SCALE,v=+Vs.value/10;
+      var stop=(v*v)/(2*A)+v*TL, front=robX+hl, gap=(obX-front)/SCALE; if(gap<0)gap=0;
+      var maxStop=Math.max(0,gap-0.04), vSafe=(-TL+Math.sqrt(TL*TL+2/A*maxStop))*A; vSafe=Math.min(v,Math.max(0,vSafe));
+      var stopS=(vSafe*vSafe)/(2*A)+vSafe*TL, state,col;
+      if(vSafe>=v-0.02){state="CLEAR";col=css("--ok");} else if(vSafe>0.05){state="BRAKING";col=css("--warn");} else {state="VETO";col=css("--stop");}
+      return {w:w,h:h,cy:cy,robX:robX,hl:hl,hw:hw,v:v,stop:stop,gap:gap,vSafe:vSafe,stopS:stopS,state:state,col:col}; }
+    function draw(){ var g=calc(), ctx=d.ctx, mono=css("--mono").split(",")[0]; ctx.clearRect(0,0,g.w,g.h);
+      // obstacle
+      ctx.fillStyle=css("--stop"); ctx.globalAlpha=.9; rr(ctx,obX,g.cy-g.hw-26,18,g.hw*2+52,3); ctx.fill(); ctx.globalAlpha=1;
+      ctx.fillStyle=css("--stop"); ctx.font="11px "+mono; ctx.fillText("obstacle ⇔ drag",obX-18,g.cy-g.hw-34);
+      // swept ghost bodies over the braking distance; red where they'd touch the wall
+      var reach=Math.max(g.stop*SCALE,1), N=7, i;
+      for(i=1;i<=N;i++){ var f=i/N, gx=g.robX+f*reach, hit=(gx+g.hl)>=obX;
+        ctx.strokeStyle=hit?css("--stop"):css("--accent"); ctx.globalAlpha=hit?.55:(.13+.42*(1-f)); ctx.lineWidth=1.4;
+        rr(ctx,gx-g.hl,g.cy-g.hw,g.hl*2,g.hw*2,4); ctx.stroke(); }
+      ctx.globalAlpha=1;
+      // safe reach (green fill) up to the allowed stopping point
+      var reachS=g.stopS*SCALE; ctx.fillStyle=g.col; ctx.globalAlpha=.15; rr(ctx,g.robX-g.hl,g.cy-g.hw,g.hl*2+reachS,g.hw*2,5); ctx.fill(); ctx.globalAlpha=1;
+      // animated forward-check sweep
+      if(!reduce){ var sx=g.robX+(ph%1)*reach; ctx.strokeStyle=css("--accent"); ctx.globalAlpha=.7; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(sx,g.cy-g.hw-8); ctx.lineTo(sx,g.cy+g.hw+8); ctx.stroke(); ctx.globalAlpha=1; }
+      // robot body
+      ctx.fillStyle=css("--panel"); ctx.strokeStyle=css("--ink"); ctx.lineWidth=2; rr(ctx,g.robX-g.hl,g.cy-g.hw,g.hl*2,g.hw*2,4); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle=css("--ink"); ctx.beginPath(); ctx.moveTo(g.robX+g.hl,g.cy); ctx.lineTo(g.robX+g.hl+9,g.cy); ctx.stroke();
+      Vval.textContent=g.v.toFixed(1)+" m/s"; stopEl.textContent=g.stop.toFixed(2)+" m"; gapEl.textContent=g.gap.toFixed(2)+" m";
+      desEl.textContent=g.v.toFixed(2)+" m/s"; safeEl.textContent=g.vSafe.toFixed(2)+" m/s";
+      pill.querySelector(".sd").style.background=g.col; stEl.textContent=g.state; stEl.style.color=g.col; }
+    cv.addEventListener("pointerdown",function(e){ drag=true; obX=Math.max(130,Math.min(d.w-24,pointerXY(cv,e).x)); draw(); });
+    addEventListener("pointermove",function(e){ if(drag){ obX=Math.max(130,Math.min(d.w-24,pointerXY(cv,e).x)); draw(); }});
+    addEventListener("pointerup",function(){drag=false;}); Vs.addEventListener("input",draw);
+    addEventListener("resize",function(){d=fit(cv);draw();}); addEventListener("themechange",draw);
+    var running=false, alive=onView(cv,start);
+    function start(){ if(running)return; running=true; loop(); }
+    function loop(){ ph+=0.018; draw(); if(alive()){requestAnimationFrame(loop);} else running=false; }
+    if(reduce) draw(); else start();
+  })();
+
+  /* ===== 07 recovery ===== */
+  (function(){ var cv=document.getElementById("recCanvas"); if(!cv)return; var d=fit(cv);
+    var runB=document.getElementById("recRun"),resetB=document.getElementById("recReset"),phaseEl=document.getElementById("recPhase"),
+        clearEl=document.getElementById("recClear"),pillDot=document.getElementById("recDot"),stEl=document.getElementById("recState");
+    var cols=26,rows=16,cell,ox,oy,occ,rob=null,crumbs=[],phase="idle",raf=null,route=null,rpos=0,timer=0,corridorTopY=0;
+    var driveCells=[[10,2],[10,12],[4,12]], revCells=[[4,12],[10,12]], exitCells=[[10,12],[10,23],[10,26]];
+    function buildMaze(){ occ=[]; var r,c; for(r=0;r<rows;r++){occ[r]=[];for(c=0;c<cols;c++)occ[r][c]=1;}
+      for(c=2;c<=23;c++){ occ[9][c]=0; occ[10][c]=0; }   // 2-tall main corridor
+      for(r=4;r<=10;r++) occ[r][12]=0;                   // 1-wide dead-end pocket up
+    }
+    function layout(){ d=fit(cv); var pad=10; cell=Math.min((d.w-2*pad)/cols,(d.h-2*pad)/rows);
+      ox=(d.w-cell*cols)/2; oy=(d.h-cell*rows)/2; corridorTopY=oy+9*cell; buildMaze(); }
+    function cc(r,c){ return {x:ox+c*cell+cell/2, y:oy+r*cell+cell/2}; }
+    function makeRoute(cells){ return cells.map(function(rc){return cc(rc[0],rc[1]);}); }
+    function advance(rt,pos){ var acc=0; for(var i=0;i<rt.length-1;i++){ var a=rt[i],b=rt[i+1],L=Math.hypot(b.x-a.x,b.y-a.y);
+        if(pos<=acc+L){ var f=L>0?(pos-acc)/L:0; return {x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,dir:Math.atan2(b.y-a.y,b.x-a.x),done:false}; } acc+=L; }
+      var n=rt.length-1; return {x:rt[n].x,y:rt[n].y,dir:Math.atan2(rt[n].y-rt[n-1].y,rt[n].x-rt[n-1].x),done:true}; }
+    function inPocket(){ return rob && rob.y < corridorTopY; }
+    function setPhase(p,l,c){ phase=p; phaseEl.textContent=l; stEl.textContent=l.toUpperCase(); stEl.style.color=c; pillDot.style.background=c; }
+    function dropCrumb(){ var l=crumbs[crumbs.length-1]; if(!l||Math.hypot(rob.x-l.x,rob.y-l.y)>cell*0.8) crumbs.push({x:rob.x,y:rob.y}); }
+    function draw(){ var ctx=d.ctx,w=d.w,h=d.h,r,c; ctx.clearRect(0,0,w,h);
+      for(r=0;r<rows;r++)for(c=0;c<cols;c++){ var x=ox+c*cell,y=oy+r*cell;
+        if(occ[r][c]){ ctx.fillStyle=css("--faint"); ctx.globalAlpha=.5; ctx.fillRect(x,y,cell+0.6,cell+0.6); ctx.globalAlpha=1; }
+        else { ctx.fillStyle=css("--accent"); ctx.globalAlpha=.05; ctx.fillRect(x,y,cell,cell); ctx.globalAlpha=1; } }
+      if(phase==="replan"||phase==="exit"){ var er=makeRoute(exitCells); ctx.strokeStyle=css("--ok"); ctx.setLineDash([6,6]); ctx.globalAlpha=.8; ctx.lineWidth=3;
+        ctx.beginPath(); for(var e=0;e<er.length;e++) e?ctx.lineTo(er[e].x,er[e].y):ctx.moveTo(er[e].x,er[e].y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1; }
+      for(var k=0;k<crumbs.length;k++){ ctx.beginPath(); ctx.arc(crumbs[k].x,crumbs[k].y,2.6,0,6.28); ctx.fillStyle=css("--accent"); ctx.globalAlpha=.75; ctx.fill(); } ctx.globalAlpha=1;
+      if(rob){ var len=cell*1.5, wid=cell*0.86;
+        ctx.save(); ctx.translate(rob.x,rob.y); ctx.rotate(rob.a);
+        ctx.fillStyle=css("--panel"); ctx.strokeStyle=(phase==="stuck")?css("--stop"):css("--ink"); ctx.lineWidth=2;
+        rr(ctx,-len/2,-wid/2,len,wid,3); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(len/2,0); ctx.lineTo(len/2+6,0); ctx.stroke(); ctx.restore();
+        if(phase==="stuck"){ ctx.strokeStyle=css("--stop"); ctx.globalAlpha=.6; ctx.setLineDash([3,3]); ctx.lineWidth=1.6;
+          ctx.beginPath(); ctx.arc(rob.x,rob.y,len*0.62,0,6.28); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1; } } }
+    function anim(){ var spd=cell*0.055;
+      if(phase==="drive"){ rpos+=spd; var o=advance(route,rpos); rob.x=o.x; rob.y=o.y; rob.a=o.dir; dropCrumb();
+          clearEl.textContent=(inPocket()?0.18:0.55).toFixed(2)+" m"; if(o.done){ setPhase("stuck","stuck (can't turn)",css("--stop")); clearEl.textContent="0.18 m"; timer=0; } }
+      else if(phase==="stuck"){ timer++; rob.a+=Math.sin(timer*0.35)*0.012; if(timer>95){ route=makeRoute(revCells); rpos=0; setPhase("reverse","reversing on trail",css("--warn")); } }
+      else if(phase==="reverse"){ rpos+=spd; var o2=advance(route,rpos); rob.x=o2.x; rob.y=o2.y; /* keep heading = reverse */
+          if(crumbs.length>1){ var last=crumbs[crumbs.length-1]; if(Math.hypot(rob.x-last.x,rob.y-last.y)<cell*0.5) crumbs.pop(); }
+          clearEl.textContent=(inPocket()?0.22:0.55).toFixed(2)+" m";
+          if(o2.done){ setPhase("replan","re-planning",css("--accent")); timer=0; clearEl.textContent="0.55 m"; } }
+      else if(phase==="replan"){ timer++; if(timer>60){ route=makeRoute(exitCells); rpos=0; setPhase("exit","new route",css("--ok")); } }
+      else if(phase==="exit"){ rpos+=spd; var o3=advance(route,rpos); rob.x=o3.x; rob.y=o3.y; rob.a=o3.dir;
+          if(o3.done){ setPhase("done","escaped ✓",css("--ok")); draw(); return; } }
+      draw(); if(phase!=="idle"&&phase!=="done") raf=requestAnimationFrame(anim); }
+    function reset(){ if(raf) cancelAnimationFrame(raf); layout(); crumbs=[]; var s=cc(10,2); rob={x:s.x,y:s.y,a:0}; rpos=0;
+      setPhase("idle","idle",css("--accent")); clearEl.textContent="—"; draw(); }
+    function run(){ reset(); route=makeRoute(driveCells); rpos=0; setPhase("drive","driving in",css("--accent")); anim(); }
+    runB.addEventListener("click",run); resetB.addEventListener("click",reset);
+    addEventListener("resize",reset); addEventListener("themechange",draw); reset();
+  })();
+})();
+</script>
+</body>
+</html>
