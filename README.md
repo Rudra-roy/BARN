@@ -7,6 +7,9 @@
 
 [![ROS 2](https://img.shields.io/badge/ROS%202-Jazzy-22314E)](https://docs.ros.org/en/jazzy/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![tutorial](https://img.shields.io/badge/📚_learn-the%20tutorial-8250df)](docs/tutorials/README.md)
+
+*A working autonomous-navigation stack — **and** a course that teaches how it works.*
 
 </div>
 
@@ -14,10 +17,49 @@
 
 ## 📸 Media & Highlights
 
-*(Add your screenshots, GIFs, and videos of the robot navigating the BARN environments here)*
+<div align="center">
 
-- **[Insert Video/Screenshot 1]** - *Caption describing the run*
-- **[Insert Video/Screenshot 2]** - *Caption describing the run*
+![BARN worlds of increasing difficulty](docs/media/barn_worlds_strip.png)
+
+*BARN environments range from open corridors (world 5) to highly constrained obstacle fields (world 244).*
+
+</div>
+
+### Trial runs (RViz2)
+
+The footprint-aware Classical MPC stack navigating a full evaluator trial —
+online LiDAR map, drift-corrected `map` frame, global A* path, and MPC local
+trajectory visualized live.
+
+| Simple world | Complex world |
+|:---:|:---:|
+| <!-- video: simple world trial --> *(video placeholder — see [docs/media/README.md](docs/media/README.md))* | <!-- video: complex world trial --> *(video placeholder — see [docs/media/README.md](docs/media/README.md))* |
+
+---
+
+## 📚 Learn how it works — the tutorial
+
+> **New to robotics or path planning?** This repository doubles as a **hands-on
+> course**. The [**BARN Navigation Tutorial**](docs/tutorials/README.md) teaches the
+> entire classical stack from first principles — from *"what is a LiDAR?"* to a
+> sequentially-linearized MPC solving a quadratic program thirty times a second.
+
+Every idea is taught in three layers, so it works for a mixed classroom:
+
+> 🟢 **Intuition** — plain language + a picture · 📐 **The math** — the formal
+> version (skippable) · 🔍 **In the code** — the exact file and lines.
+
+**Start here → [The BARN Navigation Tutorial](docs/tutorials/README.md)** · **▶ [Interactive visual companion](https://rudra-roy.github.io/BARN/)** (live MPC, safety-shield & recovery demos) · jump to a topic:
+
+[00 · The problem](docs/tutorials/00-the-barn-problem.md) ·
+[01 · Robot & senses](docs/tutorials/01-the-robot-and-its-senses.md) ·
+[02 · Mapping](docs/tutorials/02-mapping-occupancy-and-distance-fields.md) ·
+[03 · A\* planning](docs/tutorials/03-global-planning-with-a-star.md) ·
+[04 · **MPC** ⭐](docs/tutorials/04-local-planning-and-mpc.md) ·
+[05 · Safety shield](docs/tutorials/05-the-safety-shield.md) ·
+[06 · Recovery](docs/tutorials/06-recovery-and-backtracking.md) ·
+[07 · System](docs/tutorials/07-the-system-as-a-whole.md) ·
+[08 · The metric](docs/tutorials/08-measuring-success.md)
 
 ---
 
@@ -29,11 +71,40 @@ This repository is a **clean-room preparation programme** for the 2027 edition. 
 
 | Track | Package(s) | Language | Status |
 |-------|-----------|----------|--------|
-| **A — Classical** | `barn_classical`, `barn_mapping` | C++ | footprint-aware lattice + MPC stack |
+| **A — Classical** | `barn_classical`, `barn_mapping` | C++ | footprint-aware lattice + MPC stack ✅ |
 | **B — End-to-end RL** | `barn_rl_runtime`, `learning/` | Python | runtime + training stubs |
 | **C — Hybrid** | `barn_hybrid`, `barn_dynamic_tracking` | Python + C++ | arbiter + tracker stubs |
 
+The **tutorial above teaches Track A**, the classical stack, which clears the world set with comfortable timings.
+
 > **Note:** The core rule of this repo is that the algorithm must be deployable to the physical Jackal without modification. Reading Gazebo ground truth or pre-loading map structures is strictly forbidden.
+
+---
+
+## 🗺️ The classical stack at a glance
+
+Sensors in, wheel commands out. Each stage links to its tutorial chapter.
+
+```mermaid
+flowchart LR
+    S["🛰️ LiDAR + odom"] --> M["🗺️ map +<br/>distance field"]
+    M --> G["🧭 A* global<br/>route"]
+    G --> L["〰️ local<br/>reference"]
+    L --> C["🎯 MPC<br/>controller"]
+    C --> SH["🛡️ safety<br/>shield"]
+    SH --> W["⚙️ /cmd_vel"]
+    C -. "stuck?" .-> R["↩️ recovery"]
+    R -.-> C
+    SH -. "veto" .-> C
+    classDef n fill:#eef2ff,stroke:#4f46e5,color:#312e81;
+    class S,M,G,L,C,SH,W,R n;
+```
+
+- **Map & distance field** — a log-odds occupancy grid + a Euclidean distance transform giving clearance *and gradients*. → [Ch 02](docs/tutorials/02-mapping-occupancy-and-distance-fields.md)
+- **Global A\*** — a two-phase search (Dijkstra cost-to-go field → lattice A\* over `(x, y, yaw)`) with clearance-shaped costs. → [Ch 03](docs/tutorials/03-global-planning-with-a-star.md)
+- **Local planner + MPC** — an elastic-band reference feeding a sequentially-linearized MPC (OSQP) with distance-field obstacle constraints. → [Ch 04](docs/tutorials/04-local-planning-and-mpc.md)
+- **Safety shield** — an independent swept-footprint veto that scales any command to the largest collision-free version. → [Ch 05](docs/tutorials/05-the-safety-shield.md)
+- **Recovery** — backtracking: reverse along a known-clear breadcrumb to open space, then re-plan. → [Ch 06](docs/tutorials/06-recovery-and-backtracking.md)
 
 ---
 
@@ -61,24 +132,21 @@ ros2 launch jackal_helper BARN_runner.launch.py \
 
 ---
 
-## Documentation & Details
+## Documentation
 
-For in-depth details on how the system is built, evaluated, and structured, please refer to the documentation links below:
+### 📚 Learn it — the tutorial series
+Start with the **[BARN Navigation Tutorial](docs/tutorials/README.md)** (chapters 00–08 + [references](docs/tutorials/references.md)). It's the recommended path for understanding the classical stack, whether you're a student or new to the codebase.
 
-### 🌟 New Features & Stack Updates
-- **[Classical MPC & Recovery Feature Updates](docs/features/classical_mpc_updates.md)** - Details on the new 6-phase robust recovery, global planner stability, high-speed local planner tuning, and advanced map decay.
-- **[Classical MPC Configuration Guide](docs/features/configuration_guide.md)** - A guide explaining the tunable parameters in the MPC, A* global planner, and safety node, including how to tune them for speed and tight spaces.
+### 🔧 Build & tune it
+- **[Distrobox + Jazzy setup walkthrough](docs/setup/barn_2026_jazzy_distrobox.md)**
+- **[Classical MPC Configuration Guide](docs/features/configuration_guide.md)** — the tunable parameters and how to trade speed against tight-space robustness.
+- **[Classical MPC & Recovery feature notes](docs/features/classical_mpc_updates.md)** — what changed and why.
 
-### Architecture & Guidelines
-- **[System Architecture & Data Flow](docs/architecture/overview.md)**
-- **[Robot Interface Contract (Topics/Frames)](docs/robot_interface.md)**
-- **[Roadmap (M0–M21)](docs/roadmap.md)**
-- **[Architecture Decisions (ADRs)](docs/decisions/)**
+### 📐 Reference
+- **[System Architecture & Data Flow](docs/architecture/overview.md)** · **[Robot Interface Contract](docs/robot_interface.md)** · **[Roadmap (M0–M21)](docs/roadmap.md)** · **[Architecture Decisions (ADRs)](docs/decisions/)**
 
-### Benchmark & Scoring
-- **[Competition-Faithful Input Policy](docs/benchmark/barn_2026_contract.md)**
-- **[Metric Definitions & Scoring](docs/benchmark/metric_notes.md)**
-- **[Failure Taxonomy](docs/benchmark/failure_taxonomy.md)**
+### 🏁 Benchmark & scoring
+- **[Competition-Faithful Input Policy](docs/benchmark/barn_2026_contract.md)** · **[Metric Definitions & Scoring](docs/benchmark/metric_notes.md)** · **[Failure Taxonomy](docs/benchmark/failure_taxonomy.md)**
 
 ---
 
@@ -86,6 +154,7 @@ For in-depth details on how the system is built, evaluated, and structured, plea
 
 - ICRA 2026 BARN Challenge — <https://people.cs.gmu.edu/~xiao/Research/BARN_Challenge/BARN_Challenge26.html>
 - BARN ROS 2 evaluation pipeline — <https://github.com/Saadmaghani/The-Barn-Challenge-Ros2>
+- Foundational works behind every algorithm in the stack — [tutorial references](docs/tutorials/references.md)
 
 ## License
 

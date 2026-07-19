@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 380" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <rect x="0.5" y="0.5" width="759" height="379" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="24" y="34" font-size="17" font-weight="700" fill="#1f2328">Obstacles as linear constraints</text>
+  <text x="24" y="56" font-size="13" fill="#57606a">8 footprint samples · each kept clear using the distance field's value d&#8320; and gradient &#8711;d</text>
+
+  <!-- obstacle -->
+  <path d="M560 120 q60 -20 110 30 q30 60 -20 120 q-70 40 -120 -10 q-40 -80 30 -140 z" fill="#ffdcd7" stroke="#cf222e" stroke-width="2"/>
+  <text x="600" y="210" font-size="13" fill="#cf222e" font-weight="700">obstacle</text>
+
+  <!-- safe half-plane (linearized boundary) -->
+  <line x1="470" y1="40" x2="360" y2="360" stroke="#1a7f37" stroke-width="2.5" stroke-dasharray="6 5"/>
+  <polygon points="470,40 360,360 40,360 40,40" fill="#e6f4ea" opacity="0.55"/>
+  <text x="70" y="350" font-size="12.5" fill="#1a7f37" font-weight="700">safe side  (d + slack &#8805; margin)</text>
+  <text x="392" y="70" font-size="11.5" fill="#1a7f37">linearized barrier</text>
+
+  <!-- robot footprint with 8 boundary samples -->
+  <g transform="translate(250 210) rotate(-12)">
+    <rect x="-64" y="-42" width="128" height="84" rx="6" fill="#eaeef2" stroke="#1f2328" stroke-width="1.8"/>
+    <!-- heading -->
+    <path d="M64 0 L86 0" stroke="#1f2328" stroke-width="2"/>
+    <path d="M79 -6 L88 0 L79 6" fill="none" stroke="#1f2328" stroke-width="2"/>
+    <!-- 8 samples: 4 corners + 4 edge mids -->
+    <g fill="#0969da">
+      <circle cx="-64" cy="-42" r="5"/><circle cx="64" cy="-42" r="5"/>
+      <circle cx="-64" cy="42" r="5"/><circle cx="64" cy="42" r="5"/>
+      <circle cx="0" cy="-42" r="5"/><circle cx="0" cy="42" r="5"/>
+      <circle cx="-64" cy="0" r="5"/><circle cx="64" cy="0" r="5"/>
+    </g>
+  </g>
+  <text x="188" y="286" font-size="12.5" fill="#0969da" font-weight="700">footprint samples (4 corners + 4 edges)</text>
+
+  <!-- from the near sample: d0 line and gradient -->
+  <!-- near sample approx at (330,178) after transform; draw illustrative -->
+  <line x1="322" y1="176" x2="540" y2="150" stroke="#6e7781" stroke-width="1.6" stroke-dasharray="3 4"/>
+  <text x="410" y="158" font-size="12" fill="#6e7781" font-weight="600">d&#8320;  (clearance)</text>
+  <!-- gradient push-away arrow -->
+  <line x1="322" y1="176" x2="270" y2="182" stroke="#bf3989" stroke-width="3"/>
+  <path d="M280 175 L266 183 L281 189" fill="none" stroke="#bf3989" stroke-width="3"/>
+  <text x="228" y="166" font-size="12" fill="#bf3989" font-weight="700">&#8711;d (push away)</text>
+
+  <text x="24" y="366" font-size="11.5" fill="#57606a">Soft: slack lets the margin bend a little at cost 10&#8202;000/m — so a tight gap never makes the problem unsolvable.</text>
+</svg>

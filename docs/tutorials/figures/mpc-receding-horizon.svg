@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 380" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <rect x="0.5" y="0.5" width="759" height="379" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="24" y="34" font-size="17" font-weight="700" fill="#1f2328">The receding horizon</text>
+  <text x="24" y="56" font-size="13" fill="#57606a">Plan N steps ahead · apply only step&#8201;1 · slide forward · re-solve — 30&#215;/second</text>
+
+  <!-- reference path (dashed) -->
+  <path d="M60 250 C 200 250, 260 150, 420 150 S 640 120, 720 130" fill="none" stroke="#8250df" stroke-width="2.5" stroke-dasharray="7 6"/>
+  <text x="612" y="112" font-size="12" fill="#8250df" font-weight="600">reference (v_ref)</text>
+
+  <!-- current horizon window predicted states x0..xN -->
+  <g>
+    <!-- predicted trajectory hugging reference -->
+    <path d="M120 244 C 210 244, 250 168, 360 158 S 470 150, 520 150" fill="none" stroke="#0969da" stroke-width="2.5"/>
+    <!-- states -->
+    <circle cx="120" cy="244" r="7" fill="#0969da"/>
+    <circle cx="176" cy="230" r="5" fill="#0969da"/>
+    <circle cx="228" cy="196" r="5" fill="#0969da"/>
+    <circle cx="286" cy="170" r="5" fill="#0969da"/>
+    <circle cx="352" cy="158" r="5" fill="#0969da"/>
+    <circle cx="420" cy="152" r="5" fill="#0969da"/>
+    <circle cx="480" cy="150" r="5" fill="#0969da"/>
+    <circle cx="520" cy="150" r="6" fill="#0969da"/>
+  </g>
+
+  <!-- robot at x0 -->
+  <g transform="translate(120 244) rotate(-14)">
+    <rect x="-22" y="-15" width="44" height="30" rx="4" fill="#eaeef2" stroke="#1f2328" stroke-width="1.6"/>
+    <path d="M22 0 L36 0" stroke="#1f2328" stroke-width="2"/>
+    <path d="M31 -5 L38 0 L31 5" fill="none" stroke="#1f2328" stroke-width="2"/>
+  </g>
+  <text x="96" y="278" font-size="12" fill="#1f2328" font-weight="700">x&#8320; = measured state</text>
+
+  <!-- apply step-1 arrow -->
+  <path d="M132 236 L172 224" stroke="#1a7f37" stroke-width="3.5"/>
+  <path d="M164 218 L176 223 L165 230" fill="none" stroke="#1a7f37" stroke-width="3.5"/>
+  <text x="150" y="210" font-size="12" fill="#1a7f37" font-weight="700">apply step&#8201;1 only</text>
+
+  <!-- horizon bracket -->
+  <path d="M120 300 L120 312 L520 312 L520 300" fill="none" stroke="#57606a" stroke-width="1.5"/>
+  <text x="250" y="332" font-size="12.5" fill="#57606a">horizon: N steps &#215; dt &#8776; 1&#8211;2 s of prediction</text>
+  <text x="500" y="146" font-size="11.5" fill="#0969da" font-weight="600">x&#8345;</text>
+
+  <!-- next-tick window (faded, shifted) -->
+  <g opacity="0.42">
+    <circle cx="176" cy="230" r="7" fill="#0969da"/>
+    <path d="M176 230 C 250 208, 300 166, 400 156 S 560 148, 600 150" fill="none" stroke="#0969da" stroke-width="2" stroke-dasharray="2 5"/>
+  </g>
+  <path d="M120 264 C 150 286, 190 286, 176 250" fill="none" stroke="#57606a" stroke-width="1.4" marker-end="url(#a)"/>
+  <text x="196" y="286" font-size="11.5" fill="#57606a">33 ms later: robot has moved → re-solve</text>
+
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6 z" fill="#57606a"/>
+    </marker>
+  </defs>
+</svg>

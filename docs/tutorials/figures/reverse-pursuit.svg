@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <rect x="0.5" y="0.5" width="759" height="359" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="24" y="34" font-size="17" font-weight="700" fill="#1f2328">Reverse pure pursuit</text>
+  <text x="24" y="56" font-size="13" fill="#57606a">Aim a virtual rear-facing heading at a breadcrumb one lookahead behind · drive backward along the arc</text>
+
+  <!-- breadcrumb trail behind the robot (to the left) -->
+  <g fill="#0969da">
+    <circle cx="120" cy="250" r="6"/><circle cx="190" cy="246" r="6"/>
+    <circle cx="262" cy="242" r="6"/><circle cx="336" cy="236" r="6"/>
+  </g>
+  <path d="M120 250 L190 246 L262 242 L336 236" stroke="#0969da" stroke-width="2" fill="none" opacity="0.5"/>
+  <text x="120" y="284" font-size="12" fill="#0969da" font-weight="700">breadcrumb (known-clear trail)</text>
+
+  <!-- target point one lookahead behind -->
+  <circle cx="262" cy="242" r="9" fill="none" stroke="#bf3989" stroke-width="3"/>
+  <text x="214" y="222" font-size="12" fill="#bf3989" font-weight="700">target g (lookahead L behind)</text>
+
+  <!-- robot -->
+  <g transform="translate(470 224) rotate(-6)">
+    <rect x="-40" y="-26" width="80" height="52" rx="6" fill="#eaeef2" stroke="#1f2328" stroke-width="1.8"/>
+    <!-- forward heading -->
+    <path d="M40 0 L74 0" stroke="#1f2328" stroke-width="2.5"/>
+    <path d="M65 -7 L76 0 L65 7" fill="none" stroke="#1f2328" stroke-width="2.5"/>
+  </g>
+  <text x="512" y="214" font-size="12" fill="#1f2328" font-weight="700">heading &#952;</text>
+  <text x="430" y="270" font-size="12" fill="#1f2328">robot (x, y, &#952;)</text>
+
+  <!-- virtual heading psi = theta + pi (pointing backward toward trail) -->
+  <path d="M470 224 L360 232" stroke="#8250df" stroke-width="2.5" stroke-dasharray="7 5"/>
+  <path d="M372 226 L356 232 L372 239" fill="none" stroke="#8250df" stroke-width="2.5"/>
+  <text x="366" y="256" font-size="12" fill="#8250df" font-weight="700">virtual heading &#968; = &#952; + &#960;</text>
+
+  <!-- bearing to target -->
+  <path d="M470 224 L262 242" stroke="#6e7781" stroke-width="1.6" stroke-dasharray="3 4"/>
+  <text x="318" y="200" font-size="11.5" fill="#6e7781">bearing &#946; to g</text>
+
+  <!-- alpha angle arc between psi and beta -->
+  <path d="M408 229 A 62 62 0 0 1 420 220" fill="none" stroke="#cf222e" stroke-width="2.5"/>
+  <text x="392" y="212" font-size="12" fill="#cf222e" font-weight="700">&#945;</text>
+
+  <!-- reverse arc the robot follows -->
+  <path d="M470 224 q -90 40 -200 20" fill="none" stroke="#1a7f37" stroke-width="3" stroke-dasharray="2 6"/>
+  <path d="M284 246 L272 242 L282 234" fill="none" stroke="#1a7f37" stroke-width="3"/>
+  <text x="300" y="320" font-size="12.5" fill="#1a7f37" font-weight="700">v = &#8722;s (backward),  &#969; = 2 s sin&#945; / L</text>
+</svg>

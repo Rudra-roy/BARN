@@ -91,13 +91,14 @@ the timeout; whatever the action reports is irrelevant to scoring (see §6).
 | Topic                | Dir     | Message type                      | Frame       | QoS / notes                                  |
 |----------------------|---------|-----------------------------------|-------------|-----------------------------------------------|
 | `/barn/goal`         | pub/sub | `geometry_msgs/PoseStamped`       | `odom`      | **Latched** (`transient_local`); goal persists for late subscribers. |
-| `/barn/pose`         | pub/sub | `geometry_msgs/PoseStamped`       | `odom`      | `base_link`-in-`odom`; from odom + TF.       |
+| `/barn/pose`         | pub/sub | `geometry_msgs/PoseStamped`       | `map` (classical_mpc) / `odom` | `base_link` pose from odom + TF, drift-corrected when mapping runs (`corrected_frame`). |
 | `/barn/scan`         | pub/sub | `sensor_msgs/LaserScan`           | LiDAR frame | Relay of `/front/scan`; SensorData QoS.      |
 | `/barn/cmd_desired`  | pub/sub | `geometry_msgs/TwistStamped`      | `base_link` | Producer output; input to `barn_safety`.     |
 | `/barn/cmd_safe`     | pub/sub | `geometry_msgs/TwistStamped`      | `base_link` | Safety output; egress to `/cmd_vel`.         |
 | `/barn/cmd_classical`| pub/sub | `geometry_msgs/TwistStamped`      | `base_link` | **hybrid mode only**: classical nominal.     |
 | `/barn/cmd_rl`       | pub/sub | `geometry_msgs/TwistStamped`      | `base_link` | **hybrid mode only**: RL residual.           |
-| `/barn/occupancy`    | pub/sub | `nav_msgs/OccupancyGrid`          | `odom`      | Classical online map; built from LiDAR only. |
+| `/barn/occupancy`    | pub/sub | `nav_msgs/OccupancyGrid`          | `map`       | Classical online map; built from LiDAR only. |
+| `/barn/odom_correction` | pub/sub | `geometry_msgs/TransformStamped` | `map` <- `odom` | **Latched**. Scan-to-map drift correction from `barn_mapping`; `barn_robot_adapter` applies it to `/barn/pose` and `/barn/odom` so map, pose, and goal share one frame. Also broadcast on TF as `map -> odom` (REP-105); use `map` as the RViz fixed frame. |
 | `/barn/tracks`       | pub/sub | `visualization_msgs/MarkerArray`  | `odom`      | **hybrid mode only**: dynamic-obstacle tracks. |
 
 QoS conventions:
