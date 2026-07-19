@@ -104,8 +104,8 @@ The trick for going backward is beautifully simple: **pretend the robot's rear i
 ![Reverse pure pursuit: aim the virtual (rear-facing) heading at a breadcrumb point one lookahead behind; the arc's yaw rate is what the real robot commands while driving backward.](./figures/reverse-pursuit.svg)
 
 > ### 📐 The math
-> Let the robot be at $(x, y, \theta)$. Define the **virtual heading** $\psi = \theta + \pi$ (pointing backward). Find the breadcrumb target $\mathbf{g}$ one lookahead $L$ behind along the trail, and its bearing $\beta = \operatorname{atan2}(g_y - y,\ g_x - x)$. The **look-ahead angle** is
-> $$\alpha = \operatorname{wrap}(\beta - \psi).$$
+> Let the robot be at $(x, y, \theta)$. Define the **virtual heading** $\psi = \theta + \pi$ (pointing backward). Find the breadcrumb target $\mathbf{g}$ one lookahead $L$ behind along the trail, and its bearing $\beta = \text{atan2}(g_y - y,\ g_x - x)$. The **look-ahead angle** is
+> $$\alpha = \text{wrap}(\beta - \psi).$$
 > Pure pursuit's steering curvature gives the yaw rate for a speed $s$:
 > $$\omega = \frac{2\,s\,\sin\alpha}{L}, \qquad v = -s \ \ (\text{drive backward}).$$
 > The yaw rate of the "virtual forward" robot equals the real robot's yaw rate, so this is exactly right — only the linear velocity flips sign.

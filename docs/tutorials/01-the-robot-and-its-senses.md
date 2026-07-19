@@ -287,7 +287,7 @@ angle between the frames and then shift it by the offset between their origins.
 > robot on flat ground only the *yaw* (rotation about vertical) matters, and it is
 > recovered by
 >
-> $$\theta = \operatorname{atan2}\!\big(2(wz + xy),\; 1 - 2(y^2 + z^2)\big).$$
+> $$\theta = \text{atan2}\!\big(2(wz + xy),\; 1 - 2(y^2 + z^2)\big).$$
 >
 > Symbols: $(x,y,z,w)$ are the quaternion components; $\theta$ is the planar
 > heading; `atan2` is the two-argument arctangent that returns the correct quadrant.
@@ -303,7 +303,7 @@ angle between the frames and then shift it by the offset between their origins.
 > ```
 >
 > (When the robot really is planar — flat ground, so $x \approx y \approx 0$ — the
-> general formula collapses to the shortcut $\theta = 2\,\operatorname{atan2}(z, w)$,
+> general formula collapses to the shortcut $\theta = 2\,\text{atan2}(z, w)$,
 > which is exactly what the drift-correction callback uses at
 > `robot_adapter_node.cpp:78`.)
 

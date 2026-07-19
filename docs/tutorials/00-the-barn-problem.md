@@ -194,7 +194,7 @@ painfully slow crawl can distort the average.
 >
 > The per-trial score has the shape
 >
-> $$s_i \;=\; \underbrace{\text{success}_i}_{\in\{0,\,1\}} \;\times\; \frac{OT_i}{\operatorname{clip}\!\big(AT_i,\; L\cdot OT_i,\; 8\cdot OT_i\big)}$$
+> $$s_i \;=\; \underbrace{\text{success}_i}_{\in\{0,\,1\}} \;\times\; \frac{OT_i}{\text{clip}\!\big(AT_i,\; L\cdot OT_i,\; 8\cdot OT_i\big)}$$
 >
 > | Symbol | Meaning |
 > |---|---|
@@ -202,7 +202,7 @@ painfully slow crawl can distort the average.
 > | $\text{success}_i$ | $1$ if the goal is reached within 1 m, collision-free, before 100 s; otherwise $0$. |
 > | $AT_i$ | **Actual** traversal time the robot took. |
 > | $OT_i$ | **Optimal** traversal time — a reference path length divided by the 2 m/s top speed. |
-> | $\operatorname{clip}(\cdot)$ | Bounds $AT_i$ into $[\,L\cdot OT_i,\; 8\cdot OT_i\,]$ so extremes cannot dominate. |
+> | $\text{clip}(\cdot)$ | Bounds $AT_i$ into $[\,L\cdot OT_i,\; 8\cdot OT_i\,]$ so extremes cannot dominate. |
 > | $L$ | The lower-bound multiplier — and the subject of a subtle discrepancy handled in Chapter 08. |
 >
 > Read only the shape: **success is a switch** (multiply by $0$ and the whole trial is worth

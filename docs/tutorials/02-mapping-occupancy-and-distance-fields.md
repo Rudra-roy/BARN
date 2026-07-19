@@ -141,14 +141,14 @@ scan's evidence becomes `+=`. That's it.
 > Store each cell as its **log-odds** $l = \log\dfrac{p}{1-p}$, where $p$ is the probability the
 > cell is occupied. Integrating one measurement $z$ under an inverse sensor model is a single add:
 >
-> $$ l_{t} \;=\; l_{t-1} \;+\; \operatorname{logodds}\!\big(p(m \mid z)\big) $$
+> $$ l_{t} \;=\; l_{t-1} \;+\; \text{logodds}\!\big(p(m \mid z)\big) $$
 >
 > In BARN the increment takes one of two constant values — the **inverse sensor model** —
 > depending on whether the cell is the beam's endpoint or merely on its path, and the result is
 > **clamped** so no cell can become infinitely certain:
 >
 > $$
-> l_t \;=\; \operatorname{clamp}\!\Big(\, l_{t-1} + \underbrace{\ell_{\text{hit}}}_{+0.45\ \text{if endpoint}}
+> l_t \;=\; \text{clamp}\!\Big(\, l_{t-1} + \underbrace{\ell_{\text{hit}}}_{+0.45\ \text{if endpoint}}
 > \ \text{or}\ \underbrace{\ell_{\text{miss}}}_{-0.85\ \text{if crossed}},\ \; l_{\min},\ l_{\max}\Big)
 > $$
 >

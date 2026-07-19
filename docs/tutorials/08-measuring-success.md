@@ -181,11 +181,11 @@ always beat a failure.
 >
 > The per-trial score is
 >
-> $$s_i = \text{success}_i \cdot \frac{OT_i}{\operatorname{clip}\!\big(AT_i,\ 2\,OT_i,\ 8\,OT_i\big)}$$
+> $$s_i = \text{success}_i \cdot \frac{OT_i}{\text{clip}\!\big(AT_i,\ 2\,OT_i,\ 8\,OT_i\big)}$$
 >
 > where
 >
-> $$\operatorname{clip}(x, \text{lo}, \text{hi}) = \max\big(\text{lo},\ \min(\text{hi},\ x)\big).$$
+> $$\text{clip}(x, \text{lo}, \text{hi}) = \max\big(\text{lo},\ \min(\text{hi},\ x)\big).$$
 >
 > | Symbol | Meaning |
 > |---|---|
@@ -502,7 +502,7 @@ the simulator, not at your stack. That is why §6 exists.
 
 - **Finish first, be quick second.** A collision, timeout, or parking short scores a flat
   **0** — no amount of speed buys it back.
-- The score is $s_i = \text{success}_i \cdot OT_i / \operatorname{clip}(AT_i, 2\,OT_i, 8\,OT_i)$.
+- The score is $s_i = \text{success}_i \cdot OT_i / \text{clip}(AT_i, 2\,OT_i, 8\,OT_i)$.
   The **lower** clip (`2·OT`) caps the per-trial score at 0.5 so implausible speed can't
   dominate; the **upper** clip (`8·OT`) floors it at 0.125 so slow successes still beat
   failures.
