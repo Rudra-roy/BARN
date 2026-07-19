@@ -269,14 +269,7 @@ angle between the frames and then shift it by the offset between their origins.
 > Let frame *B*'s origin sit at $(t_x, t_y)$ in frame *A*, rotated by angle
 > $\theta$. A point $p_B = (x_B, y_B)$ expressed in *A* is
 >
-> $$
-> \begin{bmatrix} x_A \\ y_A \end{bmatrix}
-> =
-> \begin{bmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{bmatrix}
-> \begin{bmatrix} x_B \\ y_B \end{bmatrix}
-> +
-> \begin{bmatrix} t_x \\ t_y \end{bmatrix}.
-> $$
+> $$\begin{bmatrix} x_A \\ y_A \end{bmatrix} = \begin{bmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{bmatrix} \begin{bmatrix} x_B \\ y_B \end{bmatrix} + \begin{bmatrix} t_x \\ t_y \end{bmatrix}.$$
 >
 > That "rotate then translate" pattern is exactly what the adapter applies when it
 > folds the drift correction into the pose (`robot_adapter_node.cpp:113`) — same

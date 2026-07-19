@@ -369,13 +369,7 @@ clearance_penalty_radius` around it, and charged **per metre travelled**.
 >
 > For a move of length $\Delta s$ ending at a cell with clearance $d$, the added
 > cost is
-> $$
-> \text{penalty} =
-> \begin{cases}
-> w_c \left( \dfrac{1}{\max(d,\,0.05)} - \dfrac{1}{r} \right) \Delta s, & d < r,\\[2mm]
-> 0, & d \ge r,
-> \end{cases}
-> $$
+> $$\text{penalty} = \begin{cases} w_c \left( \dfrac{1}{\max(d,\,0.05)} - \dfrac{1}{r} \right) \Delta s, & d < r,\\ 0, & d \ge r. \end{cases}$$
 > with $w_c = \texttt{clearance\_weight}$ and $r = \texttt{clearance\_penalty\_radius}$.
 >
 > | symbol | meaning |
