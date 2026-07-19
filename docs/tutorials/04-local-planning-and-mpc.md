@@ -118,11 +118,19 @@ We deliberately make **acceleration** the input, not velocity. That way the opti
 
 > ### 📐 The math
 > **State** (5 numbers) and **input** (2 numbers):
-> $$\mathbf{x} = \begin{bmatrix} x \\ y \\ \theta \\ v \\ \omega \end{bmatrix}\ (\text{position, heading, speed, yaw rate}), \qquad \mathbf{u} = \begin{bmatrix} a \\ \alpha \end{bmatrix}\ (\text{linear and angular acceleration}).$$
+>
+> ```math
+> \mathbf{x} = \begin{bmatrix} x \\ y \\ \theta \\ v \\ \omega \end{bmatrix}\ (\text{position, heading, speed, yaw rate}), \qquad \mathbf{u} = \begin{bmatrix} a \\ \alpha \end{bmatrix}\ (\text{linear and angular acceleration}).
+> ```
+>
 > **Continuous-time unicycle dynamics:**
 > $$\dot x = v\cos\theta,\quad \dot y = v\sin\theta,\quad \dot\theta = \omega,\quad \dot v = a,\quad \dot\omega = \alpha.$$
 > **Discretized** with a forward-Euler step of $\Delta t$ (this is what the MPC predicts with):
-> $$\begin{aligned} x_{k+1} &= x_k + \Delta t\, v_k\cos\theta_k, & \theta_{k+1} &= \theta_k + \Delta t\,\omega_k, & v_{k+1} &= v_k + \Delta t\, a_k,\\ y_{k+1} &= y_k + \Delta t\, v_k\sin\theta_k, & & & \omega_{k+1} &= \omega_k + \Delta t\,\alpha_k. \end{aligned}$$
+>
+> ```math
+> \begin{aligned} x_{k+1} &= x_k + \Delta t\, v_k\cos\theta_k, & \theta_{k+1} &= \theta_k + \Delta t\,\omega_k, & v_{k+1} &= v_k + \Delta t\, a_k,\\ y_{k+1} &= y_k + \Delta t\, v_k\sin\theta_k, & & & \omega_{k+1} &= \omega_k + \Delta t\,\alpha_k. \end{aligned}
+> ```
+>
 > The constants `kStateSize = 5` and `kInputSize = 2` at the top of `controller.cpp` are exactly these dimensions.
 
 Notice the two troublesome terms: $v\cos\theta$ and $v\sin\theta$. They multiply two state variables and pass one through a trig function — they are **nonlinear**. That single fact drives the rest of this chapter.

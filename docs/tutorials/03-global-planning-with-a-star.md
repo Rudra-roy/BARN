@@ -139,7 +139,7 @@ never scares you off a cell that was actually good. Straight-line ("as the crow
 flies") distance is the classic admissible heuristic: no real route is ever shorter
 than the straight line.
 
-> **### 📐 The math** — A\*, admissibility, and the ε-bound
+> ### 📐 The math — A\*, admissibility, and the ε-bound
 >
 > For a search node $n$, define
 > $$ f(n) = g(n) + \varepsilon\, h(n), $$
@@ -209,7 +209,7 @@ This is a genuinely informed heuristic. Around a wall it returns the ~6 m
 *around*, not the 1 m *through* — so A\* is never fooled into exploring the dead
 side of a wall.
 
-> **### 🔍 In the code** — the goal-rooted Dijkstra that fills `h_grid`
+> ### 🔍 In the code — the goal-rooted Dijkstra that fills `h_grid`
 >
 > `ros2_ws/src/barn_classical/src/global_planner_astar.cpp:84`
 > ```cpp
@@ -281,7 +281,7 @@ The 5 primitives fanning out from a pose  ">"  (facing right):
     ⟳                                 ⟲ / ⟳ = rotate in place ±1 bin
 ```
 
-> **### 🔍 In the code** — the five neighbours generated per state
+> ### 🔍 In the code — the five neighbours generated per state
 >
 > `ros2_ws/src/barn_classical/src/global_planner_astar.cpp:200`
 > ```cpp
@@ -341,7 +341,7 @@ You can plan through unknown cells (better than refusing to move), but you shoul
 hide a wall. Multiplying a move's cost by `unknown_cost_multiplier` (2.0) when it
 enters an unknown cell prices that risk in.
 
-> **### 🔍 In the code** — assembling one transition cost
+> ### 🔍 In the code — assembling one transition cost
 >
 > `ros2_ws/src/barn_classical/src/global_planner_astar.cpp:236`
 > ```cpp
@@ -364,12 +364,14 @@ know `d`, the metres of clearance at a cell. The planner adds a **soft cost** th
 grows as you approach an obstacle — but only within a band of `r =
 clearance_penalty_radius` around it, and charged **per metre travelled**.
 
-> **### 📐 The math** — the clearance penalty
+> ### 📐 The math — the clearance penalty
 > (`global_planner_astar.cpp:241`, and the identical Phase-1 form at `:127`)
 >
 > For a move of length $\Delta s$ ending at a cell with clearance $d$, the added
 > cost is
-> $$\text{penalty} = \begin{cases} w_c \left( \dfrac{1}{\max(d,\,0.05)} - \dfrac{1}{r} \right) \Delta s, & d < r,\\ 0, & d \ge r. \end{cases}$$
+> ```math
+> \text{penalty} = \begin{cases} w_c \left( \dfrac{1}{\max(d,\,0.05)} - \dfrac{1}{r} \right) \Delta s, & d < r,\\ 0, & d \ge r. \end{cases}
+> ```
 > with $w_c$ the `clearance_weight` and $r$ the `clearance_penalty_radius`.
 >
 > | symbol | meaning |
@@ -428,7 +430,7 @@ Swept-footprint test for one primitive:
     ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ wall  ← if any corner clips ▓, reject the move
 ```
 
-> **### 🔍 In the code** — reject a move whose body clips an obstacle
+> ### 🔍 In the code — reject a move whose body clips an obstacle
 >
 > `ros2_ws/src/barn_classical/src/global_planner_astar.cpp:224`
 > ```cpp
@@ -459,7 +461,7 @@ deployment that budget arrives as `global_planner_budget_ms` (500 ms) from the
 node config (`classical_mpc.yaml:96`); the `PlannerStats` struct records
 `timed_out`, `expanded`, and `elapsed_ms` so the node can log what happened.
 
-> **### 🔍 In the code** — the anytime timeout
+> ### 🔍 In the code — the anytime timeout
 >
 > `ros2_ws/src/barn_classical/src/global_planner_astar.cpp:170`
 > ```cpp
@@ -490,7 +492,7 @@ averaged as unit vectors (`atan2` of summed sines/cosines) so the wrap-around at
 ±π behaves. This rounds off the sharp lattice corners into something the MPC can
 track without fighting.
 
-> **### 🔍 In the code** — the 5-point smoother
+> ### 🔍 In the code — the 5-point smoother
 >
 > `ros2_ws/src/barn_classical/src/global_planner_astar.cpp:288`
 > ```cpp
