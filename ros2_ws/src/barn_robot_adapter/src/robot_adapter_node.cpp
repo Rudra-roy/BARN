@@ -2,6 +2,7 @@
 
 #include "barn_robot_adapter/robot_adapter_node.hpp"
 
+#include <cmath>
 #include <memory>
 
 #include "barn_robot_adapter/conversions.hpp"
@@ -24,6 +25,7 @@ RobotAdapterNode::RobotAdapterNode(const rclcpp::NodeOptions & options)
   cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
   cmd_vel_type_ = declare_parameter<std::string>("cmd_vel_type", "twist_stamped");
   cmd_vel_frame_ = declare_parameter<std::string>("cmd_vel_frame", "base_link");
+  corrected_frame_ = declare_parameter<std::string>("corrected_frame", "map");
 
   // Sensor QoS for the LiDAR relay; keep-last, best-effort matches drivers.
   const auto sensor_qos = rclcpp::SensorDataQoS();
@@ -40,6 +42,11 @@ RobotAdapterNode::RobotAdapterNode(const rclcpp::NodeOptions & options)
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+  correction_sub_ = create_subscription<geometry_msgs::msg::TransformStamped>(
+    declare_parameter<std::string>("correction_topic", "/barn/odom_correction"),
+    rclcpp::QoS(1).transient_local(),
+    std::bind(&RobotAdapterNode::correction_callback, this, std::placeholders::_1));
 
   // Egress: create exactly one publisher based on the configured wire type.
   if (cmd_vel_type_ == "twist") {
@@ -63,10 +70,23 @@ void RobotAdapterNode::scan_callback(const sensor_msgs::msg::LaserScan::SharedPt
   scan_pub_->publish(*msg);
 }
 
+void RobotAdapterNode::correction_callback(
+  const geometry_msgs::msg::TransformStamped::SharedPtr msg)
+{
+  // Planar correction: extract yaw from the (z, w)-only quaternion.
+  const auto & rot = msg->transform.rotation;
+  const double yaw = 2.0 * std::atan2(rot.z, rot.w);
+  corr_cos_ = std::cos(yaw);
+  corr_sin_ = std::sin(yaw);
+  corr_x_ = msg->transform.translation.x;
+  corr_y_ = msg->transform.translation.y;
+}
+
 void RobotAdapterNode::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   geometry_msgs::msg::PoseStamped pose;
-  pose.header.frame_id = odom_frame_;
+  // Coordinates are drift-corrected below, so the label is the map frame.
+  pose.header.frame_id = corrected_frame_;
   pose.header.stamp = msg->header.stamp;
 
   // Prefer the authoritative TF (odom -> base_link); fall back to the odom
@@ -85,13 +105,29 @@ void RobotAdapterNode::odom_callback(const nav_msgs::msg::Odometry::SharedPtr ms
       odom_frame_.c_str(), base_frame_.c_str(), ex.what());
     pose.pose = msg->pose.pose;
   }
+  // Rotate/translate into the mapping node's drift-corrected frame so the
+  // planner's pose, the latched goal, and the occupancy grid stay consistent.
+  {
+    const double px = pose.pose.position.x;
+    const double py = pose.pose.position.y;
+    pose.pose.position.x = corr_cos_ * px - corr_sin_ * py + corr_x_;
+    pose.pose.position.y = corr_sin_ * px + corr_cos_ * py + corr_y_;
+    const auto qin = pose.pose.orientation;
+    const double half = 0.5 * std::atan2(corr_sin_, corr_cos_);
+    const double zc = std::sin(half);
+    const double wc = std::cos(half);
+    pose.pose.orientation.w = wc * qin.w - zc * qin.z;
+    pose.pose.orientation.x = wc * qin.x - zc * qin.y;
+    pose.pose.orientation.y = wc * qin.y + zc * qin.x;
+    pose.pose.orientation.z = wc * qin.z + zc * qin.w;
+  }
   pose_pub_->publish(pose);
 
   // Preserve measured twist while making the pose agree with the pose relay.
   // Downstream predictive control therefore never subscribes around the robot
   // boundary to the evaluator-owned odometry topic.
   nav_msgs::msg::Odometry odom = *msg;
-  odom.header.frame_id = odom_frame_;
+  odom.header.frame_id = corrected_frame_;
   odom.child_frame_id = base_frame_;
   odom.pose.pose = pose.pose;
   odom_pub_->publish(odom);

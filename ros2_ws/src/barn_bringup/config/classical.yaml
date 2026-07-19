@@ -11,6 +11,7 @@ goal_adapter_node:
 
 robot_adapter_node:
   ros__parameters:
+    corrected_frame: odom   # no mapping/drift correction in this track
     scan_topic: /front/scan
     odom_topic: platform/odom/filtered
     odom_frame: odom

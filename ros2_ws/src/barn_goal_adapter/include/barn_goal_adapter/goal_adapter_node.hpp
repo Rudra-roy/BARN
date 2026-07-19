@@ -48,6 +48,8 @@ private:
 
   void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   double distance_to_goal(const geometry_msgs::msg::PoseStamped & goal) const;
+  void run_finish_sweep(
+    const geometry_msgs::msg::PoseStamped & goal_pose, double ux, double uy);
 
   // Parameters.
   std::string planning_frame_;   ///< frame the internal goal is expressed in (odom)
@@ -55,6 +57,11 @@ private:
   std::string pose_topic_;       ///< current robot pose (/barn/pose)
   double success_distance_;      ///< [m] mark SUCCEEDED within this of the goal
   double feedback_period_s_;     ///< feedback publication period
+  double goal_overshoot_m_;      ///< [m] aim past the goal to absorb odom drift
+  double finish_sweep_max_m_;    ///< [m] max lateral sweep after believed success
+  double finish_sweep_step_m_;   ///< [m] lateral distance between sweep legs
+  double finish_sweep_leg_timeout_s_;  ///< [s] give up on a sweep leg after this
+  double finish_sweep_reached_m_;      ///< [m] believed distance to advance legs
 
   rclcpp_action::Server<NavigateToPose>::SharedPtr action_server_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pub_;

@@ -20,6 +20,7 @@
 #include <string>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -40,6 +41,7 @@ private:
   void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void safe_cmd_callback(const geometry_msgs::msg::TwistStamped::SharedPtr msg);
+  void correction_callback(const geometry_msgs::msg::TransformStamped::SharedPtr msg);
 
   // Parameters.
   std::string scan_topic_;
@@ -53,6 +55,7 @@ private:
   std::string cmd_vel_topic_;
   std::string cmd_vel_type_;   ///< "twist_stamped" (default) or "twist"
   std::string cmd_vel_frame_;
+  std::string corrected_frame_;  ///< label for drift-corrected /barn/pose, /barn/odom
 
   // Ingress.
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
@@ -68,6 +71,16 @@ private:
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
+  // Drift correction (raw odom -> map anchor frame) estimated by the mapping
+  // node's scan-to-map registration. Applied to /barn/pose and /barn/odom so
+  // every consumer shares the map's drift-corrected frame. Identity until the
+  // first correction message arrives.
+  rclcpp::Subscription<geometry_msgs::msg::TransformStamped>::SharedPtr correction_sub_;
+  double corr_cos_{1.0};
+  double corr_sin_{0.0};
+  double corr_x_{0.0};
+  double corr_y_{0.0};
 };
 
 }  // namespace barn_robot_adapter

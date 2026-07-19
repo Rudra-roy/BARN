@@ -107,6 +107,8 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   frame_id_ = declare_parameter<std::string>("planning_frame", "odom");
   cmd_frame_ = declare_parameter<std::string>("cmd_frame", "base_link");
   goal_tolerance_ = declare_parameter<double>("goal_tolerance", 0.70);
+  enable_los_shortcut_ = declare_parameter<bool>("enable_los_shortcut", true);
+  los_max_range_ = declare_parameter<double>("los_max_range", 4.0);
   startup_creep_delay_s_ = declare_parameter<double>("startup_creep_delay_s", 1.0);
   startup_creep_speed_ = declare_parameter<double>("startup_creep_speed", 0.15);
   no_progress_timeout_s_ = declare_parameter<double>("no_progress_timeout_s", 2.0);
@@ -130,6 +132,7 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   // Soft clearance weight replaces the old binary inflation layer. A higher
   // value pushes paths to the center of corridors without hard-blocking them.
   astar.clearance_weight = declare_parameter<double>("clearance_weight", 0.3);
+  astar.clearance_penalty_radius = declare_parameter<double>("clearance_penalty_radius", 1.0);
   // Reduced turn/rotate penalties: the old values (0.35/0.50) heavily penalized
   // the sequence of turns needed for L-turns and U-turns, causing A* to prefer
   // longer routes or timeout. Lower values let A* freely navigate corners.
@@ -137,6 +140,7 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   astar.rotate_weight = declare_parameter<double>("rotate_weight", 0.20);
   astar.yaw_bins = declare_parameter<int>("yaw_bins", 24);
   global_planner_ = GlobalPlannerAStar(astar);
+  base_clearance_weight_ = astar.clearance_weight;
 
   LocalPlannerParams local;
   local.max_speed = declare_parameter<double>("max_speed", 3.5);
@@ -160,14 +164,23 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   controller_ = Controller(mpc);
 
   RecoveryParams recovery_params;
-  recovery_params.max_attempts = declare_parameter<int>("max_recovery_attempts", 8);
-  // Speed up recovery behavior to quickly clear the safety shield envelope.
-  recovery_params.stop_duration = declare_parameter<double>("recovery_stop_duration", 0.1);
-  recovery_params.rotate_speed = declare_parameter<double>("recovery_rotate_speed", 1.5);
-  recovery_params.backup_speed = declare_parameter<double>("recovery_backup_speed", 0.6);
-  // Lower rear clearance requirement so the robot can actually back up out of tight corners.
-  recovery_params.rear_clearance = declare_parameter<double>("recovery_rear_clearance", 0.15);
+  recovery_params.max_attempts = declare_parameter<int>("max_recovery_attempts", 5);
+  recovery_params.rotate_speed = declare_parameter<double>("recovery_rotate_speed", 1.2);
+  // Backtracking recovery: reverse along the known-clear breadcrumb until the
+  // robot reaches space wide enough to rotate, then replan from there.
+  recovery_params.reverse_speed = declare_parameter<double>("recovery_reverse_speed", 0.35);
+  recovery_params.reverse_lookahead = declare_parameter<double>("recovery_reverse_lookahead", 0.5);
+  recovery_params.max_reverse_distance =
+    declare_parameter<double>("recovery_max_reverse_distance", 1.5);
+  recovery_params.reverse_timeout = declare_parameter<double>("recovery_reverse_timeout", 6.0);
   recovery_ = Recovery(recovery_params);
+
+  // Clearance needed to rotate in place (footprint half-diagonal + margin) and
+  // breadcrumb sampling.
+  rotation_clearance_m_ = declare_parameter<double>("rotation_clearance_m", 0.40);
+  breadcrumb_spacing_m_ = declare_parameter<double>("breadcrumb_spacing_m", 0.10);
+  breadcrumb_max_ =
+    static_cast<std::size_t>(declare_parameter<int>("breadcrumb_max_points", 160));
 
   command_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>(cmd_topic, 10);
   global_path_pub_ =
@@ -257,6 +270,7 @@ void ClassicalMpcNode::goal_callback(const geometry_msgs::msg::PoseStamped::Shar
     recovery_.reset();
     controller_.reset();
   }
+  breadcrumb_.clear();
   RCLCPP_INFO(
     get_logger(), "Goal received at (%.2f, %.2f)", msg->pose.position.x, msg->pose.position.y);
   request_plan();
@@ -407,10 +421,14 @@ void ClassicalMpcNode::veto_callback(const std_msgs::msg::Bool::SharedPtr msg)
   // Only react when actively navigating (have a goal and a path).
   bool navigating = false;
   sensor_msgs::msg::LaserScan::SharedPtr latest_scan;
+  barn_core::Pose2D current_pose;
+  std::shared_ptr<const barn_core::DistanceField2D> field;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     navigating = have_goal_ && !global_path_.empty();
     latest_scan = scan_;
+    current_pose = state_.pose;
+    field = distance_field_;
   }
   if (!navigating || recovery_.active()) {
     consecutive_veto_count_ = 0;
@@ -423,7 +441,7 @@ void ClassicalMpcNode::veto_callback(const std_msgs::msg::Bool::SharedPtr msg)
       "Safety shield has vetoed %d consecutive commands — executing veto escape recovery",
       consecutive_veto_count_);
     consecutive_veto_count_ = 0;
-    recovery_.trigger_veto_escape(scan_view(latest_scan));
+    recovery_.trigger_veto_escape(recovery_context(current_pose, field, latest_scan, true));
     RCLCPP_INFO(get_logger(), "[Recovery] Triggered due to: safety_veto. Action taken: %s", to_string(recovery_.state()));
   }
 }
@@ -466,8 +484,13 @@ void ClassicalMpcNode::planner_loop()
     
     // Path smoother / shortcut optimization:
     // If there is a direct line of sight to the goal, skip A* and just go straight.
+    // The shortcut is restricted to the final approach: a long straight
+    // sprint in the believed frame turns any residual frame rotation into a
+    // large lateral miss at the goal, with no walls to funnel the robot back.
     barn_core::Pose2D los_goal{goal.x, goal.y, barn_core::wrap_angle(std::atan2(goal.y - pose.y, goal.x - pose.x))};
-    if (swept_segment_is_clear(*planning_grid, pose, los_goal, global_planner_.params().footprint, false, planning_grid->resolution())) {
+    if (enable_los_shortcut_ &&
+      std::hypot(goal.x - pose.x, goal.y - pose.y) <= los_max_range_ &&
+      swept_segment_is_clear(*planning_grid, pose, los_goal, global_planner_.params().footprint, false, planning_grid->resolution())) {
       const double dist = std::hypot(los_goal.x - pose.x, los_goal.y - pose.y);
       const int steps = std::max(1, static_cast<int>(std::ceil(dist / 0.2)));
       for (int i = 0; i <= steps; ++i) {
@@ -572,7 +595,9 @@ void ClassicalMpcNode::local_plan_step()
     // Dynamic path smoother: continuously check if a direct line to the goal has opened up.
     if (planning_grid_) {
       barn_core::Pose2D los_goal{goal_.x, goal_.y, barn_core::wrap_angle(std::atan2(goal_.y - pose.y, goal_.x - pose.x))};
-      if (!is_los_path_ && swept_segment_is_clear(*planning_grid_, pose, los_goal, global_planner_.params().footprint, false, planning_grid_->resolution())) {
+      if (enable_los_shortcut_ && !is_los_path_ &&
+        std::hypot(goal_.x - pose.x, goal_.y - pose.y) <= los_max_range_ &&
+        swept_segment_is_clear(*planning_grid_, pose, los_goal, global_planner_.params().footprint, false, planning_grid_->resolution())) {
         global_path_.clear();
         is_los_path_ = true;
         const double dist = std::hypot(los_goal.x - pose.x, los_goal.y - pose.y);
@@ -637,6 +662,22 @@ barn_core::VelocityCommand ClassicalMpcNode::exploratory_command(
   return command;
 }
 
+RecoveryContext ClassicalMpcNode::recovery_context(
+  const barn_core::Pose2D & pose,
+  const std::shared_ptr<const barn_core::DistanceField2D> & field,
+  const sensor_msgs::msg::LaserScan::SharedPtr & scan, bool veto_active) const
+{
+  RecoveryContext ctx;
+  ctx.pose = pose;
+  ctx.rotation_radius = rotation_clearance_m_;
+  ctx.veto_active = veto_active;
+  ctx.scan = scan_view(scan);
+  ctx.breadcrumb = &breadcrumb_;
+  ctx.clearance = field ? field->distance_world(pose.x, pose.y)
+                        : std::numeric_limits<double>::infinity();
+  return ctx;
+}
+
 void ClassicalMpcNode::control_step()
 {
   std::lock_guard<std::mutex> control_lock(control_mutex_);
@@ -686,15 +727,26 @@ void ClassicalMpcNode::control_step()
       recovery_.reset();
       controller_.reset();
     } else if (recovery_.active()) {
-      const double backed =
-        std::hypot(state.pose.x - recovery_start_pose_.x, state.pose.y - recovery_start_pose_.y);
-      // Pass the veto_active flag to recovery so the veto escape knows when to stop.
-      command = recovery_.step(0.033, state.pose.yaw, backed, scan_view(scan), veto_active);
+      const auto ctx = recovery_context(state.pose, field, scan, veto_active);
+      command = recovery_.step(0.033, ctx);
+      // The no-progress watchdog only ticks in the MPC branch below, so its
+      // timer goes stale while recovery runs (often several seconds of rotating
+      // in place). Force a clean re-initialisation on the first MPC tick after
+      // recovery ends; otherwise the stale timer instantly re-triggers recovery
+      // and the robot flaps between the two states.
+      progress_initialized_ = false;
       status = recovery_.state() == RecoveryState::kFailed ? "recovery_failed" : "recovery";
-      if (recovery_.request_replan()) {
+      // Issue the replan once per episode (recovery holds the RequestReplan
+      // state across several ticks while the async planner runs).
+      if (recovery_.request_replan() && !recovery_replan_issued_) {
+        recovery_replan_issued_ = true;
         if (recovery_.is_clearance_replan()) {
+          // Boost clearance for the retry, capped at 3x baseline so repeated
+          // clearance-replans cannot ratchet the weight until A* refuses every
+          // narrow BARN corridor.
           auto params = global_planner_.params();
-          params.clearance_weight *= 1.5;
+          params.clearance_weight =
+            std::min(params.clearance_weight * 1.5, base_clearance_weight_ * 3.0);
           global_planner_.set_params(params);
         }
         {
@@ -730,8 +782,7 @@ void ClassicalMpcNode::control_step()
           command = {};
         }
         if (consecutive_mpc_failures_ >= 3) {
-          recovery_start_pose_ = state.pose;
-          recovery_.trigger(scan_view(scan));
+          recovery_.trigger(recovery_context(state.pose, field, scan, veto_active));
           status = "mpc_failure_recovery";
           RCLCPP_INFO(get_logger(), "[Recovery] Triggered due to: mpc_failure. Action taken: %s", to_string(recovery_.state()));
         }
@@ -746,14 +797,24 @@ void ClassicalMpcNode::control_step()
         std::hypot(state.pose.x - progress_pose_.x, state.pose.y - progress_pose_.y) > 0.18) {
         progress_pose_ = state.pose;
         last_progress_time_ = stamp;
+        // Real ground covered — refund the recovery attempt budget so
+        // max_recovery_attempts bounds *consecutive* failed episodes, not the
+        // lifetime total. Without this, enough scattered recoveries latch
+        // kFailed and the robot stops for the rest of the trial.
+        recovery_.notify_progress();
+        // Relax any clearance boost back to baseline now that we are moving.
+        if (global_planner_.params().clearance_weight > base_clearance_weight_) {
+          auto params = global_planner_.params();
+          params.clearance_weight = base_clearance_weight_;
+          global_planner_.set_params(params);
+        }
         // Bug 3 fix: raise the speed guard to 0.25 m/s (matching startup_creep_speed_).
         // A command near 0.10-0.20 m/s is legitimately slow near obstacles; firing
         // recovery at that speed was causing spurious no-progress triggers.
       } else if (
         (command.v > 0.25 || (command.v < 0.08 && std::abs(command.w) < 0.15)) &&
         (stamp - last_progress_time_).seconds() > no_progress_timeout_s_) {
-        recovery_start_pose_ = state.pose;
-        recovery_.trigger(scan_view(scan));
+        recovery_.trigger(recovery_context(state.pose, field, scan, veto_active));
         status = "no_progress_recovery";
         RCLCPP_INFO(get_logger(), "[Recovery] Triggered due to: no_progress. Action taken: %s", to_string(recovery_.state()));
       }
@@ -775,10 +836,29 @@ void ClassicalMpcNode::control_step()
       // nearly stopped. Legitimate corridor turning at speed generates many
       // yaw-rate sign changes that would otherwise trip this counter.
       if (oscillation_count_ >= 4 && command.v < 0.25) {
-        recovery_start_pose_ = state.pose;
-        recovery_.trigger(scan_view(scan));
+        recovery_.trigger(recovery_context(state.pose, field, scan, veto_active));
         oscillation_count_ = 0;
         status = "oscillation_recovery";
+      }
+    }
+  }
+
+  // Allow the next episode to issue its replan once recovery has ended.
+  if (!recovery_.active()) {
+    recovery_replan_issued_ = false;
+  }
+
+  // Record the traversed trail (known-clear) for reverse recovery. Sample only
+  // while navigating normally — during recovery we consume it in reverse, and
+  // appending our own reverse motion would corrupt the trail.
+  if (have_pose && !recovery_.active()) {
+    if (breadcrumb_.empty() ||
+      std::hypot(state.pose.x - breadcrumb_.back().x, state.pose.y - breadcrumb_.back().y) >=
+      breadcrumb_spacing_m_)
+    {
+      breadcrumb_.push_back(state.pose);
+      if (breadcrumb_.size() > breadcrumb_max_) {
+        breadcrumb_.erase(breadcrumb_.begin());
       }
     }
   }
@@ -936,6 +1016,32 @@ void ClassicalMpcNode::publish_debug(
   recovery_target.color.g = 0.4f;
   recovery_target.color.a = 1.0f;
   markers.markers.push_back(recovery_target);
+
+  // Breadcrumb trail (the known-clear path the reverse recovery follows back).
+  // Safe to read here: publish_debug runs inside control_step's control_mutex_.
+  visualization_msgs::msg::Marker crumbs;
+  crumbs.header = footprint.header;
+  crumbs.ns = "breadcrumb";
+  crumbs.id = 3;
+  crumbs.type = visualization_msgs::msg::Marker::LINE_STRIP;
+  crumbs.scale.x = 0.03;
+  crumbs.color.r = 0.2f;
+  crumbs.color.g = 0.5f;
+  crumbs.color.b = 1.0f;
+  crumbs.color.a = 0.8f;
+  if (breadcrumb_.size() >= 2) {
+    crumbs.action = visualization_msgs::msg::Marker::ADD;
+    for (const auto & crumb : breadcrumb_) {
+      geometry_msgs::msg::Point point;
+      point.x = crumb.x;
+      point.y = crumb.y;
+      crumbs.points.push_back(point);
+    }
+  } else {
+    crumbs.action = visualization_msgs::msg::Marker::DELETE;
+  }
+  markers.markers.push_back(crumbs);
+
   marker_pub_->publish(markers);
 }
 

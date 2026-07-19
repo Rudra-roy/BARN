@@ -18,8 +18,21 @@ bool SweptFootprintShield::safe_at_scale(
   const double w = desired.w * scale;
   const double stopping_time = std::abs(v) / std::max(0.1, params_.braking_decel) + params_.latency_s;
   const double horizon = std::max(params_.horizon_s, stopping_time);
-  const double hx = params_.half_length + params_.footprint_margin + params_.emergency_margin;
-  const double hy = params_.half_width + params_.footprint_margin + params_.emergency_margin;
+  // Hard-veto footprint: physical body plus ONLY the small emergency buffer.
+  //
+  // footprint_margin is deliberately NOT in the hard-collision box. Anticipatory
+  // clearance is already provided by sweeping this box along the full stopping
+  // envelope (horizon covers braking + latency), so an extra static buffer only
+  // adds conservatism at rest. safety_node discards returns inside half+1cm, so
+  // an obstacle in the shell between the body and half+footprint_margin+
+  // emergency (~5-6 cm, routine in a tight BARN pinch) used to hard-veto EVERY
+  // scale down to zero — including an in-place rotation or a creep AWAY from the
+  // obstacle. The robot then froze in recovery, commanded to move but clamped to
+  // zero. With the tighter box, the scale search can return a motion that
+  // escapes the pinch, while a genuinely imminent collision (obstacle within
+  // emergency_margin of the body along the swept path) is still vetoed.
+  const double hx = params_.half_length + params_.emergency_margin;
+  const double hy = params_.half_width + params_.emergency_margin;
   barn_core::Pose2D pose;
   minimum_clearance = std::numeric_limits<double>::infinity();
   if (envelope != nullptr) {

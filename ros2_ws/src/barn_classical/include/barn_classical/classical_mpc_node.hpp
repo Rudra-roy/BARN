@@ -8,6 +8,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -58,6 +59,12 @@ private:
   barn_core::VelocityCommand exploratory_command(
     const barn_core::Pose2D & pose, const barn_core::Goal2D & goal,
     const sensor_msgs::msg::LaserScan & scan) const;
+  // Assemble the per-tick recovery inputs (clearance, breadcrumb, gap scan).
+  // Call sites hold control_mutex_, which serialises breadcrumb_ access.
+  RecoveryContext recovery_context(
+    const barn_core::Pose2D & pose,
+    const std::shared_ptr<const barn_core::DistanceField2D> & field,
+    const sensor_msgs::msg::LaserScan::SharedPtr & scan, bool veto_active) const;
 
   mutable std::mutex mutex_;
   std::mutex control_mutex_;
@@ -85,6 +92,8 @@ private:
   std::size_t planner_expanded_{0};
   std::string planner_status_{"waiting"};
   bool is_los_path_{false};
+  bool enable_los_shortcut_{true};  ///< allow straight-to-goal paths on clear line of sight
+  double los_max_range_{4.0};  ///< [m] LOS shortcut only inside this goal distance
   rclcpp::Time last_path_swap_time_;
   double path_cooldown_s_{2.0};
 
@@ -97,7 +106,10 @@ private:
   rclcpp::Time goal_received_time_;
   rclcpp::Time last_progress_time_;
   barn_core::Pose2D progress_pose_;
-  barn_core::Pose2D recovery_start_pose_;
+  // Known-clear trail of traversed poses (oldest -> newest), consumed in reverse
+  // by the recovery reverse-to-clearance maneuver. Touched only under
+  // control_mutex_ (control_step and veto_callback).
+  std::vector<barn_core::Pose2D> breadcrumb_;
   bool progress_initialized_{false};
   int consecutive_mpc_failures_{0};
   int oscillation_count_{0};
@@ -110,6 +122,15 @@ private:
   double startup_creep_delay_s_{1.0};
   double startup_creep_speed_{0.15};
   double no_progress_timeout_s_{3.0};
+  // Clearance the robot needs to rotate in place; below this, recovery reverses
+  // instead of spinning. Breadcrumb sampling spacing and cap.
+  double rotation_clearance_m_{0.40};
+  double breadcrumb_spacing_m_{0.10};
+  std::size_t breadcrumb_max_{160};
+  // One-shot guard + baseline for the clearance-replan boost, so it fires once
+  // per episode and is capped rather than compounding every control tick.
+  bool recovery_replan_issued_{false};
+  double base_clearance_weight_{0.0};
   double inflation_radius_{0.10};  // metres — inflated planning grid margin
   std::string frame_id_{"odom"};
   std::string cmd_frame_{"base_link"};

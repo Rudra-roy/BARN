@@ -7,6 +7,7 @@ mapping_node:
     pose_topic: /barn/pose
     grid_topic: /barn/occupancy
     frame_id: odom
+    base_frame: base_link
     resolution: 0.05    # metres/cell
     width_m: 50.0
     height_m: 30.0
@@ -17,3 +18,11 @@ mapping_node:
     log_odds_min: -4.0
     log_odds_max: 4.0
     map_decay_rate: 0.15
+    max_integration_yaw_rate: 0.0   # rad/s; optional hard gate, 0 = disabled
+    rotation_decay_boost: 0.0       # extra log-odds/s of decay per rad/s of measured yaw rate
+    scan_match_enable: true         # register each scan to the map before integrating
+    scan_match_yaw_window: 0.06     # rad searched each side per scan
+    scan_match_yaw_step: 0.005      # rad per candidate
+    scan_match_xy_window: 0.04      # m searched each side per scan
+    scan_match_min_score_gain: 0.75 # log-odds improvement required to accept a fix
+    scan_match_min_points: 30       # matched hits required to trust a fix

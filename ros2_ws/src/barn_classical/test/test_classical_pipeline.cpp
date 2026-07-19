@@ -102,23 +102,121 @@ TEST(Controller, TracksStraightPathWithinConstraints)
   EXPECT_EQ(result.prediction.size(), 21U);
 }
 
+namespace
+{
+barn_core::ScanView uniform_scan(std::vector<float> & ranges)
+{
+  ranges.assign(361, 5.0f);
+  return barn_core::ScanView{ranges.data(), ranges.size(), -static_cast<float>(M_PI),
+    static_cast<float>(2.0 * M_PI / 360.0), 0.05f, 10.0f};
+}
+
+barn_classical::RecoveryContext make_ctx(
+  const barn_core::ScanView & scan, double clearance,
+  const barn_core::Pose2D & pose = {},
+  const std::vector<barn_core::Pose2D> * breadcrumb = nullptr)
+{
+  barn_classical::RecoveryContext ctx;
+  ctx.pose = pose;
+  ctx.clearance = clearance;
+  ctx.rotation_radius = 0.40;
+  ctx.scan = scan;
+  ctx.breadcrumb = breadcrumb;
+  return ctx;
+}
+}  // namespace
+
 TEST(Recovery, EnforcesAttemptLimit)
 {
-  std::vector<float> ranges(361, 5.0f);
-  barn_core::ScanView scan{ranges.data(), ranges.size(), -static_cast<float>(M_PI),
-    static_cast<float>(2.0 * M_PI / 360.0), 0.05f, 10.0f};
+  std::vector<float> ranges;
+  const auto scan = uniform_scan(ranges);
   barn_classical::RecoveryParams params;
   params.max_attempts = 3;
   barn_classical::Recovery recovery(params);
+  auto ctx = make_ctx(scan, /*clearance=*/1.0);  // plenty of room; no reverse needed
   for (int attempt = 0; attempt < 3; ++attempt) {
-    recovery.trigger(scan);
+    recovery.trigger(ctx);
     EXPECT_EQ(recovery.attempts(), attempt + 1);
-    for (int i = 0; i < 10; ++i) {
-      (void)recovery.step(0.1, 0.0, 0.0, scan);
+    for (int i = 0; i < 200 && !recovery.request_replan(); ++i) {
+      (void)recovery.step(0.1, ctx);
     }
     EXPECT_TRUE(recovery.request_replan());
     recovery.finish_replan();
   }
-  recovery.trigger(scan);
+  recovery.trigger(ctx);
   EXPECT_EQ(recovery.state(), barn_classical::RecoveryState::kFailed);
+}
+
+TEST(Recovery, VetoEscapeStopsWhenShieldClears)
+{
+  std::vector<float> ranges;
+  const auto scan = uniform_scan(ranges);
+  barn_classical::RecoveryParams params;
+  params.veto_clear_min_rotate = 0.2;
+  params.blocked_timeout = 5.0;  // keep the blocked-bail out of the way for this test
+  barn_classical::Recovery recovery(params);
+
+  auto ctx = make_ctx(scan, /*clearance=*/0.2);  // too tight to rotate -> reverse maneuver
+  recovery.trigger_veto_escape(ctx);
+  // While the shield keeps vetoing, the escape maneuver runs and does not conclude.
+  ctx.veto_active = true;
+  for (int i = 0; i < 5; ++i) {
+    (void)recovery.step(0.1, ctx);
+  }
+  EXPECT_FALSE(recovery.request_replan());
+  EXPECT_TRUE(recovery.active());
+
+  // Shield clears: the escape concludes promptly (next tick past the minimal
+  // maneuver guard), not after the full timeout.
+  ctx.veto_active = false;
+  const auto cmd = recovery.step(0.1, ctx);
+  EXPECT_TRUE(recovery.request_replan());
+  EXPECT_DOUBLE_EQ(cmd.v, 0.0);
+  EXPECT_DOUBLE_EQ(cmd.w, 0.0);
+}
+
+TEST(Recovery, ReverseToClearanceThenReplan)
+{
+  std::vector<float> ranges;
+  const auto scan = uniform_scan(ranges);
+  barn_classical::Recovery recovery;
+  // Robot at the origin, breadcrumb trailing behind along -x (oldest -> newest).
+  const std::vector<barn_core::Pose2D> breadcrumb{{-1.0, 0.0, 0.0}, {-0.5, 0.0, 0.0},
+    {0.0, 0.0, 0.0}};
+  auto ctx = make_ctx(scan, /*clearance=*/0.2, /*pose=*/{0.0, 0.0, 0.0}, &breadcrumb);
+
+  recovery.trigger(ctx);
+  EXPECT_EQ(recovery.state(), barn_classical::RecoveryState::kReverseToClearance);
+  const auto reversing = recovery.step(0.1, ctx);
+  EXPECT_LT(reversing.v, 0.0);  // commanded to back up along the breadcrumb
+
+  // Once enough room opens up, it hands off to a replan.
+  ctx.clearance = 0.6;
+  (void)recovery.step(0.1, ctx);
+  EXPECT_TRUE(recovery.request_replan());
+}
+
+TEST(Recovery, ProgressRefundsAttemptBudget)
+{
+  std::vector<float> ranges;
+  const auto scan = uniform_scan(ranges);
+  barn_classical::RecoveryParams params;
+  params.max_attempts = 3;
+  barn_classical::Recovery recovery(params);
+  auto ctx = make_ctx(scan, /*clearance=*/1.0);
+
+  // One episode to its replan, then finish it: INACTIVE but attempts_ == 1.
+  recovery.trigger(ctx);
+  for (int i = 0; i < 200 && !recovery.request_replan(); ++i) {
+    (void)recovery.step(0.1, ctx);
+  }
+  recovery.finish_replan();
+  EXPECT_FALSE(recovery.active());
+  EXPECT_EQ(recovery.attempts(), 1);
+
+  // Progress refunds the budget; a fresh episode does not immediately fail.
+  recovery.notify_progress();
+  EXPECT_EQ(recovery.attempts(), 0);
+  recovery.trigger(ctx);
+  EXPECT_NE(recovery.state(), barn_classical::RecoveryState::kFailed);
 }

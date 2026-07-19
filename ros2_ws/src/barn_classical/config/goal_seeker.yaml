@@ -17,5 +17,5 @@ goal_seeker_node:
     heading_tol: 0.35   # rad; above this the robot creeps and realigns
     stop_distance: 0.45 # m; forward clearance below this -> stop
     slow_distance: 1.2  # m; ramp speed down below this
-    goal_tolerance: 0.8 # m; internal stop radius (< evaluator's 1 m success)
+    goal_tolerance: 0.2 # m; internal stop radius (< evaluator's 1 m success)
     creep_fraction: 0.15

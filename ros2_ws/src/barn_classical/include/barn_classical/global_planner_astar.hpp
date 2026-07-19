@@ -26,7 +26,12 @@ struct AStarParams
   // needs a safe feasible path inside the 100 ms deadline, not an optimal one.
   double heuristic_weight{3.0};
   double distance_weight{1.0};
+  // Clearance shaping is charged PER METER of travel and only within
+  // clearance_penalty_radius of an obstacle. An uncapped per-cell 1/clearance
+  // penalty dwarfs the distance term everywhere, which makes long detours
+  // through unknown space cheaper than any tight (real) corridor.
   double clearance_weight{0.08};
+  double clearance_penalty_radius{1.0};
   double turn_weight{0.12};
   double rotate_weight{0.20};
   double timeout_ms{100.0};

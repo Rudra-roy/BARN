@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 
 #include "barn_core/geometry.hpp"
@@ -13,11 +14,19 @@ namespace barn_classical
 namespace
 {
 
-double rear_clearance(const barn_core::ScanView & scan)
+std::size_t nearest_breadcrumb(
+  const std::vector<barn_core::Pose2D> & bc, const barn_core::Pose2D & pose)
 {
-  return std::min(
-    static_cast<double>(barn_core::min_range_in_sector(scan, M_PI - 0.45, M_PI)),
-    static_cast<double>(barn_core::min_range_in_sector(scan, -M_PI, -M_PI + 0.45)));
+  std::size_t best = 0;
+  double best_d = std::numeric_limits<double>::infinity();
+  for (std::size_t i = 0; i < bc.size(); ++i) {
+    const double d = std::hypot(bc[i].x - pose.x, bc[i].y - pose.y);
+    if (d < best_d) {
+      best_d = d;
+      best = i;
+    }
+  }
+  return best;
 }
 
 }  // namespace
@@ -29,14 +38,13 @@ double Recovery::widest_gap_heading(const barn_core::ScanView & scan) const
   }
   double best_angle = 0.0;
   double best_score = -std::numeric_limits<double>::infinity();
-  // Finer 15° half-window and 5° steps (was 20°/10°) for better gap detection
-  // at tight corners where the corridor opening may be narrow.
+  // 15° half-window, 5° steps: fine enough to resolve a narrow corridor opening.
   constexpr double half_window = 15.0 * M_PI / 180.0;
   for (double angle = -M_PI; angle <= M_PI; angle += 5.0 * M_PI / 180.0) {
     const double clearance = barn_core::min_range_in_sector(
       scan, angle - half_window, angle + half_window);
-    // Reduced forward bias (0.15) so it doesn't force driving straight into obstacles
-    // and can properly pick a clear side gap.
+    // Small forward bias so ties resolve toward straight-ahead rather than a
+    // hard about-face.
     const double score = clearance - 0.15 * std::abs(angle);
     if (score > best_score) {
       best_score = score;
@@ -46,153 +54,190 @@ double Recovery::widest_gap_heading(const barn_core::ScanView & scan) const
   return best_angle;
 }
 
-void Recovery::trigger(const barn_core::ScanView & scan)
+barn_core::VelocityCommand Recovery::reverse_command(const RecoveryContext & ctx) const
 {
+  // No usable breadcrumb: back straight out. The safety shield still guards the
+  // motion, and a rear obstacle scales it down; max_reverse_distance/timeout
+  // bound how long we try.
+  const auto * bc = ctx.breadcrumb;
+  if (bc == nullptr || bc->size() < 2) {
+    return {-params_.reverse_speed, 0.0};
+  }
+
+  // Find the breadcrumb point ~reverse_lookahead behind the robot along the
+  // traversed path (walk from the nearest crumb toward older samples).
+  const std::size_t nearest = nearest_breadcrumb(*bc, ctx.pose);
+  std::size_t target = nearest;
+  double accumulated = 0.0;
+  while (target > 0 && accumulated < params_.reverse_lookahead) {
+    accumulated += std::hypot(
+      (*bc)[target].x - (*bc)[target - 1].x, (*bc)[target].y - (*bc)[target - 1].y);
+    --target;
+  }
+  const barn_core::Pose2D & goal = (*bc)[target];
+
+  // Reverse pure pursuit: treat the robot's rear as a virtual forward heading.
+  // The yaw rate of that virtual forward robot equals the real robot's yaw rate;
+  // the real linear velocity is negative.
+  const double virtual_heading = barn_core::wrap_angle(ctx.pose.yaw + M_PI);
+  const double bearing = std::atan2(goal.y - ctx.pose.y, goal.x - ctx.pose.x);
+  const double alpha = barn_core::wrap_angle(bearing - virtual_heading);
+  const double lookahead = std::max(0.2, std::hypot(goal.x - ctx.pose.x, goal.y - ctx.pose.y));
+  double w = 2.0 * params_.reverse_speed * std::sin(alpha) / lookahead;
+  w = std::clamp(w, -params_.rotate_speed, params_.rotate_speed);
+  return {-params_.reverse_speed, w};
+}
+
+bool Recovery::breadcrumb_exhausted(const RecoveryContext & ctx) const
+{
+  const auto * bc = ctx.breadcrumb;
+  if (bc == nullptr || bc->size() < 2) {
+    return false;  // nothing to consume; the distance/timeout bounds apply instead
+  }
+  const std::size_t nearest = nearest_breadcrumb(*bc, ctx.pose);
+  return nearest == 0 &&
+         std::hypot(bc->front().x - ctx.pose.x, bc->front().y - ctx.pose.y) < 0.15;
+}
+
+void Recovery::begin_episode(const RecoveryContext & ctx)
+{
+  state_elapsed_ = 0.0;
+  blocked_elapsed_ = 0.0;
+  // Escalate with repeated failures: attempt 1 just reverses-then-replans;
+  // attempt 2+ also rotates toward the gap; attempt 3+ boosts the planner's
+  // clearance weight on the follow-up replan.
+  rotate_after_reverse_ = attempts_ >= 2;
+  boost_after_ = attempts_ >= 3;
+
+  if (ctx.clearance < ctx.rotation_radius) {
+    // Too tight to rotate here — back out along the known-clear breadcrumb.
+    reverse_start_pose_ = ctx.pose;
+    state_ = RecoveryState::kReverseToClearance;
+  } else if (rotate_after_reverse_) {
+    target_yaw_ = barn_core::wrap_angle(ctx.pose.yaw + widest_gap_heading(ctx.scan));
+    state_ = RecoveryState::kRotateToGap;
+  } else {
+    state_ = boost_after_ ? RecoveryState::kRequestReplanClearance : RecoveryState::kRequestReplan;
+  }
+}
+
+void Recovery::trigger(const RecoveryContext & ctx)
+{
+  // A plain trigger is not a veto escape; trigger_veto_escape re-sets the flag.
+  veto_escape_ = false;
   if (state_ == RecoveryState::kFailed) {
     return;
   }
   if (attempts_ >= params_.max_attempts) {
     state_ = RecoveryState::kFailed;
+    state_elapsed_ = 0.0;
     return;
   }
   ++attempts_;
-  state_elapsed_ = 0.0;
-  
-  // Find closest obstacle direction for opposite-rotation phases
-  double closest_angle = 0.0;
-  double min_range = std::numeric_limits<double>::infinity();
-  if (scan.valid()) {
-    for (std::size_t i = 0; i < scan.count; ++i) {
-      if (scan.ranges[i] >= scan.range_min && scan.ranges[i] <= scan.range_max) {
-        if (scan.ranges[i] < min_range) {
-          min_range = scan.ranges[i];
-          closest_angle = scan.angle_min + i * scan.angle_increment;
-        }
-      }
-    }
-  }
-  // Rotate AWAY from the obstacle
-  target_yaw_ = closest_angle >= 0.0 ? 1.0 : -1.0;
-
-  // Progressive escalation: each successive trigger starts at a later phase
-  switch (attempts_) {
-    case 1:
-      // First attempt: just rotate opposite
-      state_ = RecoveryState::kRotateOpposite;
-      break;
-    case 2:
-      // Second attempt: back up first, then rotate opposite
-      state_ = RecoveryState::kBackUp;
-      break;
-    case 3:
-      // Third attempt: rotate to widest gap
-      state_ = RecoveryState::kRotateToGap;
-      target_yaw_ = barn_core::wrap_angle(0.0 + widest_gap_heading(scan));
-      break;
-    case 4:
-      // Fourth attempt: back up further, then try gap
-      state_ = RecoveryState::kBackUp2;
-      break;
-    default:
-      // Last resort: 1m backup with clearance boost
-      state_ = RecoveryState::kBackUp1m;
-      break;
-  }
+  begin_episode(ctx);
 }
 
-void Recovery::trigger_veto_escape(const barn_core::ScanView & scan)
+void Recovery::trigger_veto_escape(const RecoveryContext & ctx)
 {
-  trigger(scan);
+  trigger(ctx);
+  veto_escape_ = (state_ != RecoveryState::kFailed && state_ != RecoveryState::kInactive);
 }
 
-barn_core::VelocityCommand Recovery::step(
-  double dt, double current_yaw, double distance_backed,
-  const barn_core::ScanView & scan, bool veto_active)
+barn_core::VelocityCommand Recovery::step(double dt, const RecoveryContext & ctx)
 {
   state_elapsed_ += std::max(0.0, dt);
+
+  // Veto-escape episodes exist only to clear the safety shield. The moment it
+  // stops vetoing (after a minimal maneuver so we do not exit on a flicker), the
+  // escape has succeeded: replan from the new pose rather than running on.
+  if (veto_escape_ && !ctx.veto_active && state_elapsed_ >= params_.veto_clear_min_rotate &&
+    state_ != RecoveryState::kInactive && state_ != RecoveryState::kFailed &&
+    state_ != RecoveryState::kRequestReplan && state_ != RecoveryState::kRequestReplanClearance)
+  {
+    state_ = RecoveryState::kRequestReplan;
+    state_elapsed_ = 0.0;
+    blocked_elapsed_ = 0.0;
+    return {0.0, 0.0};
+  }
+
+  // Shield-blocked bail-out: a motion state whose command the shield is fully
+  // (emergency) vetoing is making zero progress. Past blocked_timeout, replan
+  // instead of burning the whole maneuver timeout frozen in place.
+  const bool motion_state = state_ == RecoveryState::kReverseToClearance ||
+    state_ == RecoveryState::kRotateToGap;
+  if (motion_state && ctx.veto_active) {
+    blocked_elapsed_ += std::max(0.0, dt);
+    if (blocked_elapsed_ >= params_.blocked_timeout) {
+      state_ = RecoveryState::kRequestReplanClearance;
+      state_elapsed_ = 0.0;
+      blocked_elapsed_ = 0.0;
+      return {0.0, 0.0};
+    }
+  } else {
+    blocked_elapsed_ = 0.0;
+  }
+
   switch (state_) {
     case RecoveryState::kInactive:
-    case RecoveryState::kFailed:
       return {0.0, 0.0};
-      
-    // Phase 1: Rotate away from nearest obstacle for the full timeout.
-    case RecoveryState::kRotateOpposite:
-      if (state_elapsed_ >= params_.rotate_timeout) {
-        state_ = RecoveryState::kRequestReplan;
-        state_elapsed_ = 0.0;
-        return {0.0, 0.0};
-      }
-      return {0.0, target_yaw_ * params_.rotate_speed};
 
-    // Phase 2: Back up a bit. If physically blocked behind, skip to phase 3.
-    case RecoveryState::kBackUp:
-      if (rear_clearance(scan) < params_.rear_clearance && state_elapsed_ > 0.2) {
-        state_ = RecoveryState::kRotateOpposite2;
+    // Latched failure would otherwise stop the robot for the rest of the trial.
+    // Pause briefly, then clear the budget and let control re-detect the fault.
+    case RecoveryState::kFailed:
+      if (state_elapsed_ >= params_.failed_reset_timeout) {
+        state_ = RecoveryState::kInactive;
+        attempts_ = 0;
         state_elapsed_ = 0.0;
-        return {0.0, 0.0};
+        veto_escape_ = false;
       }
-      if (distance_backed >= params_.backup_distance) {
-        state_ = RecoveryState::kRotateOpposite2;
-        state_elapsed_ = 0.0;
-        return {0.0, 0.0};
-      }
-      return {-params_.backup_speed, 0.0};
+      return {0.0, 0.0};
 
-    // Phase 3: Rotate opposite again with the space gained from backing up.
-    case RecoveryState::kRotateOpposite2:
-      if (state_elapsed_ >= params_.rotate_timeout) {
-        state_ = RecoveryState::kRequestReplan;
-        state_elapsed_ = 0.0;
-        return {0.0, 0.0};
-      }
-      return {0.0, target_yaw_ * params_.rotate_speed};
-
-    // Phase 4: Rotate towards the widest LiDAR gap.
-    case RecoveryState::kRotateToGap: {
-        const double error = barn_core::wrap_angle(target_yaw_ - current_yaw);
-        if (std::abs(error) <= params_.heading_tolerance || state_elapsed_ >= params_.rotate_timeout) {
-          state_ = RecoveryState::kRequestReplan;
+    // Reverse along the breadcrumb until there is room to turn.
+    case RecoveryState::kReverseToClearance: {
+        if (ctx.clearance >= ctx.rotation_radius) {
+          if (rotate_after_reverse_) {
+            target_yaw_ = barn_core::wrap_angle(ctx.pose.yaw + widest_gap_heading(ctx.scan));
+            state_ = RecoveryState::kRotateToGap;
+          } else {
+            state_ = boost_after_ ? RecoveryState::kRequestReplanClearance :
+              RecoveryState::kRequestReplan;
+          }
           state_elapsed_ = 0.0;
           return {0.0, 0.0};
         }
-        return {0.0, std::copysign(params_.rotate_speed, error)};
+        const double reversed = std::hypot(
+          ctx.pose.x - reverse_start_pose_.x, ctx.pose.y - reverse_start_pose_.y);
+        if (reversed >= params_.max_reverse_distance ||
+          state_elapsed_ >= params_.reverse_timeout || breadcrumb_exhausted(ctx))
+        {
+          // Could not open enough room by reversing — replan from here with a
+          // clearance boost so the planner routes wider next time.
+          state_ = RecoveryState::kRequestReplanClearance;
+          state_elapsed_ = 0.0;
+          return {0.0, 0.0};
+        }
+        return reverse_command(ctx);
       }
 
-    // Phase 5: Back up further. If physically blocked, skip to phase 6.
-    case RecoveryState::kBackUp2:
-      if (rear_clearance(scan) < params_.rear_clearance && state_elapsed_ > 0.2) {
-        state_ = RecoveryState::kBackUp1m;
-        state_elapsed_ = 0.0;
-        return {0.0, 0.0};
+    // Rotate toward the widest gap; clearance already permits a full sweep.
+    case RecoveryState::kRotateToGap: {
+        const double error = barn_core::wrap_angle(target_yaw_ - ctx.pose.yaw);
+        if (std::abs(error) <= params_.heading_tolerance ||
+          state_elapsed_ >= params_.rotate_timeout)
+        {
+          state_ = boost_after_ ? RecoveryState::kRequestReplanClearance :
+            RecoveryState::kRequestReplan;
+          state_elapsed_ = 0.0;
+          return {0.0, 0.0};
+        }
+        return {0.0, std::clamp(
+            std::copysign(params_.rotate_speed, error), -params_.rotate_speed, params_.rotate_speed)};
       }
-      if (distance_backed >= params_.backup_distance * 2.0) {
-        // Try the gap rotation again with more space
-        state_ = RecoveryState::kRotateToGap;
-        state_elapsed_ = 0.0;
-        target_yaw_ = barn_core::wrap_angle(current_yaw + widest_gap_heading(scan));
-        return {0.0, 0.0};
-      }
-      return {-params_.backup_speed, 0.0};
-
-    // Phase 6: Last resort - back up 1m and replan with increased clearance.
-    case RecoveryState::kBackUp1m:
-      if (rear_clearance(scan) < params_.rear_clearance && state_elapsed_ > 0.2) {
-        state_ = RecoveryState::kRequestReplanClearance;
-        state_elapsed_ = 0.0;
-        return {0.0, 0.0};
-      }
-      if (distance_backed >= 1.0) {
-        state_ = RecoveryState::kRequestReplanClearance;
-        state_elapsed_ = 0.0;
-        return {0.0, 0.0};
-      }
-      return {-params_.backup_speed, 0.0};
 
     case RecoveryState::kRequestReplan:
     case RecoveryState::kRequestReplanClearance:
       if (state_elapsed_ >= params_.replan_timeout) {
         state_ = RecoveryState::kInactive;
-        // Don't re-trigger here; let control_step detect MPC failure again
       }
       return {0.0, 0.0};
   }
@@ -207,12 +252,25 @@ void Recovery::finish_replan()
   }
 }
 
+void Recovery::notify_progress()
+{
+  // Only meaningful while not mid-episode; the caller invokes this from the
+  // normal-navigation path where recovery is inactive.
+  if (state_ == RecoveryState::kInactive) {
+    attempts_ = 0;
+  }
+}
+
 void Recovery::reset()
 {
   state_ = RecoveryState::kInactive;
   state_elapsed_ = 0.0;
+  blocked_elapsed_ = 0.0;
   target_yaw_ = 0.0;
   attempts_ = 0;
+  veto_escape_ = false;
+  rotate_after_reverse_ = false;
+  boost_after_ = false;
 }
 
 }  // namespace barn_classical

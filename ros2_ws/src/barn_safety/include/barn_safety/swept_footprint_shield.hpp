@@ -21,6 +21,11 @@ struct ShieldParams
 {
   double half_length{0.254};
   double half_width{0.2159};
+  // Retained for config compatibility but NO LONGER part of the hard-veto box:
+  // a static footprint_margin buffer hard-froze the robot on obstacles in the
+  // margin shell (see swept_footprint_shield.cpp). Anticipatory clearance now
+  // comes solely from sweeping the emergency-margin box along the stopping
+  // envelope. emergency_margin is the final hard buffer.
   double footprint_margin{0.04};
   // Reduced from 0.10 m: the MPC's obstacle slack already enforces clearance;
   // a 10 cm extra margin was vetoing commands inside valid narrow BARN corridors.

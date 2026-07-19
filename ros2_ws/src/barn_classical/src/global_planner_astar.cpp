@@ -124,8 +124,10 @@ Path2D GlobalPlannerAStar::plan(
         
         double penalty = 0.0;
         const double clearance = distance_field.distance(n);
-        if (std::isfinite(clearance)) {
-          penalty = params_.clearance_weight / std::max(clearance, 0.05);
+        if (std::isfinite(clearance) && clearance < params_.clearance_penalty_radius) {
+          penalty = params_.clearance_weight *
+            (1.0 / std::max(clearance, 0.05) - 1.0 / params_.clearance_penalty_radius) *
+            dc[i] * grid.resolution();
         }
         double step_cost = params_.distance_weight * dc[i] * grid.resolution();
         if (state == barn_core::CellState::kUnknown) {
@@ -236,8 +238,10 @@ Path2D GlobalPlannerAStar::plan(
         transition *= params_.unknown_cost_multiplier;
       }
       const double clearance = distance_field.distance(cell);
-      if (std::isfinite(clearance)) {
-        transition += params_.clearance_weight / std::max(clearance, 0.05);
+      if (std::isfinite(clearance) && clearance < params_.clearance_penalty_radius) {
+        transition += params_.clearance_weight *
+          (1.0 / std::max(clearance, 0.05) - 1.0 / params_.clearance_penalty_radius) *
+          candidate.second;
       }
 
       const auto key = make_key(cell, next_bin, grid.width(), params_.yaw_bins);
