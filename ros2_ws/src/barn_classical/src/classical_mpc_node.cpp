@@ -169,6 +169,8 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   // Dynamic-obstacle tracking feed (Track C -> MPC keep-out constraints).
   enable_dynamic_obstacles_ = declare_parameter<bool>("enable_dynamic_obstacles", true);
   tracks_timeout_s_ = declare_parameter<double>("tracks_timeout_s", 0.5);
+  dynamic_min_speed_ = declare_parameter<double>("dynamic_min_speed", 0.15);
+  dynamic_max_radius_ = declare_parameter<double>("dynamic_max_radius", 0.8);
   const std::string tracks_topic = declare_parameter<std::string>("tracks_topic", "/barn/tracks");
 
   RecoveryParams recovery_params;
@@ -741,11 +743,22 @@ void ClassicalMpcNode::control_step()
     have_map = have_map_;
     veto_active = veto_active_;
     goal_time = goal_received_time_;
-    // Only feed the MPC fresh tracks; stale ones would pin phantom obstacles.
+    // Only feed the MPC fresh, genuinely-moving tracks. Stale tracks would pin
+    // phantom obstacles; near-static ones (walls the tracker also clusters) are
+    // the distance field's job, and constraining them here over-tightens narrow
+    // corridors into infeasibility.
     if (enable_dynamic_obstacles_ && !dynamic_obstacles_.empty() &&
       (stamp - tracks_stamp_).seconds() <= tracks_timeout_s_)
     {
-      obstacles = dynamic_obstacles_;
+      for (const auto & o : dynamic_obstacles_) {
+        // Genuinely-moving AND compact: a wall segment is large (big radius) and
+        // static; a moving cylinder is small and fast. Both gates must pass.
+        if (std::hypot(o.vx, o.vy) >= dynamic_min_speed_ &&
+          o.radius <= dynamic_max_radius_)
+        {
+          obstacles.push_back(o);
+        }
+      }
     }
     // Bug 5 fix: consume replan_completed_ under the same mutex_ that the
     // planner thread writes it, eliminating the data race with control_mutex_.

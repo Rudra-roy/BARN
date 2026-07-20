@@ -152,6 +152,14 @@ private:
   rclcpp::Time tracks_stamp_{0, 0, RCL_ROS_TIME};
   bool enable_dynamic_obstacles_{true};
   double tracks_timeout_s_{0.5};
+  // Only tracks moving at least this fast become MPC keep-out constraints.
+  // Static structure (velocity ~0) is already handled by the distance field;
+  // constraining it here would double-count and over-tighten narrow corridors.
+  double dynamic_min_speed_{0.15};
+  // Reject wall-like clusters: only compact detections (a cylinder, radius well
+  // under this) become constraints. Walls cluster into large segments; this is
+  // drift-proof, unlike the velocity gate (pose jumps spike apparent speed).
+  double dynamic_max_radius_{0.8};
   int consecutive_veto_count_{0};
   int veto_replan_threshold_{0};  // populated from parameter in constructor
   bool veto_active_{false};

@@ -119,6 +119,8 @@ classical_mpc_node:
     enable_dynamic_obstacles: true
     tracks_topic: /barn/tracks
     tracks_timeout_s: 0.5           # ignore tracks older than this [s]
+    dynamic_min_speed: 0.15         # only tracks faster than this constrain the MPC [m/s]
+    dynamic_max_radius: 0.8         # reject wall-like (large) clusters; keep compact obstacles [m]
     dynamic_obstacle_margin: 0.20   # extra clearance beyond summed radii [m]
     max_dynamic_slack: 0.35         # max soft penetration of the moving keep-out [m]
     max_dynamic_obstacles: 8        # cap constraints (nearest obstacles first)

@@ -81,14 +81,14 @@
       <elevation>0</elevation>
       <heading_deg>0</heading_deg>
     </spherical_coordinates>
-    <model name="wall_right">
+    <model name="wall_south">
       <static>1</static>
-      <pose frame="">12.000000 -0.700000 0.500000 0 0 0</pose>
+      <pose frame="">1.000000 -6.000000 0.500000 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry>
             <box>
-              <size>24.000000 0.200000 1.000000</size>
+              <size>26.000000 0.200000 1.000000</size>
             </box>
           </geometry>
           <max_contacts>10</max_contacts>
@@ -101,12 +101,12 @@
         <visual name="visual">
           <geometry>
             <box>
-              <size>24.000000 0.200000 1.000000</size>
+              <size>26.000000 0.200000 1.000000</size>
             </box>
           </geometry>
           <material>
-            <ambient>0.35 0.35 0.35 1</ambient>
-            <diffuse>0.4 0.4 0.4 1</diffuse>
+            <ambient>0.10 0.10 0.85 1</ambient>
+            <diffuse>0.15 0.15 0.95 1</diffuse>
           </material>
         </visual>
         <self_collide>0</self_collide>
@@ -116,14 +116,14 @@
       </link>
       <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
     </model>
-    <model name="wall_left">
+    <model name="wall_north">
       <static>1</static>
-      <pose frame="">12.000000 4.700000 0.500000 0 0 0</pose>
+      <pose frame="">1.000000 6.000000 0.500000 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry>
             <box>
-              <size>24.000000 0.200000 1.000000</size>
+              <size>26.000000 0.200000 1.000000</size>
             </box>
           </geometry>
           <max_contacts>10</max_contacts>
@@ -136,12 +136,12 @@
         <visual name="visual">
           <geometry>
             <box>
-              <size>24.000000 0.200000 1.000000</size>
+              <size>26.000000 0.200000 1.000000</size>
             </box>
           </geometry>
           <material>
-            <ambient>0.35 0.35 0.35 1</ambient>
-            <diffuse>0.4 0.4 0.4 1</diffuse>
+            <ambient>0.10 0.10 0.85 1</ambient>
+            <diffuse>0.15 0.15 0.95 1</diffuse>
           </material>
         </visual>
         <self_collide>0</self_collide>
@@ -152,30 +152,30 @@
       <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
     </model>
     <model name="obstacle_0">
-      <pose frame="">5.000000 -1.500000 0.500000 0 0 0</pose>
+      <pose frame="">9.000000 -1.200000 0.400000 0 0 0</pose>
       <link name="link">
         <gravity>0</gravity>
         <inertial>
-          <mass>50.0</mass>
+          <mass>10.0</mass>
           <inertia>
-            <ixx>7.2917</ixx>
+            <ixx>0.6333</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>7.2917</iyy>
+            <iyy>0.6333</iyy>
             <iyz>0</iyz>
-            <izz>6.25</izz>
+            <izz>0.2000</izz>
           </inertia>
         </inertial>
         <collision name="collision">
           <geometry>
             <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
+              <radius>0.200</radius>
+              <length>0.800</length>
             </cylinder>
           </geometry>
           <max_contacts>10</max_contacts>
           <surface>
-            <contact><collide_bitmask>0x02</collide_bitmask><ode /></contact>
+            <contact><collide_bitmask>0x0002</collide_bitmask><ode /></contact>
             <bounce />
             <friction><torsional><ode /></torsional><ode /></friction>
           </surface>
@@ -183,13 +183,429 @@
         <visual name="visual">
           <geometry>
             <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
+              <radius>0.200</radius>
+              <length>0.800</length>
             </cylinder>
           </geometry>
           <material>
-            <ambient>0.900 0.200 0.200 1</ambient>
-            <diffuse>0.900 0.200 0.200 1</diffuse>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
+          </material>
+        </visual>
+        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
+      </link>
+      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
+        <speed>0.90</speed>
+        <loop>true</loop>
+        <waypoint>9.000 -1.200</waypoint>
+        <waypoint>9.000 0.000</waypoint>
+        <waypoint>9.000 1.200</waypoint>
+      </plugin>
+      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
+    </model>
+    <model name="obstacle_1">
+      <pose frame="">7.545000 -1.300000 0.400000 0 0 0</pose>
+      <link name="link">
+        <gravity>0</gravity>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>0.6333</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.6333</iyy>
+            <iyz>0</iyz>
+            <izz>0.2000</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact><collide_bitmask>0x0004</collide_bitmask><ode /></contact>
+            <bounce />
+            <friction><torsional><ode /></torsional><ode /></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
+          </material>
+        </visual>
+        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
+      </link>
+      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
+        <speed>1.25</speed>
+        <loop>true</loop>
+        <waypoint>7.545 -1.300</waypoint>
+        <waypoint>7.545 -2.500</waypoint>
+        <waypoint>7.545 -3.700</waypoint>
+      </plugin>
+      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
+    </model>
+    <model name="obstacle_2">
+      <pose frame="">6.091000 0.300000 0.400000 0 0 0</pose>
+      <link name="link">
+        <gravity>0</gravity>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>0.6333</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.6333</iyy>
+            <iyz>0</iyz>
+            <izz>0.2000</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact><collide_bitmask>0x0008</collide_bitmask><ode /></contact>
+            <bounce />
+            <friction><torsional><ode /></torsional><ode /></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
+          </material>
+        </visual>
+        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
+      </link>
+      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
+        <speed>1.00</speed>
+        <loop>true</loop>
+        <waypoint>6.091 0.300</waypoint>
+        <waypoint>6.091 1.500</waypoint>
+        <waypoint>6.091 2.700</waypoint>
+      </plugin>
+      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
+    </model>
+    <model name="obstacle_3">
+      <pose frame="">4.636000 0.400000 0.400000 0 0 0</pose>
+      <link name="link">
+        <gravity>0</gravity>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>0.6333</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.6333</iyy>
+            <iyz>0</iyz>
+            <izz>0.2000</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact><collide_bitmask>0x0010</collide_bitmask><ode /></contact>
+            <bounce />
+            <friction><torsional><ode /></torsional><ode /></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
+          </material>
+        </visual>
+        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
+      </link>
+      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
+        <speed>1.35</speed>
+        <loop>true</loop>
+        <waypoint>4.636 0.400</waypoint>
+        <waypoint>4.636 -0.800</waypoint>
+        <waypoint>4.636 -2.000</waypoint>
+      </plugin>
+      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
+    </model>
+    <model name="obstacle_4">
+      <pose frame="">3.182000 2.000000 0.400000 0 0 0</pose>
+      <link name="link">
+        <gravity>0</gravity>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>0.6333</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.6333</iyy>
+            <iyz>0</iyz>
+            <izz>0.2000</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact><collide_bitmask>0x0020</collide_bitmask><ode /></contact>
+            <bounce />
+            <friction><torsional><ode /></torsional><ode /></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
+          </material>
+        </visual>
+        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
+      </link>
+      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
+        <speed>1.10</speed>
+        <loop>true</loop>
+        <waypoint>3.182 2.000</waypoint>
+        <waypoint>3.182 3.200</waypoint>
+        <waypoint>3.182 4.400</waypoint>
+      </plugin>
+      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
+    </model>
+    <model name="obstacle_5">
+      <pose frame="">1.727000 2.000000 0.400000 0 0 0</pose>
+      <link name="link">
+        <gravity>0</gravity>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>0.6333</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.6333</iyy>
+            <iyz>0</iyz>
+            <izz>0.2000</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact><collide_bitmask>0x0040</collide_bitmask><ode /></contact>
+            <bounce />
+            <friction><torsional><ode /></torsional><ode /></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
+          </material>
+        </visual>
+        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
+      </link>
+      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
+        <speed>1.45</speed>
+        <loop>true</loop>
+        <waypoint>1.727 2.000</waypoint>
+        <waypoint>1.727 0.800</waypoint>
+        <waypoint>1.727 -0.400</waypoint>
+      </plugin>
+      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
+    </model>
+    <model name="obstacle_6">
+      <pose frame="">0.273000 -4.700000 0.400000 0 0 0</pose>
+      <link name="link">
+        <gravity>0</gravity>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>0.6333</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.6333</iyy>
+            <iyz>0</iyz>
+            <izz>0.2000</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact><collide_bitmask>0x0080</collide_bitmask><ode /></contact>
+            <bounce />
+            <friction><torsional><ode /></torsional><ode /></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
+          </material>
+        </visual>
+        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
+      </link>
+      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
+        <speed>1.20</speed>
+        <loop>true</loop>
+        <waypoint>0.273 -4.700</waypoint>
+        <waypoint>0.273 -3.500</waypoint>
+        <waypoint>0.273 -2.300</waypoint>
+      </plugin>
+      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
+    </model>
+    <model name="obstacle_7">
+      <pose frame="">-1.182000 3.600000 0.400000 0 0 0</pose>
+      <link name="link">
+        <gravity>0</gravity>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>0.6333</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.6333</iyy>
+            <iyz>0</iyz>
+            <izz>0.2000</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact><collide_bitmask>0x0100</collide_bitmask><ode /></contact>
+            <bounce />
+            <friction><torsional><ode /></torsional><ode /></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
+          </material>
+        </visual>
+        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
+      </link>
+      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
+        <speed>0.95</speed>
+        <loop>true</loop>
+        <waypoint>-1.182 3.600</waypoint>
+        <waypoint>-1.182 2.400</waypoint>
+        <waypoint>-1.182 1.200</waypoint>
+      </plugin>
+      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
+    </model>
+    <model name="obstacle_8">
+      <pose frame="">-2.636000 -2.800000 0.400000 0 0 0</pose>
+      <link name="link">
+        <gravity>0</gravity>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>0.6333</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.6333</iyy>
+            <iyz>0</iyz>
+            <izz>0.2000</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact><collide_bitmask>0x0200</collide_bitmask><ode /></contact>
+            <bounce />
+            <friction><torsional><ode /></torsional><ode /></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.200</radius>
+              <length>0.800</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
           </material>
         </visual>
         <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
@@ -197,37 +613,37 @@
       <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
         <speed>1.30</speed>
         <loop>true</loop>
-        <waypoint>5.000 -1.500</waypoint>
-        <waypoint>5.000 2.000</waypoint>
-        <waypoint>5.000 5.500</waypoint>
+        <waypoint>-2.636 -2.800</waypoint>
+        <waypoint>-2.636 -1.600</waypoint>
+        <waypoint>-2.636 -0.400</waypoint>
       </plugin>
       <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
     </model>
-    <model name="obstacle_1">
-      <pose frame="">7.000000 5.500000 0.500000 0 0 0</pose>
+    <model name="obstacle_9">
+      <pose frame="">-4.091000 5.000000 0.400000 0 0 0</pose>
       <link name="link">
         <gravity>0</gravity>
         <inertial>
-          <mass>50.0</mass>
+          <mass>10.0</mass>
           <inertia>
-            <ixx>7.2917</ixx>
+            <ixx>0.6333</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>7.2917</iyy>
+            <iyy>0.6333</iyy>
             <iyz>0</iyz>
-            <izz>6.25</izz>
+            <izz>0.2000</izz>
           </inertia>
         </inertial>
         <collision name="collision">
           <geometry>
             <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
+              <radius>0.200</radius>
+              <length>0.800</length>
             </cylinder>
           </geometry>
           <max_contacts>10</max_contacts>
           <surface>
-            <contact><collide_bitmask>0x04</collide_bitmask><ode /></contact>
+            <contact><collide_bitmask>0x0400</collide_bitmask><ode /></contact>
             <bounce />
             <friction><torsional><ode /></torsional><ode /></friction>
           </surface>
@@ -235,51 +651,51 @@
         <visual name="visual">
           <geometry>
             <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
+              <radius>0.200</radius>
+              <length>0.800</length>
             </cylinder>
           </geometry>
           <material>
-            <ambient>0.200 0.550 0.900 1</ambient>
-            <diffuse>0.200 0.550 0.900 1</diffuse>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
           </material>
         </visual>
         <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
       </link>
       <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
-        <speed>1.50</speed>
+        <speed>1.05</speed>
         <loop>true</loop>
-        <waypoint>7.000 5.500</waypoint>
-        <waypoint>8.000 2.000</waypoint>
-        <waypoint>9.000 -1.500</waypoint>
+        <waypoint>-4.091 5.000</waypoint>
+        <waypoint>-4.091 3.800</waypoint>
+        <waypoint>-4.091 2.600</waypoint>
       </plugin>
       <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
     </model>
-    <model name="obstacle_2">
-      <pose frame="">11.000000 -1.500000 0.500000 0 0 0</pose>
+    <model name="obstacle_10">
+      <pose frame="">-5.545000 -1.500000 0.400000 0 0 0</pose>
       <link name="link">
         <gravity>0</gravity>
         <inertial>
-          <mass>50.0</mass>
+          <mass>10.0</mass>
           <inertia>
-            <ixx>7.2917</ixx>
+            <ixx>0.6333</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>7.2917</iyy>
+            <iyy>0.6333</iyy>
             <iyz>0</iyz>
-            <izz>6.25</izz>
+            <izz>0.2000</izz>
           </inertia>
         </inertial>
         <collision name="collision">
           <geometry>
             <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
+              <radius>0.200</radius>
+              <length>0.800</length>
             </cylinder>
           </geometry>
           <max_contacts>10</max_contacts>
           <surface>
-            <contact><collide_bitmask>0x08</collide_bitmask><ode /></contact>
+            <contact><collide_bitmask>0x0800</collide_bitmask><ode /></contact>
             <bounce />
             <friction><torsional><ode /></torsional><ode /></friction>
           </surface>
@@ -287,65 +703,13 @@
         <visual name="visual">
           <geometry>
             <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
+              <radius>0.200</radius>
+              <length>0.800</length>
             </cylinder>
           </geometry>
           <material>
-            <ambient>0.950 0.650 0.100 1</ambient>
-            <diffuse>0.950 0.650 0.100 1</diffuse>
-          </material>
-        </visual>
-        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
-      </link>
-      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
-        <speed>1.60</speed>
-        <loop>true</loop>
-        <waypoint>11.000 -1.500</waypoint>
-        <waypoint>11.000 2.000</waypoint>
-        <waypoint>11.000 5.500</waypoint>
-      </plugin>
-      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
-    </model>
-    <model name="obstacle_3">
-      <pose frame="">12.000000 5.500000 0.500000 0 0 0</pose>
-      <link name="link">
-        <gravity>0</gravity>
-        <inertial>
-          <mass>50.0</mass>
-          <inertia>
-            <ixx>7.2917</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>7.2917</iyy>
-            <iyz>0</iyz>
-            <izz>6.25</izz>
-          </inertia>
-        </inertial>
-        <collision name="collision">
-          <geometry>
-            <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
-            </cylinder>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact><collide_bitmask>0x10</collide_bitmask><ode /></contact>
-            <bounce />
-            <friction><torsional><ode /></torsional><ode /></friction>
-          </surface>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.300 0.800 0.350 1</ambient>
-            <diffuse>0.300 0.800 0.350 1</diffuse>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
           </material>
         </visual>
         <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
@@ -353,37 +717,37 @@
       <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
         <speed>1.40</speed>
         <loop>true</loop>
-        <waypoint>12.000 5.500</waypoint>
-        <waypoint>11.000 2.000</waypoint>
-        <waypoint>10.000 -1.500</waypoint>
+        <waypoint>-5.545 -1.500</waypoint>
+        <waypoint>-5.545 -0.300</waypoint>
+        <waypoint>-5.545 0.900</waypoint>
       </plugin>
       <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
     </model>
-    <model name="obstacle_4">
-      <pose frame="">15.000000 5.500000 0.500000 0 0 0</pose>
+    <model name="obstacle_11">
+      <pose frame="">-7.000000 -2.800000 0.400000 0 0 0</pose>
       <link name="link">
         <gravity>0</gravity>
         <inertial>
-          <mass>50.0</mass>
+          <mass>10.0</mass>
           <inertia>
-            <ixx>7.2917</ixx>
+            <ixx>0.6333</ixx>
             <ixy>0</ixy>
             <ixz>0</ixz>
-            <iyy>7.2917</iyy>
+            <iyy>0.6333</iyy>
             <iyz>0</iyz>
-            <izz>6.25</izz>
+            <izz>0.2000</izz>
           </inertia>
         </inertial>
         <collision name="collision">
           <geometry>
             <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
+              <radius>0.200</radius>
+              <length>0.800</length>
             </cylinder>
           </geometry>
           <max_contacts>10</max_contacts>
           <surface>
-            <contact><collide_bitmask>0x20</collide_bitmask><ode /></contact>
+            <contact><collide_bitmask>0x1000</collide_bitmask><ode /></contact>
             <bounce />
             <friction><torsional><ode /></torsional><ode /></friction>
           </surface>
@@ -391,75 +755,23 @@
         <visual name="visual">
           <geometry>
             <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
+              <radius>0.200</radius>
+              <length>0.800</length>
             </cylinder>
           </geometry>
           <material>
-            <ambient>0.700 0.300 0.850 1</ambient>
-            <diffuse>0.700 0.300 0.850 1</diffuse>
+            <ambient>0.850 0.130 0.130 1</ambient>
+            <diffuse>0.900 0.170 0.170 1</diffuse>
           </material>
         </visual>
         <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
       </link>
       <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
-        <speed>1.70</speed>
+        <speed>1.15</speed>
         <loop>true</loop>
-        <waypoint>15.000 5.500</waypoint>
-        <waypoint>15.000 2.000</waypoint>
-        <waypoint>15.000 -1.500</waypoint>
-      </plugin>
-      <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
-    </model>
-    <model name="obstacle_5">
-      <pose frame="">18.000000 -1.500000 0.500000 0 0 0</pose>
-      <link name="link">
-        <gravity>0</gravity>
-        <inertial>
-          <mass>50.0</mass>
-          <inertia>
-            <ixx>7.2917</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>7.2917</iyy>
-            <iyz>0</iyz>
-            <izz>6.25</izz>
-          </inertia>
-        </inertial>
-        <collision name="collision">
-          <geometry>
-            <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
-            </cylinder>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact><collide_bitmask>0x40</collide_bitmask><ode /></contact>
-            <bounce />
-            <friction><torsional><ode /></torsional><ode /></friction>
-          </surface>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <cylinder>
-              <radius>0.500</radius>
-              <length>1.000</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.100 0.750 0.750 1</ambient>
-            <diffuse>0.100 0.750 0.750 1</diffuse>
-          </material>
-        </visual>
-        <sensor name="sensor_contact" type="contact"><contact><collision>collision</collision></contact></sensor>
-      </link>
-      <plugin filename="barn_dynamic_obstacle" name="barn::sim::DynamicObstacle">
-        <speed>1.80</speed>
-        <loop>true</loop>
-        <waypoint>18.000 -1.500</waypoint>
-        <waypoint>18.000 2.000</waypoint>
-        <waypoint>18.000 5.500</waypoint>
+        <waypoint>-7.000 -2.800</waypoint>
+        <waypoint>-7.000 -4.000</waypoint>
+        <waypoint>-7.000 -5.200</waypoint>
       </plugin>
       <plugin filename="gz-sim-touchplugin-system" name="gz::sim::systems::TouchPlugin"><target>robot</target><namespace>robot</namespace><time>0.001</time><enabled>true</enabled></plugin>
     </model>

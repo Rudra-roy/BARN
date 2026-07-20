@@ -56,7 +56,7 @@ def _navigation_function_prefix() -> str:
 
     # BARN_ALGO_DISPATCH_V3_BEGIN
     algo_type = LaunchConfiguration('algo_type').perform(context)
-    supported_algorithms = ('builtin', 'movement_and_odom_test', 'classical_mpc')
+    supported_algorithms = ('builtin', 'movement_and_odom_test', 'classical_mpc', 'classical_mpc_dynamic')
     if algo_type not in supported_algorithms:
         return [
             LogInfo(msg=(
@@ -106,10 +106,15 @@ def _navigation_function_prefix() -> str:
             ]
         )
     else:
+        classical_launch_file = (
+            'classical_mpc_dynamic.launch.py'
+            if algo_type == 'classical_mpc_dynamic'
+            else 'classical_mpc.launch.py'
+        )
         classical_launch_path = PathJoinSubstitution([
             get_package_share_directory('barn_bringup'),
             'launch',
-            'classical_mpc.launch.py',
+            classical_launch_file,
         ])
         navigation_launch = IncludeLaunchDescription(
             PythonLaunchDescriptionSource([classical_launch_path]),

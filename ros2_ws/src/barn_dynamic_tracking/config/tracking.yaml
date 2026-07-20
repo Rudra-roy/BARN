@@ -6,7 +6,10 @@ tracker_node:
     pose_topic: /barn/pose
     tracks_topic: /barn/tracks
     markers_topic: /barn/track_markers
-    output_frame: odom
+    # Track coordinates are computed from /barn/pose, which robot_adapter
+    # publishes drift-corrected in the 'map' frame — so tracks ARE in map, and
+    # this must match the MPC planning_frame (map) or the MPC warns/misplaces.
+    output_frame: map
     publish_rate_hz: 10.0
     cluster_distance_threshold: 0.3   # m
     association_gate_distance: 0.5     # m

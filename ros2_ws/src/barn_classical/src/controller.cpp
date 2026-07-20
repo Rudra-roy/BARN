@@ -347,9 +347,15 @@ MpcResult Controller::control(
         const double dx = xb - ox;
         const double dy = yb - oy;
         const double dist0 = std::hypot(dx, dy);
-        // Skip when comfortably clear (constraint inactive) or when the
-        // linearization point coincides with the obstacle (gradient undefined).
-        if (dist0 > r_safe + 1.5 || dist0 < 1e-3) {
+        // Keep every dynamic keep-out FEASIBLE. Skip when comfortably clear
+        // (constraint inactive), and skip when the robot is already closer than
+        // the slack budget can absorb: adding an unsatisfiable keep-out is what
+        // made OSQP report infeasible and spammed recovery on an empty path
+        // (e.g. a spurious near-robot/self return, or a pose-drift jump landing a
+        // track on the robot). The independent safety shield handles a genuine
+        // imminent collision. The lower bound also stays well above 0, so the
+        // gradient below never divides by ~0.
+        if (dist0 > r_safe + 1.5 || dist0 < r_safe - params_.max_dynamic_slack) {
           continue;
         }
         const double nx = dx / dist0;
