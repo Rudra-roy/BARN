@@ -1,11 +1,3 @@
-
-
-https://github.com/user-attachments/assets/aca53e1f-d4d0-4018-8a06-6577f6436dba
-
-
-
-https://github.com/user-attachments/assets/8d428843-c4c6-41be-ba91-b50e970068d6
-
 <div align="center">
 
 # barn-2027-prep
@@ -44,13 +36,15 @@ The footprint-aware Classical MPC stack navigating a full evaluator trial —
 online LiDAR occupancy map (white free / red obstacles), global A\* path (blue),
 MPC local trajectory (green), and the goal (red arrow), visualized live.
 
-<div align="center">
+**World 10** — open field, a near-direct route to the goal:
 
+https://github.com/user-attachments/assets/aca53e1f-d4d0-4018-8a06-6577f6436dba
 
+**World 250** — dense field, threading tight gaps:
 
-▶ **Best experience: watch both playing inline on the [live visualization site ↗](https://rudra-roy.github.io/BARN/#trials).** Or click a thumbnail above to open GitHub's built-in player.
+https://github.com/user-attachments/assets/8d428843-c4c6-41be-ba91-b50e970068d6
 
-</div>
+*Want them side by side with the full interactive pipeline? See the [live visualization site ↗](https://rudra-roy.github.io/BARN/#trials).*
 
 ---
 
