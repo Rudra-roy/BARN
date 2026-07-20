@@ -70,6 +70,13 @@ Parameters live in `barn_hybrid/config/hybrid.yaml`.
 
 ## 3. The tracker pipeline (`barn_dynamic_tracking`)
 
+> **🚧 Status:** the tracker described here is **implemented** (clustering,
+> association, per-track KF, `tracker_node`) and already runs — but currently
+> feeding the **classical** MPC's moving-obstacle constraints via a separate
+> dynamic launch, not this hybrid gate. Wiring `/barn/tracks` into `risk_gate.py`
+> is still pending (M19). See
+> [DynaBARN Dynamic-Obstacle Support (WIP)](../features/dynabarn_dynamic_obstacles.md).
+
 The gate needs relative velocity and TTC, which come from a classical
 multi-object tracker driven by LiDAR — no ground-truth obstacle states.
 
@@ -88,10 +95,11 @@ multi-object tracker driven by LiDAR — no ground-truth obstacle states.
 | Kalman      | `kalman.cpp`      | Per-track constant-velocity filter (`process_noise_q`, `measurement_noise_r`). |
 | Rel. vel / TTC | `ttc.cpp`      | Compute relative velocity and time-to-collision per track.  |
 
-`tracker_node` publishes `/barn/tracks` (`visualization_msgs/MarkerArray`) at
-`publish_rate_hz = 10.0` and feeds the minimum TTC to the gate. Because BARN
-worlds are static, tracks appear stationary, TTC stays large, and the residual
-stays gated off — exactly the intended behavior.
+`tracker_node` publishes `/barn/tracks` (`barn_msgs/ObstacleTrackArray`) plus
+`/barn/track_markers` (`visualization_msgs/MarkerArray` for RViz) at
+`publish_rate_hz = 10.0`, and will feed the minimum TTC to the gate once wired.
+Because BARN worlds are static, tracks appear stationary, TTC stays large, and the
+residual stays gated off — exactly the intended behavior.
 
 ---
 

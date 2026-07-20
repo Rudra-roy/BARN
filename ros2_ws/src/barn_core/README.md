@@ -8,6 +8,7 @@ the foundation of the workspace and the one hard boundary in the design.
 - Planar geometry: `wrap_angle`, `clamp`, `dist2d`, `heading_to`, `yaw_from_quat` (`geometry.hpp`).
 - LiDAR queries over a non-owning `ScanView`: `min_range_in_sector`, `nearest_obstacle` (`scan.hpp`).
 - Online mapping primitives: `OccupancyGrid2D` + log-odds helpers (`occupancy.hpp`, `logodds.hpp`).
+- Obstacle distance field for inflation / clearance costs and gradients (`distance_field.hpp`), used by the A\* planner and mapping.
 
 ## Hard boundaries (do not cross)
 - **No** `rclcpp`, **no** ROS message types, **no** `tf2`, **no** Gazebo.

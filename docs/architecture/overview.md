@@ -155,7 +155,7 @@ dynamic-risk gate. See [Track C](./hybrid.md).
 | `barn_mapping`          | Track A online log-odds occupancy map from LiDAR.                    | C++      | Stubbed |
 | `barn_rl_runtime`       | Track B CPU inference: observation -> ONNX policy -> action.        | Python   | Stub policy (no motion) |
 | `barn_hybrid`           | Track C arbiter: classical nominal + gated RL residual.             | Python   | Runnable arbiter |
-| `barn_dynamic_tracking` | Track C tracker: cluster -> associate -> Kalman -> TTC.             | C++      | Stubbed |
+| `barn_dynamic_tracking` | Track C tracker: cluster -> associate -> Kalman -> TTC -> `/barn/tracks`. | C++ | 🚧 Implemented (DynaBARN WIP) |
 
 Track summaries:
 
@@ -169,7 +169,11 @@ Track summaries:
 - **Track C — Hybrid.** Python arbiter (`barn_hybrid`) plus C++ tracking
   (`barn_dynamic_tracking`). Classical nominal command plus a dynamic-risk-gated
   RL residual; in static worlds the gate `alpha = 0`, so it reduces exactly to
-  classical. See [hybrid.md](./hybrid.md).
+  classical. See [hybrid.md](./hybrid.md). **🚧 In progress:** the LiDAR tracker is
+  implemented and currently feeds the **classical** MPC's moving-obstacle
+  constraints through a separate dynamic launch (the hybrid arbiter does not yet
+  consume `/barn/tracks`). See
+  [DynaBARN Dynamic-Obstacle Support (WIP)](../features/dynabarn_dynamic_obstacles.md).
 
 ---
 

@@ -1,6 +1,6 @@
 # Track A — Classical Navigation
 
-> Purpose: document the classical C++ track — the runnable reactive goal-seeker that ships today, and the target map -> plan -> control -> recover pipeline it grows into.
+> Purpose: document the classical C++ track — the implemented map -> plan -> control -> recover pipeline (`classical_mpc_node`, M0–M10 done), with the original reactive goal-seeker kept as a legacy vertical slice.
 
 Related documents:
 [Architecture Overview](./overview.md) ·
@@ -22,12 +22,13 @@ The track ships in two layers that satisfy the **same** navigation contract
 
 | Layer                | State     | What it does                                                        |
 |----------------------|-----------|---------------------------------------------------------------------|
-| Vertical-slice goal-seeker | **Runnable** | Reactive control law; commands motion at `t0`; proves the end-to-end pipeline. |
-| Target pipeline      | **Stubbed** | Online occupancy map -> A* -> path validate/replan -> local passage planner -> curvature/clearance controller -> recovery. |
+| Full MPC pipeline (`classical_mpc_node`) | **Implemented** | Online occupancy map -> A* -> path validate/replan -> local passage planner -> MPC (OSQP) controller -> recovery. Primary producer. |
+| Vertical-slice goal-seeker | **Legacy / smoke** | Reactive control law; commands motion at `t0`; proves the end-to-end spine. |
 
-The slice exists so the whole spine (adapters, safety, bringup, evaluator
-handshake) can be validated **before** the planner is written. It is drop-in
-replaced by the pipeline once that pipeline outperforms it on the benchmark.
+The slice was written first so the whole spine (adapters, safety, bringup,
+evaluator handshake) could be validated **before** the planner existed. The full
+pipeline now supersedes it for real runs; the slice remains as a minimal
+end-to-end smoke path.
 
 ---
 
@@ -88,18 +89,18 @@ evaluator's success radius rather than racing across it.
 
 ---
 
-## 3. The target pipeline
+## 3. The full pipeline (implemented)
 
-The full classical stack replaces the reactive law with a plan-based one while
-keeping the same input/output contract. Data flows perception -> planning ->
-control -> (recovery), each stage at its own rate.
+The full classical stack (`classical_mpc_node`) replaces the reactive law with a
+plan-based one while keeping the same input/output contract. Data flows
+perception -> planning -> control -> (recovery), each stage at its own rate.
 
 ```
    /barn/scan ──▶ [ MAPPING ]────────────────▶ /barn/occupancy  (OccupancyGrid)
    /barn/pose ──▶  online log-odds map              │
                                                     ▼
                                         [ GLOBAL PLANNER: A* ] ──▶ candidate path
-                                                    │                (odom frame)
+                                                    │                (map frame)
                                                     ▼
                                     [ PATH VALIDATOR / REPLAN TRIGGER ]
                                           valid? ──yes──▶ keep path
@@ -115,9 +116,10 @@ control -> (recovery), each stage at its own rate.
                                           stuck? ──▶ [ RECOVERY ] (rotate / back-off / re-seed)
 ```
 
-Source scaffolding lives in `barn_classical/src/`
-(`global_planner_astar.cpp`, `path_validator.cpp`, `local_planner.cpp`,
-`controller.cpp`, `recovery.cpp`) and `barn_mapping/src/`.
+Source lives in `barn_classical/src/` (`global_planner_astar.cpp`,
+`path_validator.cpp`, `local_planner.cpp`, `controller.cpp`,
+`collision_checker.cpp`, `recovery.cpp`, wired together in
+`classical_mpc_node.cpp`) and `barn_mapping/src/` — all implemented.
 
 ### 3.1 Online occupancy map (`barn_mapping`)
 
@@ -130,7 +132,7 @@ Recommended settings:
 
 | Setting        | Recommended value | Rationale                                            |
 |----------------|-------------------|------------------------------------------------------|
-| Frame          | `odom`            | Matches the planning/goal frame; no global map frame.|
+| Frame          | `map`             | Drift-corrected planning frame; the mapper publishes `/barn/odom_correction` + TF `map->odom`. |
 | Resolution     | `0.05 m`          | Fine enough to resolve BARN passages.               |
 | Extent         | `20 x 12 m`       | Covers the 10 m corridor plus lateral maneuvering.  |
 | Representation | log-odds          | Numerically stable probabilistic fusion of hits/misses.|
@@ -142,7 +144,7 @@ Each cell is classified `FREE`, `OCCUPIED`, or `UNKNOWN` from its log-odds value
 A* searches the occupancy grid from the robot cell to the goal cell. It plans
 over `FREE` **and** `UNKNOWN` cells (optimism into unmapped space), never
 `OCCUPIED`, with an obstacle-inflation cost so paths keep clearance. Output is a
-cell path lifted to a metric path in the `odom` frame.
+cell path lifted to a metric path in the `map` frame.
 
 ### 3.3 Path validation & replanning
 

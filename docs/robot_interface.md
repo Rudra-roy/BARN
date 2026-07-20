@@ -33,7 +33,8 @@ by swapping only `barn_robot_adapter`.
         │                                                     │
         ▼                                                     │
    ┌──────────────── command producers (per mode) ───────────┴───────────────┐
-   │  classical:  goal_seeker ─▶ /barn/cmd_desired                          │
+   │  classical:      goal_seeker      ─▶ /barn/cmd_desired  (legacy slice) │
+   │  classical_mpc:  classical_mpc_node ─▶ /barn/cmd_desired (full pipeline)│
    │  e2e_rl:     rl_runtime  ─▶ /barn/cmd_desired                          │
    │  hybrid:     goal_seeker ─▶ /barn/cmd_classical ┐                      │
    │              rl_runtime  ─▶ /barn/cmd_rl        ├▶ hybrid ▶ /barn/cmd_desired │

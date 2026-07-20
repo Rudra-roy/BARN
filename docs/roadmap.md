@@ -45,7 +45,11 @@ Fix failures before optimizing speed (see [failure_taxonomy.md](./benchmark/fail
 
 - **M0–M10 are DONE**. The complete Classical MPC stack is fully implemented, tuned, and robust.
 - **M11 is the current focus**: Running the formal 500-trial baseline benchmark.
-- **M12–M21 are scaffolded stubs** — directories and interfaces exist, implementations pending.
+- **M12–M16 (RL) are scaffolded stubs** — directories and interfaces exist, implementations pending.
+- **M17–M18 are 🚧 in progress** (out of order, ahead of RL): the **DynaBARN** moving-obstacle
+  test bed and the LiDAR dynamic tracker are built and wired into a separate dynamic MPC launch.
+  See [DynaBARN Dynamic-Obstacle Support (WIP)](./features/dynabarn_dynamic_obstacles.md).
+- **M19–M21 are scaffolded stubs** — hybrid arbiter does not yet consume `/barn/tracks`.
 
 ---
 
@@ -72,8 +76,8 @@ Tracks: **A** = shared/classical, **B** = RL, **C** = hybrid.
 | M14 | B | E2E SAC candidate | Pending / stub |
 | M15 | B | Gazebo transfer and CPU inference | Pending / stub |
 | M16 | B | E2E 500-trial benchmark | Pending / stub |
-| M17 | C | Dynamic-obstacle ROS 2 test infrastructure | Pending / stub |
-| M18 | C | LiDAR dynamic tracker | Pending / stub |
+| M17 | C | Dynamic-obstacle ROS 2 test infrastructure | 🚧 In progress (DynaBARN) |
+| M18 | C | LiDAR dynamic tracker | 🚧 In progress |
 | M19 | C | Hybrid residual RL | Pending / stub |
 | M20 | C | Hybrid static regression test | Pending / stub |
 | M21 | C | Hybrid dynamic benchmark | Pending / stub |

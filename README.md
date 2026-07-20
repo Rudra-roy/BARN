@@ -84,9 +84,16 @@ This repository is a **clean-room preparation programme** for the 2027 edition. 
 |-------|-----------|----------|--------|
 | **A — Classical** | `barn_classical`, `barn_mapping` | C++ | footprint-aware lattice + MPC stack ✅ |
 | **B — End-to-end RL** | `barn_rl_runtime`, `learning/` | Python | runtime + training stubs |
-| **C — Hybrid** | `barn_hybrid`, `barn_dynamic_tracking` | Python + C++ | arbiter + tracker stubs |
+| **C — Hybrid** | `barn_hybrid`, `barn_dynamic_tracking` | Python + C++ | arbiter stub; LiDAR tracker implemented 🚧 |
 
 The **tutorial above teaches Track A**, the classical stack, which clears the world set with comfortable timings.
+
+> ### 🚧 In progress — DynaBARN dynamic obstacles
+> A preparatory **moving-obstacle** test bed (in case ICRA 2027 makes dynamic
+> obstacles mandatory): a Gazebo mover plugin, a LiDAR dynamic tracker publishing
+> `/barn/tracks`, and spatiotemporal MPC keep-out constraints — all behind a
+> **separate** launch file so the static competition stack stays untouched.
+> **→ [DynaBARN Dynamic-Obstacle Support (WIP)](docs/features/dynabarn_dynamic_obstacles.md)**
 
 > **Note:** The core rule of this repo is that the algorithm must be deployable to the physical Jackal without modification. Reading Gazebo ground truth or pre-loading map structures is strictly forbidden.
 
@@ -152,6 +159,7 @@ Start with the **[BARN Navigation Tutorial](docs/tutorials/README.md)** (chapter
 - **[Distrobox + Jazzy setup walkthrough](docs/setup/barn_2026_jazzy_distrobox.md)**
 - **[Classical MPC Configuration Guide](docs/features/configuration_guide.md)** — the tunable parameters and how to trade speed against tight-space robustness.
 - **[Classical MPC & Recovery feature notes](docs/features/classical_mpc_updates.md)** — what changed and why.
+- **[DynaBARN Dynamic-Obstacle Support (WIP)](docs/features/dynabarn_dynamic_obstacles.md)** 🚧 — the moving-obstacle test bed: mover plugin, LiDAR tracker, spatiotemporal MPC constraints.
 
 ### 📐 Reference
 - **[System Architecture & Data Flow](docs/architecture/overview.md)** · **[Robot Interface Contract](docs/robot_interface.md)** · **[Roadmap (M0–M21)](docs/roadmap.md)** · **[Architecture Decisions (ADRs)](docs/decisions/)**

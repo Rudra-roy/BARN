@@ -36,3 +36,11 @@ The evaluator's `algo_type:=builtin` branch still runs its official
 `jackal_helper` Nav2 baseline. Select this stack with `algo_type:=classical_mpc`;
 the evaluator package name, goal action, simulation, collision detection,
 timeout, and scoring logic remain unchanged.
+
+## DynaBARN dynamic obstacles (🚧 WIP)
+
+`classical_mpc.launch.py` is the **stable static/competition** entrypoint and has
+**no tracker**. A separate `classical_mpc_dynamic.launch.py` includes it verbatim
+and adds `tracker_node` on top, for moving-obstacle (DynaBARN) worlds — selected
+with `algo_type:=classical_mpc_dynamic`. This keeps the competition path untouched.
+See [`docs/features/dynabarn_dynamic_obstacles.md`](../../../docs/features/dynabarn_dynamic_obstacles.md).

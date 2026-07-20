@@ -14,6 +14,14 @@ Hybrid arbiter: classical command (nominal) + dynamic-risk-gated RL residual.
   With no dynamic tracks (static worlds) TTC is ∞ → `alpha = 0` → output equals
   the classical command. Hysteresis is stubbed pending the tracker (M18/M19).
 
+> **🚧 Status note:** the LiDAR tracker (`barn_dynamic_tracking`) is now
+> implemented and publishing `/barn/tracks`, but **this arbiter does not consume
+> it yet** — `hybrid_node.py` still hard-codes `min_ttc = ∞` and never subscribes
+> `/barn/tracks`. The tracker currently feeds the **classical** MPC's
+> moving-obstacle constraints via a separate dynamic launch; wiring it into this
+> gate is M19. See
+> [`docs/features/dynabarn_dynamic_obstacles.md`](../../../docs/features/dynabarn_dynamic_obstacles.md).
+
 ## Why Python
 This is **not** the real-time authority — `barn_safety` (C++) still clamps the
 final `/cmd_vel`. The arbiter/gate logic changes frequently during research, so
