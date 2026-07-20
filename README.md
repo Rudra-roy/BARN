@@ -38,11 +38,11 @@ MPC local trajectory (green), and the goal (red arrow), visualized live.
 
 **World 10** — open field, a near-direct route to the goal:
 
-https://github.com/user-attachments/assets/aca53e1f-d4d0-4018-8a06-6577f6436dba
+https://github.com/user-attachments/assets/8d428843-c4c6-41be-ba91-b50e970068d6
 
 **World 250** — dense field, threading tight gaps:
 
-https://github.com/user-attachments/assets/8d428843-c4c6-41be-ba91-b50e970068d6
+https://github.com/user-attachments/assets/aca53e1f-d4d0-4018-8a06-6577f6436dba
 
 *Want them side by side with the full interactive pipeline? See the [live visualization site ↗](https://rudra-roy.github.io/BARN/#trials).*
 
