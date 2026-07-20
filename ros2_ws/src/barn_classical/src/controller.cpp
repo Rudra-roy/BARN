@@ -51,7 +51,8 @@ void Controller::reset()
 
 MpcResult Controller::control(
   const LocalTrajectory & trajectory, const barn_core::State2D & state,
-  const barn_core::DistanceField2D & distance_field)
+  const barn_core::DistanceField2D & distance_field,
+  const std::vector<DynamicObstacle> & obstacles)
 {
   MpcResult result;
   const auto started = std::chrono::steady_clock::now();
@@ -64,7 +65,11 @@ MpcResult Controller::control(
   const int state_vars = kStateSize * (n_steps + 1);
   const int input_offset = state_vars;
   const int slack_offset = input_offset + kInputSize * n_steps;
-  const int n_vars = slack_offset + n_steps + 1;
+  // A second, tighter slack block dedicated to moving obstacles. The static
+  // field slack is sized for tight BARN corridors and would fully absorb the
+  // dynamic keep-out; a separate, small-capped slack keeps that avoidance firm.
+  const int dyn_slack_offset = slack_offset + (n_steps + 1);
+  const int n_vars = dyn_slack_offset + (n_steps + 1);
   const auto sx = [](int k, int component) {return kStateSize * k + component;};
   const auto ui = [input_offset](int k, int component) {
       return input_offset + kInputSize * k + component;
@@ -155,6 +160,31 @@ MpcResult Controller::control(
     {{1.0, 0.0}}, {{-1.0, 0.0}}, {{0.0, 1.0}}, {{0.0, -1.0}}
   }};
 
+  // Pre-select the nearest dynamic obstacles so the constraint count stays
+  // bounded regardless of how many the tracker reports.
+  std::vector<const DynamicObstacle *> active_obstacles;
+  {
+    std::vector<std::pair<double, const DynamicObstacle *>> ranked;
+    ranked.reserve(obstacles.size());
+    for (const auto & o : obstacles) {
+      ranked.emplace_back(std::hypot(o.x - state.pose.x, o.y - state.pose.y), &o);
+    }
+    std::sort(
+      ranked.begin(), ranked.end(),
+      [](const auto & a, const auto & b) {return a.first < b.first;});
+    const std::size_t cap = params_.max_dynamic_obstacles > 0
+      ? static_cast<std::size_t>(params_.max_dynamic_obstacles)
+      : ranked.size();
+    for (std::size_t i = 0; i < ranked.size() && i < cap; ++i) {
+      active_obstacles.push_back(ranked[i].second);
+    }
+  }
+  // Circumscribed footprint radius used for the (yaw-free) moving-obstacle
+  // keep-out; conservative relative to the exact box used for static obstacles.
+  const double robot_radius = std::hypot(
+    params_.footprint.half_length + params_.footprint.margin,
+    params_.footprint.half_width + params_.footprint.margin);
+
   for (int pass = 0; pass < std::max(1, params_.max_linearization_passes); ++pass) {
     const double elapsed_before = std::chrono::duration<double, std::milli>(
       std::chrono::steady_clock::now() - started).count();
@@ -184,6 +214,9 @@ MpcResult Controller::control(
       add_square(sx(k, 4), 0.02, 0.0);
       // Obstacle slack penalty doubled (5000→10000) to prevent corner-cutting.
       add_square(slack_offset + k, 10000.0, 0.0);
+      // Dynamic-obstacle slack: penalised even harder so the robot yields to
+      // moving obstacles rather than buying its way through with slack.
+      add_square(dyn_slack_offset + k, 20000.0, 0.0);
     }
     for (int k = 0; k < n_steps; ++k) {
       add_square(ui(k, 0), 0.10, 0.0);
@@ -235,6 +268,7 @@ MpcResult Controller::control(
     }
     for (int k = 0; k <= n_steps; ++k) {
       add_bound(slack_offset + k, 0.0, params_.max_obstacle_slack);
+      add_bound(dyn_slack_offset + k, 0.0, params_.max_dynamic_slack);
     }
 
     const auto add_equality = [&](const std::vector<std::pair<int, double>> & terms, double value) {
@@ -296,6 +330,40 @@ MpcResult Controller::control(
       }
     }
 
+    // --- Moving-obstacle keep-out (Family-1 spatiotemporal soft constraints) ---
+    // Each tracked obstacle is propagated with a constant-velocity model. Per
+    // horizon step k we add a linearized half-plane keeping the robot center at
+    // least r_safe from the obstacle's predicted position at time k*dt. These
+    // share the per-step slack with the static field constraints, so both stay
+    // soft under the same heavy penalty and the robot yields smoothly.
+    for (const DynamicObstacle * obs : active_obstacles) {
+      const double r_safe = obs->radius + robot_radius + params_.dynamic_margin;
+      for (int k = 0; k <= n_steps; ++k) {
+        const double t = k * params_.dt;
+        const double ox = obs->x + obs->vx * t;
+        const double oy = obs->y + obs->vy * t;
+        const double xb = linearization[sx(k, 0)];
+        const double yb = linearization[sx(k, 1)];
+        const double dx = xb - ox;
+        const double dy = yb - oy;
+        const double dist0 = std::hypot(dx, dy);
+        // Skip when comfortably clear (constraint inactive) or when the
+        // linearization point coincides with the obstacle (gradient undefined).
+        if (dist0 > r_safe + 1.5 || dist0 < 1e-3) {
+          continue;
+        }
+        const double nx = dx / dist0;
+        const double ny = dy / dist0;
+        a_triplets.emplace_back(row, sx(k, 0), static_cast<c_float>(nx));
+        a_triplets.emplace_back(row, sx(k, 1), static_cast<c_float>(ny));
+        a_triplets.emplace_back(row, dyn_slack_offset + k, 1.0);
+        const double rhs = r_safe - dist0 + nx * xb + ny * yb;
+        lower.push_back(static_cast<c_float>(rhs));
+        upper.push_back(OSQP_INFTY);
+        ++row;
+      }
+    }
+
     Sparse p_matrix(n_vars, n_vars);
     Sparse a_matrix(row, n_vars);
     p_matrix.setFromTriplets(p_triplets.begin(), p_triplets.end());
@@ -322,7 +390,10 @@ MpcResult Controller::control(
     settings.verbose = 0;
     settings.polish = 0;
     settings.warm_start = 1;
-    settings.max_iter = 400;
+    // 600 (was 400): dynamic keep-out constraints can need more iterations to
+    // converge; well-conditioned cases still stop early, and the per-pass time
+    // check bounds wall-clock regardless.
+    settings.max_iter = 600;
     settings.eps_abs = 1e-3;
     settings.eps_rel = 1e-3;
 #ifdef PROFILING

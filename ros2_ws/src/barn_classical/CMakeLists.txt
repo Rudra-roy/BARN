@@ -21,6 +21,7 @@ find_package(Eigen3 REQUIRED)
 find_package(osqp_vendor REQUIRED)
 find_package(osqp REQUIRED CONFIG)
 find_package(barn_core REQUIRED)
+find_package(barn_msgs REQUIRED)
 
 # Pure Track-A planning and control algorithms.
 add_library(barn_classical_algos
@@ -39,7 +40,7 @@ add_executable(classical_mpc_node src/classical_mpc_node.cpp)
 target_include_directories(classical_mpc_node PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
 ament_target_dependencies(
-  classical_mpc_node rclcpp sensor_msgs geometry_msgs nav_msgs visualization_msgs diagnostic_msgs std_msgs)
+  classical_mpc_node rclcpp sensor_msgs geometry_msgs nav_msgs visualization_msgs diagnostic_msgs std_msgs barn_msgs)
 target_link_libraries(classical_mpc_node barn_classical_algos barn_core::barn_core)
 
 # The runnable vertical-slice controller.

@@ -28,6 +28,7 @@
 #include "barn_classical/recovery.hpp"
 #include "barn_core/distance_field.hpp"
 #include "barn_core/occupancy.hpp"
+#include "barn_msgs/msg/obstacle_track_array.hpp"
 
 namespace barn_classical
 {
@@ -45,6 +46,7 @@ private:
   void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void map_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
   void veto_callback(const std_msgs::msg::Bool::SharedPtr msg);
+  void tracks_callback(const barn_msgs::msg::ObstacleTrackArray::SharedPtr msg);
   void local_plan_step();
   void control_step();
   void planner_loop();
@@ -143,6 +145,13 @@ private:
   // Safety-veto feedback: sustained vetoes trigger a replan so the global
   // planner can search for an alternative route around the blocked area.
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr veto_sub_;
+  // Dynamic-obstacle tracks (DynaBARN moving cylinders) feeding the MPC's
+  // spatiotemporal keep-out constraints. Guarded by mutex_.
+  rclcpp::Subscription<barn_msgs::msg::ObstacleTrackArray>::SharedPtr tracks_sub_;
+  std::vector<DynamicObstacle> dynamic_obstacles_;
+  rclcpp::Time tracks_stamp_{0, 0, RCL_ROS_TIME};
+  bool enable_dynamic_obstacles_{true};
+  double tracks_timeout_s_{0.5};
   int consecutive_veto_count_{0};
   int veto_replan_threshold_{0};  // populated from parameter in constructor
   bool veto_active_{false};

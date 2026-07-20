@@ -160,8 +160,16 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   mpc.solve_deadline_ms = declare_parameter<double>("mpc_deadline_ms", 35.0);
   mpc.obstacle_margin = declare_parameter<double>("obstacle_margin", 0.10);
   mpc.max_obstacle_slack = declare_parameter<double>("max_obstacle_slack", 1.20);
+  mpc.dynamic_margin = declare_parameter<double>("dynamic_obstacle_margin", 0.20);
+  mpc.max_dynamic_slack = declare_parameter<double>("max_dynamic_slack", 0.35);
+  mpc.max_dynamic_obstacles = declare_parameter<int>("max_dynamic_obstacles", 8);
   mpc.max_linearization_passes = 4;  // One extra pass for better convergence
   controller_ = Controller(mpc);
+
+  // Dynamic-obstacle tracking feed (Track C -> MPC keep-out constraints).
+  enable_dynamic_obstacles_ = declare_parameter<bool>("enable_dynamic_obstacles", true);
+  tracks_timeout_s_ = declare_parameter<double>("tracks_timeout_s", 0.5);
+  const std::string tracks_topic = declare_parameter<std::string>("tracks_topic", "/barn/tracks");
 
   RecoveryParams recovery_params;
   recovery_params.max_attempts = declare_parameter<int>("max_recovery_attempts", 5);
@@ -211,6 +219,9 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   veto_sub_ = create_subscription<std_msgs::msg::Bool>(
     "/barn/safety_veto", rclcpp::QoS(1).best_effort(),
     std::bind(&ClassicalMpcNode::veto_callback, this, std::placeholders::_1));
+  tracks_sub_ = create_subscription<barn_msgs::msg::ObstacleTrackArray>(
+    tracks_topic, rclcpp::QoS(5),
+    std::bind(&ClassicalMpcNode::tracks_callback, this, std::placeholders::_1));
 
   // Navigation rates are rates of the simulated robot dynamics. Using wall
   // timers creates hundreds of redundant MPC solves per simulated second when
@@ -444,6 +455,27 @@ void ClassicalMpcNode::veto_callback(const std_msgs::msg::Bool::SharedPtr msg)
     recovery_.trigger_veto_escape(recovery_context(current_pose, field, latest_scan, true));
     RCLCPP_INFO(get_logger(), "[Recovery] Triggered due to: safety_veto. Action taken: %s", to_string(recovery_.state()));
   }
+}
+
+void ClassicalMpcNode::tracks_callback(const barn_msgs::msg::ObstacleTrackArray::SharedPtr msg)
+{
+  std::vector<DynamicObstacle> obstacles;
+  obstacles.reserve(msg->tracks.size());
+  for (const auto & t : msg->tracks) {
+    obstacles.push_back(
+      {t.position.x, t.position.y, t.velocity.x, t.velocity.y, t.radius});
+  }
+  std::lock_guard<std::mutex> lock(mutex_);
+  dynamic_obstacles_ = std::move(obstacles);
+  // Tracks are expected in the MPC planning frame (frame_id_, default "odom").
+  // A mismatch would silently place obstacles wrong, so warn once per second.
+  if (!msg->header.frame_id.empty() && msg->header.frame_id != frame_id_) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 1000,
+      "tracks frame '%s' != planning frame '%s'; obstacles may be misplaced",
+      msg->header.frame_id.c_str(), frame_id_.c_str());
+  }
+  tracks_stamp_ = now();
 }
 
 void ClassicalMpcNode::planner_loop()
@@ -688,6 +720,7 @@ void ClassicalMpcNode::control_step()
   std::shared_ptr<const barn_core::DistanceField2D> field;
   LocalTrajectory local;
   sensor_msgs::msg::LaserScan::SharedPtr scan;
+  std::vector<DynamicObstacle> obstacles;
   bool have_goal = false;
   bool have_pose = false;
   bool have_odom = false;
@@ -708,6 +741,12 @@ void ClassicalMpcNode::control_step()
     have_map = have_map_;
     veto_active = veto_active_;
     goal_time = goal_received_time_;
+    // Only feed the MPC fresh tracks; stale ones would pin phantom obstacles.
+    if (enable_dynamic_obstacles_ && !dynamic_obstacles_.empty() &&
+      (stamp - tracks_stamp_).seconds() <= tracks_timeout_s_)
+    {
+      obstacles = dynamic_obstacles_;
+    }
     // Bug 5 fix: consume replan_completed_ under the same mutex_ that the
     // planner thread writes it, eliminating the data race with control_mutex_.
     if (replan_completed_) {
@@ -763,7 +802,7 @@ void ClassicalMpcNode::control_step()
         status = "startup_safety_creep";
       }
     } else {
-      const auto mpc = controller_.control(local, state, *field);
+      const auto mpc = controller_.control(local, state, *field, obstacles);
       mpc_ms = mpc.solve_ms;
       status = mpc.status;
       if (mpc.success) {

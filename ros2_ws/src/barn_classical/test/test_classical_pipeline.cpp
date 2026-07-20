@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <vector>
 
 #include "barn_classical/collision_checker.hpp"
@@ -100,6 +101,117 @@ TEST(Controller, TracksStraightPathWithinConstraints)
   EXPECT_LE(result.command.v, 2.0);
   EXPECT_LE(std::abs(result.command.w), 1.5);
   EXPECT_EQ(result.prediction.size(), 21U);
+}
+
+namespace
+{
+// Straight corridor along y = 4.0 with only top/bottom walls, so the static
+// distance field never constrains the lane — isolating the moving-obstacle term.
+barn_classical::LocalTrajectory straight_reference()
+{
+  barn_classical::LocalTrajectory trajectory;
+  for (int i = 0; i <= 20; ++i) {
+    trajectory.push_back({{1.0 + 0.2 * i, 4.0, 0.0}, 1.0, 3.0, false});
+  }
+  return trajectory;
+}
+
+barn_core::DistanceField2D walled_corridor_field(barn_core::OccupancyGrid2D & grid)
+{
+  for (int col = 0; col < 120; ++col) {
+    grid.set_log_odds({col, 0}, 4.0);
+    grid.set_log_odds({col, 79}, 4.0);
+  }
+  barn_core::DistanceField2D field;
+  field.rebuild(grid);
+  return field;
+}
+
+barn_classical::MpcParams avoidance_params()
+{
+  // Mirror the deployed classical_mpc.yaml obstacle settings, generous deadline.
+  barn_classical::MpcParams params;
+  params.solve_deadline_ms = 200.0;
+  params.max_linearization_passes = 3;
+  params.obstacle_margin = 0.10;
+  params.max_obstacle_slack = 2.0;
+  params.dynamic_margin = 0.20;
+  return params;
+}
+}  // namespace
+
+TEST(Controller, KeepsClearOfObstacleBlockingTheLane)
+{
+  auto grid = free_grid();
+  auto field = walled_corridor_field(grid);
+  const auto trajectory = straight_reference();
+  const barn_core::State2D state{{1.0, 4.0, 0.0}, 0.0, 0.0};
+
+  // An obstacle blocking the lane, slightly off the centreline (0.25 m) as a
+  // real tracker would report — a well-posed avoid-or-yield, not a degenerate
+  // perfectly-collinear tie.
+  const double ox = 3.0, oy = 4.25;
+  const auto min_clearance = [&](const barn_classical::Path2D & pred) {
+      double m = std::numeric_limits<double>::infinity();
+      for (const auto & p : pred) {m = std::min(m, std::hypot(p.x - ox, p.y - oy));}
+      return m;
+    };
+
+  barn_classical::Controller baseline(avoidance_params());
+  const auto clear = baseline.control(trajectory, state, field);
+  ASSERT_TRUE(clear.success) << clear.status;
+
+  const std::vector<barn_classical::DynamicObstacle> obstacles{{ox, oy, 0.0, 0.0, 0.5}};
+  barn_classical::Controller guarded(avoidance_params());
+  const auto blocked = guarded.control(trajectory, state, field, obstacles);
+  ASSERT_TRUE(blocked.success) << blocked.status;
+
+  // The obstacle-blind run drives straight down the lane and skims the obstacle;
+  // the obstacle-aware run holds the robot center outside the safety radius
+  // (~1.09 m, minus the small bounded dynamic slack) by yielding and/or bowing.
+  EXPECT_LT(min_clearance(clear.prediction), 0.35);
+  EXPECT_GT(min_clearance(blocked.prediction), 0.55);
+}
+
+TEST(Controller, PredictedMotionBeatsStaleObstacleAssumption)
+{
+  auto grid = free_grid();
+  auto field = walled_corridor_field(grid);
+  const auto trajectory = straight_reference();
+  const barn_core::State2D state{{1.0, 4.0, 0.0}, 0.0, 0.0};
+  const auto params = avoidance_params();
+
+  // A cylinder crossing the lane from below: currently 1.5 m off the path at
+  // (2.5, 2.5), climbing at 1.5 m/s, so it slides onto y=4 right where the robot
+  // will be. Its future positions, not its current one, are the hazard.
+  const auto obstacle_at = [&](double t) {
+      return std::pair<double, double>{2.5, 2.5 + 1.5 * t};
+    };
+  const std::vector<barn_classical::DynamicObstacle> moving{{2.5, 2.5, 0.0, 1.5, 0.5}};
+  const std::vector<barn_classical::DynamicObstacle> stale{{2.5, 2.5, 0.0, 0.0, 0.5}};
+
+  barn_classical::Controller aware(params);
+  const auto with_velocity = aware.control(trajectory, state, field, moving);
+  barn_classical::Controller naive(params);
+  const auto with_stale = naive.control(trajectory, state, field, stale);
+  ASSERT_TRUE(with_velocity.success) << with_velocity.status;
+  ASSERT_TRUE(with_stale.success) << with_stale.status;
+
+  // Worst-case clearance to the obstacle's *true* future path over the horizon.
+  const auto worst_true_clearance = [&](const barn_classical::Path2D & pred) {
+      double m = std::numeric_limits<double>::infinity();
+      for (std::size_t k = 0; k < pred.size(); ++k) {
+        const auto o = obstacle_at(static_cast<double>(k) * params.dt);
+        m = std::min(m, std::hypot(pred[k].x - o.first, pred[k].y - o.second));
+      }
+      return m;
+    };
+
+  // Predicting the motion keeps the robot meaningfully clearer of where the
+  // obstacle actually goes than assuming it stays put does.
+  EXPECT_GT(worst_true_clearance(with_velocity.prediction),
+    worst_true_clearance(with_stale.prediction) + 0.10);
+  EXPECT_GT(worst_true_clearance(with_velocity.prediction), 0.45);
 }
 
 namespace

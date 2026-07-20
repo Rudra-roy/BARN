@@ -22,6 +22,7 @@
   <depend>eigen</depend>
   <depend>osqp_vendor</depend>
   <depend>barn_core</depend>
+  <depend>barn_msgs</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
 
