@@ -24,17 +24,9 @@
 
 <div align="center">
 
-<table>
-<tr>
-<td align="center"><img src="docs/media/world_5.png" width="150" alt="BARN world 5"><br><sub><b>World 5</b> · open</sub></td>
-<td align="center"><img src="docs/media/world_32.png" width="150" alt="BARN world 32"><br><sub><b>World 32</b></sub></td>
-<td align="center"><img src="docs/media/world_62.png" width="150" alt="BARN world 62"><br><sub><b>World 62</b></sub></td>
-<td align="center"><img src="docs/media/world_155.png" width="150" alt="BARN world 155"><br><sub><b>World 155</b></sub></td>
-<td align="center"><img src="docs/media/world_299.png" width="150" alt="BARN world 299"><br><sub><b>World 299</b> · dense</sub></td>
-</tr>
-</table>
+![BARN worlds — sparse to dense obstacle fields](docs/media/barn_worlds_strip.png)
 
-*BARN drops the Jackal into hidden worlds ranging from open (world 5) to densely packed obstacle fields (world 299) — the yellow ball is the goal.*
+*Five hidden BARN worlds, sparse → dense (**5 · 32 · 62 · 155 · 299**). The yellow Jackal must reach the goal (yellow ball), collision-free, in an environment it has never seen.*
 
 </div>
 
