@@ -5,9 +5,12 @@ tracker_node:
     scan_topic: /barn/scan
     pose_topic: /barn/pose
     tracks_topic: /barn/tracks
+    markers_topic: /barn/track_markers
+    output_frame: odom
     publish_rate_hz: 10.0
-    # --- reserved for the M18 implementation ---
     cluster_distance_threshold: 0.3   # m
     association_gate_distance: 0.5     # m
     process_noise_q: 1.0               # m^2/s^3
     measurement_noise_r: 0.05          # m^2
+    min_hits: 3                        # updates before a track is published
+    max_misses: 5                      # consecutive misses before a track is dropped

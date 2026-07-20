@@ -6,7 +6,7 @@
 #ifndef BARN_DYNAMIC_TRACKING__ASSOCIATION_HPP_
 #define BARN_DYNAMIC_TRACKING__ASSOCIATION_HPP_
 
-#include <cstddef>
+#include <utility>
 #include <vector>
 
 #include "barn_dynamic_tracking/clustering.hpp"
@@ -14,10 +14,14 @@
 namespace barn_dynamic_tracking
 {
 
-/// For each cluster, the index of the track it associates with, or -1 for a new
-/// track. STUB: returns all -1 (every cluster starts a new track).
+/// Greedy nearest-neighbour data association. For each cluster, returns the
+/// index (into `track_positions`) of the nearest unclaimed track whose centre
+/// is within `gate_distance`, or -1 if none qualifies (i.e. a new track). Each
+/// track is claimed by at most one cluster.
 std::vector<int> associate(
-  const std::vector<Cluster> & clusters, std::size_t num_tracks, double gate_distance = 0.5);
+  const std::vector<Cluster> & clusters,
+  const std::vector<std::pair<double, double>> & track_positions,
+  double gate_distance = 0.5);
 
 }  // namespace barn_dynamic_tracking
 

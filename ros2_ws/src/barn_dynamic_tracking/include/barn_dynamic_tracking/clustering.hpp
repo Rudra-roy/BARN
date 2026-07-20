@@ -15,9 +15,10 @@ namespace barn_dynamic_tracking
 
 struct Cluster
 {
-  double cx{0.0};   ///< centroid x in the scan frame (m)
-  double cy{0.0};   ///< centroid y (m)
-  int count{0};     ///< number of beams in the cluster
+  double cx{0.0};       ///< centroid x in the scan frame (m)
+  double cy{0.0};       ///< centroid y (m)
+  int count{0};         ///< number of beams in the cluster
+  double radius{0.0};   ///< estimated obstacle radius (m), half the max chord
 };
 
 /// Cluster the scan into obstacle centroids. STUB: returns an empty list.

@@ -14,6 +14,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(barn_msgs REQUIRED)
 find_package(barn_core REQUIRED)
 
 add_library(barn_tracking
@@ -29,7 +30,7 @@ target_link_libraries(barn_tracking barn_core::barn_core)
 add_executable(tracker_node src/tracker_node.cpp)
 target_include_directories(tracker_node PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
-ament_target_dependencies(tracker_node rclcpp sensor_msgs geometry_msgs visualization_msgs)
+ament_target_dependencies(tracker_node rclcpp sensor_msgs geometry_msgs visualization_msgs barn_msgs)
 target_link_libraries(tracker_node barn_tracking barn_core::barn_core)
 
 install(TARGETS tracker_node DESTINATION lib/${PROJECT_NAME})
@@ -45,6 +46,11 @@ if(BUILD_TESTING)
   target_include_directories(test_kalman PRIVATE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
   target_link_libraries(test_kalman barn_tracking barn_core::barn_core)
+
+  ament_add_gtest(test_clustering test/test_clustering.cpp)
+  target_include_directories(test_clustering PRIVATE
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
+  target_link_libraries(test_clustering barn_tracking barn_core::barn_core)
 endif()
 
 ament_package()
