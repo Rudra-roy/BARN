@@ -152,7 +152,7 @@
 <div class="topbar"><div class="wrap">
   <span class="brand">BARN·<b>nav</b></span>
   <nav class="navlinks">
-    <a href="#sense">sense</a><a href="#map">map</a><a href="#astar">A*</a>
+    <a href="#trials">trials</a><a href="#sense">sense</a><a href="#map">map</a><a href="#astar">A*</a>
     <a href="#band">band</a><a href="#mpc">MPC</a><a href="#shield">shield</a><a href="#recovery">recover</a>
   </nav>
   <span class="spacer"></span>
@@ -202,6 +202,36 @@
       <div class="node" role="listitem"><div class="ix">07</div><div class="nm">Wheels</div><div class="ch">/cmd_vel</div></div>
     </div>
     <div class="feedback">↺ map → drift correction &nbsp;·&nbsp; shield → <b>veto</b> → recovery (reverse &amp; re-plan)</div>
+  </div>
+</section>
+
+<!-- TRIAL RUNS -->
+<section id="trials" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Trial runs · RViz2</span>
+      <h2>The stack driving a full evaluator trial</h2>
+      <p>Live from RViz2: the online LiDAR occupancy map (white free · red obstacles), the global A* route (blue), the MPC local trajectory (green), and the goal (red arrow). Left, an open world; right, a dense one it has to thread.</p>
+    </div>
+    <div class="module">
+      <div class="module-head"><span class="tag">classical MPC</span><h3>Two worlds, easy → hard</h3></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0">
+        <figure style="margin:0;border-right:1px solid var(--line)">
+          <video controls loop muted playsinline preload="metadata" poster="media/world_10_poster.jpg" style="width:100%;display:block;background:#1b2a2a">
+            <source src="media/world_10_trial_run.mp4" type="video/mp4">
+            Your browser can't play this video — <a href="media/world_10_trial_run.mp4">download it</a>.
+          </video>
+          <figcaption class="panel" style="padding:14px 20px"><b>World 10</b> — open field, near-direct route to the goal.</figcaption>
+        </figure>
+        <figure style="margin:0">
+          <video controls loop muted playsinline preload="metadata" poster="media/world_250_poster.jpg" style="width:100%;display:block;background:#1b2a2a">
+            <source src="media/world_250_trial_run.mp4" type="video/mp4">
+            Your browser can't play this video — <a href="media/world_250_trial_run.mp4">download it</a>.
+          </video>
+          <figcaption class="panel" style="padding:14px 20px"><b>World 250</b> — dense field, threading tight gaps.</figcaption>
+        </figure>
+      </div>
+    </div>
   </div>
 </section>
 

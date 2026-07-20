@@ -33,12 +33,21 @@
 ### Trial runs (RViz2)
 
 The footprint-aware Classical MPC stack navigating a full evaluator trial —
-online LiDAR map, drift-corrected `map` frame, global A* path, and MPC local
-trajectory visualized live.
+online LiDAR occupancy map (white free / red obstacles), global A\* path (blue),
+MPC local trajectory (green), and the goal (red arrow), visualized live.
 
-| Simple world | Complex world |
-|:---:|:---:|
-| <!-- video: simple world trial --> *(video placeholder — see [docs/media/README.md](docs/media/README.md))* | <!-- video: complex world trial --> *(video placeholder — see [docs/media/README.md](docs/media/README.md))* |
+<div align="center">
+
+<table>
+<tr>
+<td align="center" width="50%"><a href="site/media/world_10_trial_run.mp4"><img src="site/media/world_10_poster.jpg" width="100%" alt="World 10 trial run — click to play"></a><br><sub><b>World 10</b> · open field, direct route</sub></td>
+<td align="center" width="50%"><a href="site/media/world_250_trial_run.mp4"><img src="site/media/world_250_poster.jpg" width="100%" alt="World 250 trial run — click to play"></a><br><sub><b>World 250</b> · dense field, threading tight gaps</sub></td>
+</tr>
+</table>
+
+▶ **Click a thumbnail to play**, or watch both **[inline on the live site ↗](https://rudra-roy.github.io/BARN/#trials)**.
+
+</div>
 
 ---
 
