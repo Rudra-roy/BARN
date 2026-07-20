@@ -38,12 +38,7 @@ MPC local trajectory (green), and the goal (red arrow), visualized live.
 
 <div align="center">
 
-<table>
-<tr>
-<td align="center" width="50%"><a href="https://github.com/Rudra-roy/BARN/blob/main/site/media/world_10_trial_run.mp4"><img src="site/media/world_10_poster.jpg" width="100%" alt="World 10 trial run — click to play"></a><br><sub><b>World 10</b> · open field, direct route</sub></td>
-<td align="center" width="50%"><a href="https://github.com/Rudra-roy/BARN/blob/main/site/media/world_250_trial_run.mp4"><img src="site/media/world_250_poster.jpg" width="100%" alt="World 250 trial run — click to play"></a><br><sub><b>World 250</b> · dense field, threading tight gaps</sub></td>
-</tr>
-</table>
+
 
 ▶ **Best experience: watch both playing inline on the [live visualization site ↗](https://rudra-roy.github.io/BARN/#trials).** Or click a thumbnail above to open GitHub's built-in player.
 
