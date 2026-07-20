@@ -1,0 +1,108 @@
+<?xml version="1.0" ?>
+<!-- Copyright 2026 barn-2027-prep contributors. MIT License. -->
+<!-- Minimal gz-sim 8 (Harmonic) world that drives a cylinder obstacle along a
+     cubic Catmull-Rom waypoint path via the barn::sim::DynamicObstacle plugin. -->
+<sdf version="1.10">
+  <world name="moving_cylinder_demo">
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <!-- Core systems needed to run headless. -->
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Dynamic obstacle: a cylinder driven purely by LinearVelocityCmd.
+         Gravity is disabled on the link so the velocity command has full
+         planar control and the cylinder stays upright. -->
+    <model name="obstacle_0">
+      <pose>-4 0 0.5 0 0 0</pose>
+      <link name="link">
+        <gravity>0</gravity>
+        <inertial>
+          <mass>50.0</mass>
+          <inertia>
+            <ixx>4.4</ixx>
+            <iyy>4.4</iyy>
+            <izz>6.25</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.5</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.5</radius>
+              <length>1.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.9 0.2 0.2 1</ambient>
+            <diffuse>0.9 0.2 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+
+      <!-- Cubic waypoint path (S-curve). -->
+      <plugin filename="barn_dynamic_obstacle"
+              name="barn::sim::DynamicObstacle">
+        <speed>1.0</speed>
+        <loop>true</loop>
+        <waypoint>-4 0</waypoint>
+        <waypoint>-1 1.5</waypoint>
+        <waypoint>2 -1.5</waypoint>
+        <waypoint>5 0</waypoint>
+      </plugin>
+    </model>
+
+  </world>
+</sdf>
