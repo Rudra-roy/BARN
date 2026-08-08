@@ -108,10 +108,33 @@ classical_mpc_node:
     # planner "see" walls from further out. Validate on the dev suite — too high
     # and A* detours around legitimately narrow passages.
     clearance_weight: 1.2
+    # TRIED AND REVERTED (world 288, 12 trials each): 1.4 -> 0.8 was a large
+    # regression, score 0.4469 -> 0.3044, success 12/12 -> 9/12 (3 timeouts),
+    # median AT 13.9 -> 14.9 s. Do not retry without a new reason.
+    #
+    # The hypothesis was that with 262-574 obstacles per world a 1.4 m band
+    # covers nearly every A* cell, saturating the term into a constant offset
+    # that pays for detours without giving a centering gradient (campaign stats:
+    # obstacle count vs AT/OT r = +0.55). Narrowing it does restore a gradient
+    # near walls, but it also stops biasing the route toward corridor centres in
+    # open-ish stretches, so A* hugs walls and leads the robot into pinches it
+    # cannot resolve -- one trial logged 6 recovery episodes and a reverse before
+    # timing out. The wide band is doing reliability work, not just centering.
     clearance_penalty_radius: 1.4
     local_horizon_m: 6.0
     mpc_horizon: 10
     mpc_dt: 0.1
+    # TRIED AND REVERTED (world 288, 12 trials each): 0.20 -> 0.12 made it WORSE,
+    # score 0.4469 -> 0.4077, median AT 13.9 -> 14.6 s, sd 1.6 -> 5.0, recovery
+    # episodes 1 -> 2 (trials of 23 s and 30 s). Do not retry without a new reason.
+    #
+    # The hypothesis was that at 0.20 the constraint is unsatisfiable in the
+    # tightest corridors (path clearance 0.225 m), so the solver sits on
+    # max_obstacle_slack and crawls. Relaxing it does not buy speed: it lets the
+    # MPC plan trajectories into the band where barn_safety's swept-footprint
+    # shield -- an independent authority, unchanged here -- vetoes the commands.
+    # The result is stalls and recovery, visible as the tripled variance. The
+    # MPC's margin should stay at or above what the shield will actually allow.
     obstacle_margin: 0.20
     max_obstacle_slack: 2.0
     # Dynamic (moving) obstacles from barn_dynamic_tracking on /barn/tracks.
@@ -128,6 +151,20 @@ classical_mpc_node:
     max_yaw_rate: 3.0
     max_accel: 5.0
     max_yaw_accel: 6.0
+    # TRIED, NOT PROVEN, REVERTED (world 216, 12 trials each): 3.0 -> 5.0 moved
+    # mean AT over successes 16.55 -> 15.83 s (4.4%) with sd 2.0 -> 3.1, i.e.
+    # inside the noise at n=12. Batch score rose 0.3154 -> 0.3647 but that came
+    # almost entirely from one timeout flipping to a success, not from speed.
+    # No collisions in 12 trials. Reverted because an unproven global dynamics
+    # change would confound the next campaign, NOT because it was shown harmful.
+    #
+    # This remains the best speed candidate: the robot holds ~0.9 m/s in every
+    # scored world while max_speed is 4.0, so something binds well below the
+    # cap, and at 0.9 m/s this term implies a minimum turn radius of v^2/a =
+    # 0.27 m -- squarely in the range BARN corridors demand. Unlike
+    # obstacle_margin and clearance_penalty_radius it reduces no clearance and
+    # cannot reach barn_safety's veto band. Worth a properly powered test (~30
+    # trials/config on a speed-bound world such as 216 or 66) before adopting.
     max_lateral_accel: 3.0
     unknown_speed: 2.0
     mpc_deadline_ms: 35.0
@@ -160,7 +197,28 @@ safety_node:
     cmd_timeout_s: 0.4
     scan_timeout_s: 0.5
     watchdog_period_s: 0.05
-    emergency_margin: 0.05
+    # TUNING (world 114, batch 01): 0.05 -> 0.02.
+    #
+    # This is the half-extent added to the body for the shield's HARD veto box.
+    # The scale search scales v and w together, and as the scale goes to zero
+    # the stopping time collapses to shield_latency_s, so the swept envelope
+    # shrinks to the box at the robot's CURRENT pose. A swept intersection can
+    # therefore always be scaled away; an obstacle already inside the pose-0 box
+    # cannot. Every scale fails, including an in-place rotation, and the robot is
+    # frozen until the trial times out -- observed once in 8 baseline trials on
+    # world 114 ("vetoed 6 consecutive commands", then silence to 100 s).
+    #
+    # At 0.05 the box half-width is 0.215 + 0.05 = 0.265 m, but world 114's
+    # tightest reference-path clearance is 0.225 m: the intended route passes
+    # through a gap the shield treats as already-collided. safety_node discards
+    # returns inside half+1cm as self-hits, so 0.05 leaves a 4 cm shell in which
+    # the robot is stuck; 0.02 leaves 1 cm.
+    #
+    # Anticipatory clearance is unaffected -- it comes from sweeping the box
+    # along the braking envelope, not from this term (see the comment in
+    # swept_footprint_shield.cpp). Collisions are the risk to watch: revert if
+    # any batch shows one, since the baseline campaign had 1 in 430 trials.
+    emergency_margin: 0.02
     shield_latency_s: 0.05
     braking_decel: 2.5
     shield_horizon_s: 0.0
