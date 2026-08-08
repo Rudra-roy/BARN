@@ -44,7 +44,16 @@ Fix failures before optimizing speed (see [failure_taxonomy.md](./benchmark/fail
 ```
 
 - **M0–M10 are DONE**. The complete Classical MPC stack is fully implemented, tuned, and robust.
-- **M11 is the current focus**: Running the formal 500-trial baseline benchmark.
+- **M11 is the current focus**: a first campaign has been run and analysed, but M11 is **not
+  complete**. It covered 430 trials — the upstream `{7..49}` loop drops worlds 0, 6, 12, 18, 24,
+  30, 36 — and scored **0.3759, 95.1 % success, 1 collision**. Every other failure was a timeout.
+  Triage found the dominant cause was the safety shield freezing the robot at 0 m/s
+  ([classical_mpc_updates.md §6](./features/classical_mpc_updates.md)): `emergency_margin` is now
+  0.02, and the harness reaps leaked processes between trials
+  ([failure_taxonomy.md §3.5](./benchmark/failure_taxonomy.md)). M11 needs a **re-run over the
+  full 50 worlds** on the fixed configuration. Where the remaining score is: slowness costs
+  0.0997 against 0.0244 lost to all failures combined, with 63 % of successes finishing above the
+  `2·OT` clip at a mean 0.92 m/s.
 - **M12–M16 (RL) are scaffolded stubs** — directories and interfaces exist, implementations pending.
 - **M17–M18 are 🚧 in progress** (out of order, ahead of RL): the **DynaBARN** moving-obstacle
   test bed and the LiDAR dynamic tracker are built and wired into a separate dynamic MPC launch.
