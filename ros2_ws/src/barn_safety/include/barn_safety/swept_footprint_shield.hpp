@@ -37,6 +37,30 @@ struct ShieldParams
   double braking_decel{2.5};
   double latency_s{0.15};
   double scale_step{0.05};
+
+  // --- Escape from an already-occupied veto box --------------------------
+  //
+  // safe_at_scale() checks the box at the CURRENT pose first, so if an
+  // obstacle is already inside it, every scale fails -- including a reverse or
+  // an in-place rotation that would move away. The scale search then returns a
+  // hard veto and the robot is commanded to zero forever: it cannot move, so
+  // the obstacle never leaves the box, so it cannot move. Observed as a robot
+  // frozen mid-corridor until the 100 s trial timeout, with the planner's own
+  // reverse-to-clearance recovery running but producing no motion.
+  //
+  // The trap is narrow but reachable: safety_node discards returns inside
+  // half_extent + 1 cm as self-hits, so only returns in the shell between that
+  // and half_extent + emergency_margin can occupy the box.
+  //
+  // When trapped, search a small set of slow escape motions and accept one only
+  // if it strictly increases the minimum clearance and never decreases it along
+  // the way. This is deliberately a relaxation of a hard veto, justified
+  // because the state it applies to -- an obstacle within a centimetre of the
+  // body -- is one where holding still is not safer than crawling away from it.
+  bool escape_enable{true};
+  double escape_speed{0.15};
+  double escape_yaw_rate{0.5};
+  double escape_horizon_s{0.5};
 };
 
 struct ShieldResult
@@ -54,15 +78,38 @@ class SweptFootprintShield
 public:
   explicit SweptFootprintShield(const ShieldParams & params = {}) : params_(params) {}
 
+  /// `allow_escape` gates the escape search. It must stay false until the robot
+  /// has been at a dead stop for a sustained period: the escape injects motion
+  /// the planner never asked for, and firing it on a transient veto turns the
+  /// shield from a filter into an actuator. Doing that unconditionally pushed
+  /// the robot off its start pose during the evaluator's reset, tripping the
+  /// "has it moved" check ~30 s early on every trial. The freeze this exists to
+  /// break lasts 75+ s, so waiting a second costs nothing.
   ShieldResult apply(
     const barn_core::VelocityCommand & desired,
-    const std::vector<ObstaclePoint> & obstacles) const;
+    const std::vector<ObstaclePoint> & obstacles,
+    bool allow_escape = true) const;
 
 private:
   bool safe_at_scale(
     const barn_core::VelocityCommand & desired, double scale,
     const std::vector<ObstaclePoint> & obstacles,
     double & minimum_clearance, std::vector<barn_core::Pose2D> * envelope) const;
+
+  /// Signed clearance of the veto box at `pose`: >= 0 outside (distance to the
+  /// nearest obstacle), < 0 inside (negative penetration depth). Unlike the
+  /// clamped clearance used by safe_at_scale this keeps varying once an
+  /// obstacle is inside the box, which is what makes "getting less trapped"
+  /// measurable.
+  double signed_clearance(
+    const barn_core::Pose2D & pose,
+    const std::vector<ObstaclePoint> & obstacles) const;
+
+  /// Last resort when every scale is vetoed: the slowest motion that strictly
+  /// increases signed clearance, or a hard veto if nothing does.
+  ShieldResult find_escape(
+    const barn_core::VelocityCommand & desired,
+    const std::vector<ObstaclePoint> & obstacles) const;
 
   ShieldParams params_;
 };

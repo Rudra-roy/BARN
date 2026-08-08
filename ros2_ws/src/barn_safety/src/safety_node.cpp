@@ -43,6 +43,27 @@ SafetyNode::SafetyNode(const rclcpp::NodeOptions & options)
   shield_params.latency_s = declare_parameter<double>("shield_latency_s", 0.15);
   shield_params.braking_decel = declare_parameter<double>("braking_decel", 2.5);
   shield_params.horizon_s = declare_parameter<double>("shield_horizon_s", 0.6);
+  // Escape from a blocked direction (see swept_footprint_shield.hpp).
+  //
+  // DEFAULT OFF, deliberately. The mechanism is real -- the scale search cannot
+  // change direction, so a blocked heading stops the robot even when rotating
+  // is free, and that stranded world 216 for 75 s. But 12 trials on a clean
+  // machine could not show it helping: 11/12 at score 0.3039 against 11/12 at
+  // 0.3154 without it, with 28 escapes fired and 5 still-trapped events. It
+  // costs time (each escape crawls at escape_speed) for no measurable
+  // reliability gain, and it changes the shield from a filter that can only
+  // reduce a command into one that can redirect it.
+  //
+  // Enable it for a properly powered comparison (30+ trials per arm on a
+  // speed-bound world such as 216) before adopting it.
+  shield_params.escape_enable = declare_parameter<bool>("shield_escape_enable", false);
+  shield_params.escape_speed = declare_parameter<double>("shield_escape_speed", 0.15);
+  shield_params.escape_yaw_rate = declare_parameter<double>("shield_escape_yaw_rate", 0.5);
+  shield_params.escape_horizon_s = declare_parameter<double>("shield_escape_horizon_s", 0.5);
+  // How long the robot must be at a dead stop before the shield is allowed to
+  // move it. The freeze this breaks lasts 75+ s, so a wait here is free; firing
+  // instantly is not, because startup and reset produce brief vetoes.
+  escape_after_s_ = declare_parameter<double>("shield_escape_after_s", 1.5);
   shield_ = SweptFootprintShield(shield_params);
 
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
@@ -129,7 +150,24 @@ void SafetyNode::desired_callback(const geometry_msgs::msg::TwistStamped::Shared
     result.command = {};
     result.reason = have_valid_scan_ ? "stale_scan_or_command" : last_reason_;
   } else {
-    result = shield_.apply(limited, obstacle_points_);
+    // Escape only after a sustained dead stop -- see shield_escape_after_s.
+    const bool allow_escape = stopped_latched_ &&
+      (stamp - stopped_since_).seconds() >= escape_after_s_;
+    result = shield_.apply(limited, obstacle_points_, allow_escape);
+  }
+
+  // Latch on "the planner wants to move and the shield is giving it nothing".
+  // Any motion at all, from either side, clears it.
+  const bool wants_motion = std::abs(desired.v) > 1e-6 || std::abs(desired.w) > 1e-6;
+  const bool fully_stopped =
+    std::abs(result.command.v) < 1e-6 && std::abs(result.command.w) < 1e-6;
+  if (wants_motion && fully_stopped) {
+    if (!stopped_latched_) {
+      stopped_latched_ = true;
+      stopped_since_ = stamp;
+    }
+  } else {
+    stopped_latched_ = false;
   }
   limiter_.override_last(result.command);
   last_accept_time_ = stamp;
@@ -142,10 +180,36 @@ void SafetyNode::desired_callback(const geometry_msgs::msg::TwistStamped::Shared
   output.twist.angular.z = result.command.w;
   safe_pub_->publish(output);
 
+  // A shield that stops the robot dead used to say NOTHING in any log, so a
+  // frozen trial looked identical to a planner that had simply given up --
+  // 89 s of stationary robot with no diagnosis available afterwards. These two
+  // lines are the difference between "reproduce it and instrument" and reading
+  // the answer out of the trial log.
+  // Deliberately NOT logging plain "emergency_veto": that is the routine stop in
+  // front of an obstacle and fires constantly in a tight corridor. Only the two
+  // states that can strand a trial are worth a warning.
+  if (result.reason == "emergency_trapped") {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 1000,
+      "SHIELD TRAPPED: an obstacle is inside the veto box (signed clearance "
+      "%.3f m, %zu returns) and no escape motion increases it. The robot is "
+      "stopped and cannot move until the scene changes.",
+      result.minimum_clearance, obstacle_points_.size());
+  } else if (result.reason == "emergency_escape") {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 1000,
+      "shield escape: an obstacle is inside the veto box (signed clearance "
+      "%.3f m); overriding the desired command with v=%.2f w=%.2f to back out.",
+      result.minimum_clearance, result.command.v, result.command.w);
+  }
+
   // Publish veto state so the planner can react without waiting for the
-  // no-progress watchdog to expire.
+  // no-progress watchdog to expire. An escape is deliberately NOT a veto: the
+  // robot is moving under shield control, and reporting a veto would make the
+  // planner trigger recovery on top of the escape and fight it.
   std_msgs::msg::Bool veto_msg;
-  veto_msg.data = (result.reason == "emergency_veto");
+  veto_msg.data =
+    (result.reason == "emergency_veto" || result.reason == "emergency_trapped");
   veto_pub_->publish(veto_msg);
 
   publish_status(result, stamp);
@@ -153,6 +217,13 @@ void SafetyNode::desired_callback(const geometry_msgs::msg::TwistStamped::Shared
 
 void SafetyNode::publish_zero(const rclcpp::Time & stamp, const std::string & reason)
 {
+  // Same reasoning as the veto logging in desired_callback: this is the other
+  // way the robot stops dead, and it used to be completely silent. A stale scan
+  // or a planner that stopped publishing looks exactly like a planner that
+  // decided to hold still, and the trial log could not tell them apart.
+  RCLCPP_WARN_THROTTLE(
+    get_logger(), *get_clock(), 2000,
+    "safety stop (%s): publishing zero velocity.", reason.c_str());
   limiter_.reset();
   geometry_msgs::msg::TwistStamped stop;
   stop.header.stamp = stamp;
@@ -185,7 +256,10 @@ void SafetyNode::publish_status(const ShieldResult & result, const rclcpp::Time 
   status.name = "barn/safety_shield";
   status.hardware_id = "jackal";
   status.message = result.reason;
-  status.level = result.reason.find("veto") != std::string::npos ?
+  // "emergency_trapped" carries no "veto" substring but is strictly worse than
+  // one, so match it explicitly rather than relying on the name.
+  status.level = (result.reason.find("veto") != std::string::npos ||
+    result.reason == "emergency_trapped") ?
     diagnostic_msgs::msg::DiagnosticStatus::ERROR :
     (result.scale < 0.999 ? diagnostic_msgs::msg::DiagnosticStatus::WARN :
     diagnostic_msgs::msg::DiagnosticStatus::OK);

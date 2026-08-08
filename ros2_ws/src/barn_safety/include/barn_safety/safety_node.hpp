@@ -64,6 +64,13 @@ private:
   bool have_cmd_{false};
   bool have_valid_scan_{false};
   std::string last_reason_{"startup_no_scan"};
+  // Sustained-stop latch gating the shield's escape search. The escape injects
+  // motion the planner did not request, so it must only engage once the robot
+  // is genuinely stuck rather than on a transient veto during startup or the
+  // evaluator's reset.
+  bool stopped_latched_{false};
+  rclcpp::Time stopped_since_{0, 0, RCL_ROS_TIME};
+  double escape_after_s_{1.5};
 };
 
 }  // namespace barn_safety
