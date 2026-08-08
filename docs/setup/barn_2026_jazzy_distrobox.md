@@ -198,3 +198,24 @@ Then the official baseline remains:
 ros2 launch jackal_helper BARN_runner.launch.py \
   algo_type:=builtin world_idx:=0 gui:=true
 ```
+
+## Getting into the box from a script
+
+Use `distrobox enter`, **not** `docker exec`. `docker exec` starts with an empty
+`LD_LIBRARY_PATH` (29 entries vs 0), so Ogre cannot obtain a GL context and
+`gz sim` segfaults on startup. The two are not interchangeable, and `ldconfig -p`
+looks identical in both — it reads a static cache and cannot show you a runtime
+library path, so verify by running an actual trial, not by diffing environment
+variables.
+
+`distrobox enter -- bash -c ...` is **non-interactive**, so the box's `~/.bashrc`
+never runs — including the block that scrubs the host's ROS Humble out of
+`AMENT_PREFIX_PATH`/`PYTHONPATH`/`LD_LIBRARY_PATH`. Without it
+`infra/env/barn_jazzy.env` refuses to load ("non-Jazzy ROS path").
+`evaluation/tuning/in_box.sh` replicates the scrub explicitly and sources the
+three setup files above, so batch runs do not depend on shell interactivity:
+
+```bash
+distrobox enter barn-jazzy -- bash \
+  /run/host/home/mt-labpc/BARN/evaluation/tuning/in_box.sh --check
+```

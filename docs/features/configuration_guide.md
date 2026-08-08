@@ -8,6 +8,22 @@ The safety node is the absolute final authority on robot movement. It uses a raw
 - **`v_max` (4.5)** / **`w_max` (3.0)**: The absolute maximum linear and angular velocities the robot is physically allowed to execute. *Tuning:* Set slightly higher than the MPC max speeds to allow the MPC to operate fully without artificial clipping.
 - **`max_lin_accel` (5.0)** / **`max_ang_accel` (6.0)**: The maximum acceleration. *Tuning:* Higher values allow the robot to respond instantly to MPC commands, but setting this too high in simulation can cause slip or wheel lift.
 
+### Shield geometry
+The shield sweeps a box of `half_extent + emergency_margin` along the command's braking arc and returns the largest scale of the command that stays clear.
+
+- **`emergency_margin` (0.02)**: Half-extent added to the physical body for the **hard veto** box. *Tuning:* **Do not raise this casually.** The scale search scales `v` and `w` together, so as the scale → 0 the swept envelope collapses onto the box at the robot's *current* pose: an obstacle already inside that box vetoes **every** command including an in-place rotation, and the robot freezes until the trial times out. `safety_node` discards returns inside `half + 1 cm` as self-hits, so this parameter sets the width of the shell in which that trap can occur — 4 cm at the old `0.05`, 1 cm at `0.02`. For reference, the tightest reference-path clearance in the scored worlds is 0.225 m against a box half-width of 0.2159 m. Anticipatory clearance does **not** come from this term; it comes from the sweep. Watch for collisions if you lower it further.
+- **`shield_horizon_s` (0.0)** / **`shield_latency_s` (0.05)** / **`braking_decel` (2.5)**: The sweep length is `max(shield_horizon_s, |v|/braking_decel + shield_latency_s)`. *Tuning:* raise `shield_horizon_s` to force a minimum lookahead regardless of speed; it sweeps through a whole corridor if set too high.
+- **`cmd_timeout_s` (0.4)** / **`scan_timeout_s` (0.5)**: Staleness watchdog. Publishes zero and resets the limiter when commands or scans stop arriving.
+
+### Shield escape search (default OFF)
+Scaling a command changes its magnitude but never its **direction**, so a blocked heading blocks every multiple of it — even when a free rotation is available. When every scale fails, the shield can optionally search a small menu of slow escape motions and take one that strictly increases clearance. Shipped disabled: on world 216 (12 trials/arm) it cost time (median AT 16.2 → 18.3 s) for no measurable reliability gain, which 12 trials cannot resolve either way.
+
+- **`shield_escape_enable` (false)**: Master switch. With it off the shield is a pure filter that can only subtract motion.
+- **`shield_escape_after_s` (1.5)**: Seconds of *sustained* dead stop before the escape may fire. *Tuning:* do not lower toward zero — firing on transient vetoes turns the shield into an actuator, and it pushed the robot off its start pose during the evaluator's reset, adding ~30 s to every trial.
+- **`shield_escape_speed` (0.15)** / **`shield_escape_yaw_rate` (0.5)** / **`shield_escape_horizon_s` (0.5)**: The magnitude and rollout length of the candidate escape motions.
+
+**Log lines to grep:** `SHIELD TRAPPED` (obstacle inside the box, no escape found) and `shield escape` (escape engaged). Plain `emergency_veto` is deliberately *not* logged — it is the routine stop in front of an obstacle and floods a tight corridor.
+
 ## 2. Classical MPC (`classical_mpc_node`)
 
 ### Core Kinematics

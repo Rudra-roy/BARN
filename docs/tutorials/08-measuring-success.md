@@ -394,6 +394,63 @@ correctly:
 > The suite then runs *both* metric reports over the raw `results/` output and captures a
 > reproducibility manifest — the raw file under `results/` is always the source of truth.
 
+### 5.2 Trials must be *independent* — and by default they aren't
+
+Running 500 trials in a loop quietly assumes each one starts from a clean machine. That
+assumption is false, and the way it fails is nasty because it produces **plausible numbers**
+rather than an error.
+
+`ros2 launch` does not reap its children. Kill a trial any way other than letting it exit —
+Ctrl-C, a wall-clock timeout, a batch driver stopped mid-flight — and everything it started gets
+re-parented to `init` and keeps running: Gazebo, the controllers, the bridges. They are still on
+your `ROS_DOMAIN_ID`, so the *next* trial talks to them.
+
+The worst survivor by far is the **`/clock` bridge**:
+
+```
+parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock
+```
+
+It keeps publishing **simulation time from a world that no longer exists**. Every node in every
+later trial then reads corrupted time — including the evaluator, whose clock starts during the
+*reset teleport* instead of at the start pose. Measured:
+
+| | robot pose logged at `t = 0.01` | median AT |
+|---|---|---|
+| clean machine | `(-2.25, 3.1x)` — the start pose — in 10/10 | 13–18 s |
+| one leaked clock bridge | `(2.00, 2.00)` — the Gazebo spawn origin — in 8/12 | ~40 s |
+
+Roughly **30 s added to every trial**, uniformly. Nothing crashes. The results file fills up with
+numbers that read exactly like *"the navigation stack got slower"*, and if you happen to have
+changed something in the planner that session, you will believe it. One survivor at 140 % CPU
+poisoned two full 12-trial batches before it was spotted.
+
+> **⚠️ Gotcha — a contaminated trial is not a failure, it is *not data*.** Do not label it in
+> `failure_labels.csv` and do not average it in. Discard it and re-run. The tell is the startup
+> pose in the trial log: if the robot is at the spawn origin rather than the BARN start pose,
+> the clock was already running when the trial began.
+
+Two defences, both in this repo:
+
+> ### 🔍 In the code
+> `evaluation/scripts/run_single_world.sh` reaps **unconditionally** after every trial — not
+> only on the timeout path, since every other kind of interruption leaks the same children:
+> ```bash
+> reap_trial_processes TERM; sleep 4; reap_trial_processes KILL; sleep 1
+> ```
+> It matches on `jackal_helper`, this workspace's own paths, the evaluator's signature scan
+> remap, and `parameter_bridge /clock@` — then kills **by PID**, after confirming each one via
+> `/proc/<pid>/cmdline`. Never by node name: a bare `pkill` ignores `ROS_DOMAIN_ID` and would
+> kill a colleague's nodes on the same machine.
+>
+> `tools/preflight_barn_campaign.sh` then refuses to *start* a campaign while a stale `/clock`
+> bridge is alive — better to fail loudly at trial 0 than to record 500 poisoned results.
+
+> **💡 Key idea:** This is a benchmarking lesson before it is a ROS lesson. Any harness that runs
+> N trials in one process tree needs an explicit answer to *"what state survives trial k into
+> trial k+1?"* — and it needs to **check** the answer, because state that leaks silently shows up
+> as a believable trend rather than a bug.
+
 ---
 
 ## 6. The frame-drift trick: aim *past* the goal
@@ -521,6 +578,9 @@ the simulator, not at your stack. That is why §6 exists.
   so this repo reports **both**, labeled, never mixed.
 - The campaign is **500 trials** (50 evenly spaced worlds × 10), averaged; the repo's
   suite fixes the upstream `test.sh` bug that skipped the first 7 worlds.
+- **Trials must be independent.** `ros2 launch` doesn't reap its children, and a leaked `/clock`
+  bridge feeds stale sim time to every later trial — worth ~30 s each, silently. The harness
+  reaps by PID after *every* trial and preflight refuses to start when one survives.
 - Because the robot's frame drifts, `goal_adapter_node` **aims past** the goal and, if
   still alive after believed success, **sweeps** across the finish — honest tricks that
   exist purely because success is judged on ground truth.

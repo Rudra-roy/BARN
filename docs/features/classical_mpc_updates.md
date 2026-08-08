@@ -36,3 +36,33 @@ To prevent the MPC from prematurely slamming on the brakes or cutting corners to
 - **`mpc_horizon` and `mpc_dt`:** Now fully exposed in `classical_mpc.yaml`. Users can directly tune the lookahead time/distance.
 - **`obstacle_margin`:** Increased to explicitly instruct the MPC to start bending its predicted footprint away from walls *before* it physically scrapes them.
 - **`max_obstacle_slack`:** Relaxed to allow the QP solver to remain feasible when navigating through extremely narrow doorways.
+
+## 6. Safety Shield: the freeze that timed out trials
+
+The 500-trial campaign scored **0.3759** with **95.1 % success and 1 collision**. Every remaining failure was a *timeout*, and the dominant cause was the robot standing perfectly still until the 100 s clock expired. Root cause, in two layers:
+
+**Layer 1 — the veto box was wider than the benchmark's own corridors.** `SweptFootprintShield` hard-vetoes when an obstacle falls inside `half_extent + emergency_margin`, and the scale search scales `v` and `w` together. As the scale approaches zero the swept envelope collapses onto the box at the robot's *current* pose, so a swept intersection can always be scaled away — but an obstacle already **inside** the pose-0 box makes every scale unsafe, including an in-place rotation. At `emergency_margin: 0.05` the box half-width was 0.265 m against a tightest reference-path clearance of 0.225 m. Reduced to **0.02**, which shrinks the trap shell from 4 cm to 1 cm (`safety_node` already discards returns inside `half + 1 cm` as self-hits). Worlds 114 and 288 went from 8/10 with 2 timeouts each to **12/12**.
+
+**Layer 2 — a scale search cannot change direction.** Shrinking the margin made the trap rarer, not impossible; worlds 216 and 222 still froze. Scaling changes a command's magnitude, never its heading, so a blocked direction is blocked at every scale even when rotating in place is free. Traced on world 216: the robot sat at `(-2.51, 8.56)` for **89 s** with a signed clearance of `+0.001 m` — an obstacle a millimetre *outside* the box, dead ahead — while `ReverseToClearance` recovery ran and produced 0.00 m of motion, because the shield vetoed the reverse too.
+
+What shipped for layer 2:
+
+- **`find_escape()`** — when every scale fails, search eight slow motions (rotations first, then reverse, then forward) and accept one only if it *strictly* increases signed clearance and never decreases it anywhere along the path, so an "escape" can never clip a second obstacle. Needs a new `signed_clearance()` that goes negative inside the box (penetration depth), since the clamped clearance stops varying once trapped.
+- **Gated behind `shield_escape_after_s` (1.5 s of sustained dead stop).** The escape *adds* motion the planner never requested; firing it on transient vetoes turned the shield from a filter into an actuator and shoved the robot off its start pose during the evaluator's reset, adding ~30 s to every trial.
+- **Default `shield_escape_enable: false`.** On world 216 (12 trials/arm) it was 11/12 either way, median AT 16.2 → 18.3 s. It costs time for no measurable reliability gain, and n=12 cannot resolve a 1-in-12 failure rate. Needs 30+ trials per arm before adoption.
+- **`emergency_trapped` as a distinct reason** from `emergency_veto`, plus throttled WARN logs for `emergency_trapped`, `emergency_escape` and the watchdog's `publish_zero`. A shield-frozen robot previously produced *zero* log output, which is why an 89 s freeze took so long to find. Plain `emergency_veto` stays unlogged — it is the routine stop in front of an obstacle and floods a tight corridor.
+- Shield unit tests extended 6 → 14, covering both trap variants, the "don't back into a second obstacle" case, the disabled path, and the ungated path.
+
+See [`evaluation/tuning/RESULTS.md`](../../evaluation/tuning/RESULTS.md) for the full measurement log and [Chapter 05](../tutorials/05-the-safety-shield.md) for the explanation.
+
+## 7. Tuning changes tried and REVERTED
+
+Recorded here and inline in `classical_mpc.yaml` so they are not retried blind. All measured at 12 trials per config, headless, against the `emergency_margin: 0.02` config.
+
+| change | result | why it failed |
+|---|---|---|
+| `obstacle_margin` 0.20 → 0.12 | score 0.4469 → **0.4077**; sd 1.6 → 5.0 | Lets the MPC plan into the band where `barn_safety`'s shield vetoes commands. Buys stalls, not speed. The MPC's margin should stay at or above what the shield allows. |
+| `clearance_penalty_radius` 1.4 → 0.8 | score 0.4469 → **0.3044**; success 12/12 → 9/12 | Restores a gradient near walls but stops biasing the route toward corridor centres, so A\* hugs walls into unrecoverable pinches. The wide band is doing reliability work, not just centering. |
+| `max_lateral_accel` 3.0 → 5.0 | mean AT 16.55 → 15.83 s (sd 2.0 → 3.1) | Inside the noise at n=12; the batch score rose only because one timeout flipped. Not shown harmful — reverted to avoid confounding the next campaign. Still the best speed candidate, since it reduces no clearance and cannot reach the shield's veto band. |
+
+**Where the score actually is:** campaign-wide, failures cost 0.0244 of score while slowness costs **0.0997** — 63 % of successful trials finish above the `2·OT` clip, at a mean 0.92 m/s against a 2.0 m/s reference. Fixing the freeze converts hard zeros (worth roughly +0.01 to +0.03 overall); the remaining headroom is speed.

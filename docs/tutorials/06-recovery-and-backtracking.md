@@ -131,6 +131,16 @@ The yaw rate of the "virtual forward" robot equals the real robot's yaw rate, so
 > ### 🔍 In the code
 > `Recovery::reverse_command` (`recovery.cpp`) computes exactly this: the nearest breadcrumb index, a walk back by `reverse_lookahead` (0.5 m) to the target, `virtual_heading = wrap(pose.yaw + M_PI)`, and `w = 2 * reverse_speed * sin(alpha) / lookahead`, returning `{-reverse_speed, w}`. If there is no usable breadcrumb, it backs straight out (`{-reverse_speed, 0}`) and lets the shield guard the motion.
 
+> **⚠️ Gotcha — "let the shield guard the motion" has a failure mode.** Reversing is only an
+> escape if the shield *permits* the reverse. It sweeps the same veto box backward, so an
+> obstacle within a hair of the body blocks the reverse exactly as it blocks everything else
+> ([Chapter 05](./05-the-safety-shield.md#the-deeper-bug-a-scale-search-cannot-change-direction)).
+> Traced on world 216: `ReverseToClearance` ran for the whole trial and produced **0.00 m** of
+> motion while the robot sat at 1 mm of clearance for 89 seconds. Neither component is wrong —
+> the *composition* deadlocks, and the fix belongs in the shield (it now has an opt-in escape
+> search), not in a more insistent recovery. When you design a recovery, check that the layer
+> below it can actually execute what you are commanding.
+
 ---
 
 ## 5. Interlocks: recovery that can't dig a deeper hole

@@ -193,5 +193,12 @@ runs slow.
   pipeline must also begin moving without waiting for a converged map/plan.
 - **Safety is downstream.** Every command exits through `/barn/cmd_desired ->
   barn_safety`; see the [Robot Interface Contract](../robot_interface.md).
+- **The shield subtracts, it does not steer.** `barn_safety` may only scale a
+  command down; it never redirects one. The single exception is the escape
+  search, off by default and gated behind a sustained dead stop when enabled —
+  a guard that can add motion can invent a dangerous one. The price of the
+  invariant is that a blocked heading is blocked at *every* scale, which is a
+  real freeze mode rather than a theoretical one; see
+  [`docs/features/classical_mpc_updates.md`](../features/classical_mpc_updates.md) §6.
 - **Transfers to hardware.** Replacing only `barn_robot_adapter` must leave the
   classical algorithm running unchanged on the physical Jackal.

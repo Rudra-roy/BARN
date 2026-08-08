@@ -11,6 +11,10 @@
   a plain yes/no
 - Why the hard-veto box is the body plus *only* a tiny `emergency_margin` — and the bug that
   taught us to shrink it
+- The **deeper** bug the shrink did *not* fix: a scale search can never change **direction**, so
+  a blocked heading blocks every multiple of it — and the robot freezes for 89 seconds
+- The **escape search** that answers it, why it is gated behind a sustained-stop timer, and why
+  it currently ships **disabled**
 - The supporting guards: the velocity/acceleration **limiter** and the **staleness watchdog**,
   and the `/barn/safety_veto` signal the planner listens to
 
@@ -203,12 +207,13 @@ h_x = \tfrac{L}{2} + m_\text{em}, \quad h_y = \tfrac{W}{2} + m_\text{em},
 ```
 
 where $\tfrac{L}{2} = 0.254$ m, $\tfrac{W}{2} = 0.2159$ m, and $m_\text{em}$ is the
-`emergency_margin` (deployed value `0.05` m). For points *outside* the box the shield also
+`emergency_margin` (deployed value `0.02` m — see *"the bug that shrank it"* below). For points
+*outside* the box the shield also
 records a clearance $\sqrt{\max(0,|x'|-h_x)^2 + \max(0,|y'|-h_y)^2}$ — the distance from the box
 edge — and reports the minimum over the whole sweep as diagnostics.
 
 > ### 🔍 In the code
-> `ros2_ws/src/barn_safety/src/swept_footprint_shield.cpp:48`
+> `ros2_ws/src/barn_safety/src/swept_footprint_shield.cpp:49`
 > ```cpp
 > const double local_x =  ct * dx + st * dy;
 > const double local_y = -st * dx + ct * dy;
@@ -240,7 +245,7 @@ Scale search — try 1.0 first, step down by 0.05 until the sweep is clear:
   s = 0.60   ┌─sweep───────────┐  ×         CLEAR            → STOP here, use it
                                                                 reason = "braking_distance_clamp"
   ...
-  s = 0.00   ┌┐ (no motion)         ×        even standstill unsafe? → "emergency_veto"
+  s = 0.00   ┌┐ (no motion)         ×        even standstill unsafe? → "emergency_trapped"
 
 Return the FIRST (largest) s whose swept footprint is clear.
 ```
@@ -248,7 +253,12 @@ Return the FIRST (largest) s whose swept footprint is clear.
 - **s = 1.0 clear** → the command passes untouched. Reason `"clear"`.
 - **0 < s < 1 clear** → the command is throttled to that fraction. Reason
   `"braking_distance_clamp"`. This is the spotter saying *"slower."*
-- **nothing clear, not even s = 0** → full stop. Reason `"emergency_veto"`. This is *"stop."*
+- **only s = 0 clear** → full stop. Reason `"emergency_veto"`. This is *"stop."* — the routine
+  case of standing still in front of something.
+- **nothing clear, not even s = 0** → also a full stop, but reason `"emergency_trapped"`: an
+  obstacle is already *inside* the box at the current pose. These two look identical at the
+  wheels and mean completely different things; §*"the deeper bug"* below is why they are named
+  apart.
 
 **📐 The math**
 
@@ -264,19 +274,23 @@ If even $s = 0$ is unsafe — an obstacle already inside the emergency box at th
 the search falls through and the result is a hard veto, $s^\star = 0$.
 
 > ### 🔍 In the code
-> `ros2_ws/src/barn_safety/src/swept_footprint_shield.cpp:97`
+> `ros2_ws/src/barn_safety/src/swept_footprint_shield.cpp:98`
 > ```cpp
 > for (double scale = 1.0; scale >= -1e-9; scale -= step) {
 >   const double candidate_scale = std::max(0.0, scale);
->   if (safe_at_scale(desired, candidate_scale, obstacles, clearance, &envelope)) {
+>   if (!safe_at_scale(desired, candidate_scale, obstacles, clearance, &envelope)) {
+>     continue;
+>   }
+>   if (candidate_scale > 1e-6) {
 >     result.scale = candidate_scale;
 >     result.command = {desired.v * candidate_scale, desired.w * candidate_scale};
->     result.reason = candidate_scale > 0.999 ? "clear" :
->       (candidate_scale > 1e-6 ? "braking_distance_clamp" : "emergency_veto");
+>     result.reason = candidate_scale > 0.999 ? "clear" : "braking_distance_clamp";
 >     return result;
 >   }
+>   // s = 0 is the largest safe scale: a plain stop -- but scaling can never
+>   // rescue this, so offer an escape before reporting it (see below).
+>   ...
 > }
-> result.reason = "emergency_veto";   // nothing was clear
 > ```
 
 Two shortcuts sit in front of the loop: if there are **no** laser returns at all, the command
@@ -310,10 +324,52 @@ The insight: you don't need a fat static buffer to be careful, because **the swe
 provides anticipatory clearance**. A command that would carry the body into the wall over its
 stopping distance gets vetoed by the swept boxes downrange — that's the early warning. The static
 box only needs to be the *final, hard* buffer: "is something touching the body right now, within a
-hair?" That hair is `emergency_margin` (5 cm). With the tighter box, the scale search can hand back
+hair?" That hair is `emergency_margin`. With the tighter box, the scale search can hand back
 a small rotation or a creep *away* from the wall — motion that escapes the pinch — while a
-genuinely imminent collision (a point within 5 cm of the body along the swept path) is still
+genuinely imminent collision (a point within the margin of the body along the swept path) is still
 vetoed.
+
+### How big should the hair be? 5 cm was still too big
+
+Dropping `footprint_margin` was the right move but not a small enough one. At
+`emergency_margin = 0.05` the veto box has half-**width** $0.2159 + 0.05 = 0.265$ m, so it is
+0.53 m wide — while the tightest clearance along the *reference path* of a scored BARN world is
+**0.225 m**. The benchmark's own intended route runs through gaps the shield believes it is
+already colliding with.
+
+And there is a second number that decides how bad that is. `safety_node` throws away laser
+returns inside the physical body + 1 cm as self-hits (§*The body self-filter*), so the only
+returns that can ever sit *inside* the veto box are ones in the shell between those two radii:
+
+```
+   measured outward from the body surface:
+
+   body   +1 cm                        + emergency_margin
+     │      │                                  │
+     ├──────┼──────────────────────────────────┼──────────────────────►
+     │ self │      ░░░ THE TRAP ░░░            │  handled by the sweep
+     │ hits │  a return here vetoes EVERY      │  (scale it down and
+     │ (drop│  scale, including s = 0          │   it comes back clear)
+     └──────┴──────────────────────────────────┴───
+
+   emergency_margin = 0.05  →  4 cm of trap
+   emergency_margin = 0.02  →  1 cm of trap
+```
+
+That shell is the trap. So `emergency_margin: 0.05 → 0.02` — which shrinks it fourfold — is the
+one parameter change this repo's tuning campaign kept. Measured on world 114, which used to log
+*"Safety shield has vetoed 6 consecutive commands"* → `[Recovery] Triggered due to: safety_veto`
+→ silence until the 100 s clock ran out:
+
+| world | before (10 trials) | after (12 trials) |
+|---|---|---|
+| 114 | 8/10, 2 timeouts | **12/12** |
+| 288 | 8/10, 2 timeouts | **12/12** |
+
+> **⚠️ Gotcha — shrinking a trap is not fixing it.** It is tempting to stop here; the numbers
+> look like a fix. They aren't one. A smaller shell is entered less often, but a robot that
+> enters it is just as stuck as before. Worlds 216 and 222 still froze at `0.02`. The *mechanism*
+> survives the parameter change, and it is the subject of the next section.
 
 > ### 🔍 In the code
 > `ros2_ws/src/barn_safety/src/swept_footprint_shield.cpp:21` — the design note lives right above
@@ -342,7 +398,7 @@ shield, every command would look like an imminent collision with the body. So be
 reach the shield, `safety_node` discards any return that falls inside the physical body (plus 1 cm):
 
 > ### 🔍 In the code
-> `ros2_ws/src/barn_safety/src/safety_node.cpp:110`
+> `ros2_ws/src/barn_safety/src/safety_node.cpp:131`
 > ```cpp
 > // Ignore only returns inside the physical body. The planning and emergency
 > // margins remain outside this rectangle and still protect external objects.
@@ -352,6 +408,139 @@ reach the shield, `safety_node` discards any return that falls inside the physic
 > ```
 > The filter is exactly the body (+1 cm) — *tighter* than the veto box — so a real object creeping
 > up to the emergency margin is never accidentally filtered away as "self".
+
+---
+
+## The deeper bug: a scale search cannot change *direction*
+
+Here is the sentence the whole scale search rests on, and it is worth reading twice:
+
+> **Scaling a command changes its magnitude. It never changes its direction.**
+
+Every candidate the search tries is $s\,(v, \omega)$ — the *same* arc, driven more gently. So if
+the direction you asked for is blocked, **every multiple of it is blocked too**, right down to
+zero. And that is true *even when a different motion is completely free.* The shield has no way
+to say "not that way, but you could turn": it can only offer you less of what you already asked
+for, and less of a bad idea is still a bad idea.
+
+There are two ways to fall into it, and they are worth separating because they feel identical
+from the outside:
+
+```
+(a) obstacle INSIDE the veto box              (b) obstacle just OUTSIDE it, dead ahead
+    (the 1 cm shell from the last section)        (a millimetre past the box edge)
+
+      ┌───────┐                                     ┌───────┐
+      │ robot │×                                    │ robot │  ×
+      └───────┘                                     └───────┘  ↑
+    every scale unsafe, INCLUDING s = 0          s = 0 is safe (it doesn't move),
+    -> the search finds nothing at all           but every s > 0 sweeps into ×
+    -> reason "emergency_trapped"                 -> reason "emergency_veto", v = 0
+```
+
+Both end with the wheels at zero. In case (b) the shield is behaving *exactly as designed* —
+and it is still the reason the trial dies.
+
+> **📊 What it costs.** Traced on world 216: the robot sat stationary at `(-2.51, 8.56)` for
+> **89 seconds** — the whole trial — with a signed clearance of `0.001 m`. Positive: that is
+> case (b), an obstacle one millimetre outside the box. A pure in-place rotation was safe the
+> entire time. Meanwhile the planner's `ReverseToClearance` recovery ([Chapter
+> 06](./06-recovery-and-backtracking.md)) *was* running and commanding a reverse — which the
+> shield vetoed too, because the reverse also swept the box across that point.
+
+This is a genuinely interesting failure because nothing is broken. The shield is correct, the
+recovery is correct, and the composition of the two is a deadlock. It also explains why the
+`emergency_margin` shrink helped without fixing anything: it made case (a) rarer and did nothing
+at all about case (b).
+
+### The answer: search motions, not scales
+
+If scaling can't change direction, then something has to be allowed to. When — and *only* when —
+the scale search has bottomed out at zero (either case above), the shield runs an **escape
+search**: a small fixed menu of slow motions, scored by whether they get the robot *further from*
+the obstacle. Nothing here overrides the sweep; the escape is only ever consulted once the sweep
+has already refused everything the planner asked for.
+
+```
+      candidates, cheapest sweep first:
+        rotate  (0, +w)  (0, −w)          <- sweeps the least ground
+        reverse (−v, 0)  (−v, ±w)         <- the robot came from back there a second ago
+        forward (+v, 0)  (+v, ±w)         <- last resort
+
+      accept one only if it STRICTLY increases signed clearance
+      AND never decreases it at any point along the way
+```
+
+That second condition is the one doing the safety work. "Ends up better" is not good enough — a
+motion can end in open space having clipped a second obstacle on the way, and since clearance is
+the minimum over *all* points, a rotation that swings a corner into something else is rejected
+automatically.
+
+It needs one new primitive. `safe_at_scale`'s clearance is clamped at zero (a point inside the
+box is just "unsafe"), which means once you're trapped it stops varying and you cannot tell
+"nearly out" from "deeply stuck". So `signed_clearance` keeps going negative — the *penetration
+depth* — which is what makes "getting less trapped" a measurable quantity to hill-climb on.
+
+> ### 🔍 In the code
+> `ros2_ws/src/barn_safety/src/swept_footprint_shield.cpp:162` — the sign convention:
+> ```cpp
+> const double clearance = (over_x > 0.0 || over_y > 0.0)
+>   ? std::hypot(std::max(0.0, over_x), std::max(0.0, over_y))  // outside: distance to the box
+>   : std::max(over_x, over_y);                                 // inside: negative depth
+> ```
+> and `swept_footprint_shield.cpp:221` — the accept test:
+> ```cpp
+> if (worst_along < start - 1e-9 || final_clearance <= best_final + 1e-6) { continue; }
+> ```
+
+### Why it is gated — the shield must stay a filter
+
+Recall the opening promise: *a guard that can only remove motion can never invent a dangerous
+one.* An escape search breaks that promise. It is the shield **adding** motion the planner never
+asked for, so it has to be justified narrowly: the state it fires in is one where the robot is
+within a centimetre of an obstacle and holding still is not safer than crawling away from it.
+
+Firing it eagerly is genuinely harmful, and we found out the direct way. An early version ran the
+escape on *any* zero result, including the transient vetoes during the evaluator's reset — which
+nudged the robot off its start pose, tripped the "has it moved 0.1 m" check that starts the
+clock, and added **~30 s to every trial**. The shield had quietly become an actuator.
+
+So the node latches how long the robot has been commanded-but-stopped, and only passes
+`allow_escape = true` once that has held for `shield_escape_after_s` (1.5 s). The freeze it
+exists to break lasts 75+ seconds; waiting a second and a half costs nothing.
+
+> ### 🔍 In the code
+> `ros2_ws/src/barn_safety/src/safety_node.cpp:154` — the latch, and the gated call:
+> ```cpp
+> const bool allow_escape = stopped_latched_ &&
+>   (stamp - stopped_since_).seconds() >= escape_after_s_;
+> result = shield_.apply(limited, obstacle_points_, allow_escape);
+> ```
+> With `allow_escape = false` the shield is exactly the filter described earlier in this
+> chapter — it returns the hard veto and nothing else.
+
+### And it ships turned off
+
+This is the part worth being honest about, because it is the normal outcome of an experiment.
+On world 216, 12 trials per arm:
+
+| config | success | median AT | score |
+|---|---|---|---|
+| escape off | 11/12 | 16.2 s | **0.3154** |
+| escape on (gated) | 11/12 | 18.3 s | 0.3039 |
+
+28 escapes fired, and 5 `emergency_trapped` states survived them. It costs time for no
+*measurable* reliability gain — and 12 trials cannot resolve a 1-in-12 failure rate either way,
+so this table does not show it is bad, it shows the experiment was underpowered. So
+`shield_escape_enable` **defaults to `false`**, the code and its tests stay in the tree, and the
+honest next step is a properly powered A/B (30+ trials per arm) before adopting it.
+
+> **💡 Key idea:** Naming the two stop reasons apart is the durable half of this work, and it
+> cost nothing. A shield-frozen robot used to emit **zero** log output — which is exactly why an
+> 89-second freeze took so long to find. Now `emergency_trapped` and `emergency_escape` are
+> logged (throttled), while plain `emergency_veto` deliberately is not: it is the routine "stop
+> in front of a wall" and would flood the log in every tight corridor. Log the states that
+> strand a run, not the states that happen constantly.
 
 ---
 
@@ -382,7 +571,7 @@ Before a command even reaches the shield, it passes through the **limiter**
 > ```
 
 One neat detail: after the shield clamps a command, the node calls `limiter_.override_last(...)`
-(`safety_node.cpp:134`) so the limiter's memory of "last command" matches what actually went to the
+(`safety_node.cpp:172`) so the limiter's memory of "last command" matches what actually went to the
 wheels — otherwise the next slew limit would be computed from a command that never executed.
 
 > | parameter | meaning | deployed value |
@@ -408,7 +597,7 @@ Publishing zero also *resets the limiter*, so when data returns the robot ramps 
 standstill rather than snapping back to its pre-stall speed.
 
 > ### 🔍 In the code
-> `ros2_ws/src/barn_safety/src/safety_node.cpp:167`
+> `ros2_ws/src/barn_safety/src/safety_node.cpp:242`
 > ```cpp
 > if (have_cmd_ && (stamp - last_cmd_time_).seconds() >= cmd_timeout_s_) {
 >   publish_zero(stamp, "command_stale_veto");
@@ -436,12 +625,15 @@ command. So the node publishes a boolean on `/barn/safety_veto`, true exactly wh
 active:
 
 > ### 🔍 In the code
-> `ros2_ws/src/barn_safety/src/safety_node.cpp:147`
+> `ros2_ws/src/barn_safety/src/safety_node.cpp:211`
 > ```cpp
 > std_msgs::msg::Bool veto_msg;
-> veto_msg.data = (result.reason == "emergency_veto");
+> veto_msg.data = (result.reason == "emergency_veto" || result.reason == "emergency_trapped");
 > veto_pub_->publish(veto_msg);
 > ```
+> Both hard-stop reasons raise the flag — the planner needs to react to *being stopped*, and
+> the distinction between "blocked" and "trapped" is for whoever reads the log, not for the
+> planner's control flow.
 
 The MPC/recovery layer subscribes to this and uses it to trigger a replan or kick off backtracking
 *immediately*, instead of waiting for its own no-progress timer to expire. That handoff — veto →
@@ -465,11 +657,20 @@ minimum clearance, plus an RViz marker of the stopping envelope so you can *watc
   point against the oriented body box at each step.
 - Instead of yes/no, it runs a **scale search**: try the command at $s = 1.0$ and step down by 0.05
   until the sweep is clear, returning the largest safe fraction. $s = 1$ is `clear`, an
-  intermediate $s$ is `braking_distance_clamp`, $s = 0$ is `emergency_veto`.
-- The hard-veto box is the **body + only `emergency_margin` (0.05 m)** — *not* `footprint_margin`.
+  intermediate $s$ is `braking_distance_clamp`, $s = 0$ is `emergency_veto`, and *nothing safe at
+  all* is `emergency_trapped`.
+- The hard-veto box is the **body + only `emergency_margin` (0.02 m)** — *not* `footprint_margin`.
   A static shell used to freeze a boxed-in robot at every scale; anticipatory clearance now comes
   from the sweep, and the static box is just the final hard buffer. Self-returns inside the body
-  (+1 cm) are filtered so the robot doesn't see its own fenders.
+  (+1 cm) are filtered so the robot doesn't see its own fenders, which leaves a 1 cm shell where
+  a return can still occupy the veto box.
+- **A scale search cannot change direction.** A blocked heading blocks every multiple of itself,
+  so the shield can answer "stop" while a free rotation sits right there — measured as an
+  **89 s** freeze with 1 mm of clearance. Shrinking `emergency_margin` made this rarer, not
+  impossible. The **escape search** (`find_escape`) answers it by testing eight slow motions and
+  accepting one only if it strictly increases *signed* clearance and never dips along the way.
+  It is gated behind 1.5 s of sustained stop — firing it eagerly turned the shield into an
+  actuator — and currently ships **disabled** pending a properly powered comparison.
 - Two dumb guards wrap it: the **limiter** (magnitude clamp + acceleration slew) makes commands
   physically achievable, and the **staleness watchdog** publishes zero when scan or command goes
   stale. A `/barn/safety_veto` flag lets the planner react at once.
@@ -493,6 +694,15 @@ In the distrobox, with a navigation run going:
   the search first succeed? (Answer: none — and now you've re-created the freeze bug.) Then trip
   the watchdog: pause the scan and confirm `/barn/cmd_safe` goes to zero within `scan_timeout_s`
   (0.5 s), reason `scan_stale_veto`.
+- **Watch for the freeze.** Grep a trial log for `SHIELD TRAPPED` and `shield escape`. If a run
+  times out with the robot stationary and *no* shield lines at all, you are looking at case (b)
+  from §*the deeper bug* — a plain `emergency_veto`, which is deliberately not logged. Confirm it
+  by echoing `/barn/navigation_diagnostics` and checking `minimum_clearance`: a small **positive**
+  number with `command_scale = 0` is a blocked heading, not a trapped body.
+- **Try the escape.** Add `shield_escape_enable: true` under `safety_node` in
+  `barn_bringup/config/classical_mpc.yaml`, run a world that freezes, and watch `emergency_escape`
+  appear as the robot rotates itself free. Then read §*and it ships turned off* again and decide
+  whether one trial convinced you of anything.
 
 ## References
 
