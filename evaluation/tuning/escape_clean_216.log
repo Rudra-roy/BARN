@@ -1,0 +1,48 @@
+[tuning] world=216 trials=12 tag=05_escape_gated_clean
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_216/05_escape_gated_clean
+[tuning] === world 216 trial 1/12 (05_escape_gated_clean) === 04:17:17
+[tuning]   result: 216 1 0 0 18.3440 0.3049
+[tuning] === world 216 trial 2/12 (05_escape_gated_clean) === 04:18:16
+[tuning]   result: 216 1 0 0 18.3951 0.3040
+[tuning] === world 216 trial 3/12 (05_escape_gated_clean) === 04:19:16
+[tuning]   result: 216 1 0 0 12.3610 0.4525
+[tuning] === world 216 trial 4/12 (05_escape_gated_clean) === 04:20:09
+[tuning]   result: 216 1 0 0 14.1412 0.3955
+[tuning] === world 216 trial 5/12 (05_escape_gated_clean) === 04:21:08
+[tuning]   result: 216 1 0 0 15.9346 0.3510
+[tuning] === world 216 trial 6/12 (05_escape_gated_clean) === 04:22:04
+[tuning]   result: 216 1 0 0 16.0020 0.3495
+[tuning] === world 216 trial 7/12 (05_escape_gated_clean) === 04:23:00
+[tuning]   result: 216 1 0 0 14.0229 0.3988
+[tuning] === world 216 trial 8/12 (05_escape_gated_clean) === 04:23:56
+[tuning]   result: 216 1 0 0 18.4409 0.3033
+[tuning] === world 216 trial 9/12 (05_escape_gated_clean) === 04:24:56
+[tuning]   result: 216 1 0 0 23.2092 0.2410
+[tuning] === world 216 trial 10/12 (05_escape_gated_clean) === 04:26:01
+[tuning]   result: 216 1 0 0 20.1785 0.2772
+[tuning] === world 216 trial 11/12 (05_escape_gated_clean) === 04:27:02
+[tuning]   result: 216 1 0 0 20.7460 0.2696
+[tuning] === world 216 trial 12/12 (05_escape_gated_clean) === 04:28:06
+[tuning]   result: 216 0 0 1 100.0089 0.0000
+=== tuning batch: world 216, tag "05_escape_gated_clean" ===
+trials 12   success 11 (92%)   collision 0   timeout 1
+OT 5.62 s   2*OT clip 11.23 s
+AT  min 12.4  median 18.3  max 23.2  sd 3.1
+AT/OT median 3.27   trials above the 2*OT clip: 11/11
+MEAN SCORE 0.3039   (ceiling for this success rate: 0.4583)
+per-trial: 18 18 12 14 16 16 14 18 23 20 21 T
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+  trial_11.log             0             0             0             0             0
+  trial_12.log             0             2             1             0             0

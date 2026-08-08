@@ -1,0 +1,22 @@
+=== tuning batch: world 288, tag "02_clearance_radius_0.8" ===
+trials 12   success 9 (75%)   collision 0   timeout 3
+OT 6.23 s   2*OT clip 12.47 s
+AT  min 13.7  median 14.9  max 17.8  sd 1.5
+AT/OT median 2.39   trials above the 2*OT clip: 9/9
+MEAN SCORE 0.3044   (ceiling for this success rate: 0.3750)
+per-trial: 17 15 14 14 17 T 15 T 16 14 T 18
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             4             6             1             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+  trial_11.log             0             0             0             0             0
+  trial_12.log             0             0             0             0             0

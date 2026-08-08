@@ -1,0 +1,22 @@
+=== tuning batch: world 216, tag "00_with_em0.02" ===
+trials 12   success 11 (92%)   collision 0   timeout 1
+OT 5.62 s   2*OT clip 11.23 s
+AT  min 13.4  median 16.2  max 19.8  sd 2.0
+AT/OT median 2.89   trials above the 2*OT clip: 11/11
+MEAN SCORE 0.3154   (ceiling for this success rate: 0.4583)
+per-trial: 13 18 16 T 16 19 18 20 14 15 18 15
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             2             1             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             1             1             1             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             1             1             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+  trial_11.log             0             0             0             0             0
+  trial_12.log             0             0             0             0             0

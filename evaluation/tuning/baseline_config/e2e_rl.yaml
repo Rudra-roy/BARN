@@ -1,0 +1,79 @@
+# Track B (end-to-end RL) parameters. rl_runtime_node replaces the goal-seeker
+# and publishes directly to /barn/cmd_desired.
+#
+# The observation layout is frozen as v1 in
+# learning/barn_rl_train/barn_rl_train/contract.py and pinned to this package by
+# barn_rl_runtime/test/test_observation_contract.py. Nothing here changes it.
+
+goal_adapter_node:
+  ros__parameters:
+    planning_frame: odom
+    goal_topic: /barn/goal
+    pose_topic: /barn/pose
+    success_distance: 1.0
+    feedback_period_s: 0.1
+
+robot_adapter_node:
+  ros__parameters:
+    corrected_frame: odom   # no mapping/drift correction in this track
+    scan_topic: /front/scan
+    odom_topic: platform/odom/filtered
+    odom_frame: odom
+    base_frame: base_link
+    internal_scan_topic: /barn/scan
+    internal_pose_topic: /barn/pose
+    safe_cmd_topic: /barn/cmd_safe
+    cmd_vel_topic: /cmd_vel
+    cmd_vel_type: twist_stamped
+    cmd_vel_frame: base_link
+
+rl_runtime_node:
+  ros__parameters:
+    goal_topic: /barn/goal
+    pose_topic: /barn/pose
+    # Measured body twist. The policy observes BOTH the achieved velocity and
+    # the previously commanded one; they differ because barn_safety rate-limits
+    # between them, and it was trained on both.
+    odom_topic: /barn/odom
+    scan_topic: /barn/scan
+    cmd_topic: /barn/cmd_desired
+    cmd_frame: base_link
+    control_rate_hz: 20.0
+    # model_path is DELIBERATELY ABSENT from this file. It comes from the
+    # launch argument (`model_path:=/abs/path/policy.onnx`), and the node's own
+    # declared default of "" means zero motion when it is not given.
+    #
+    # Setting it here would silently win: launch_ros writes parameter dicts to a
+    # temporary YAML keyed on `/**`, and rcl gives an exact node-name entry
+    # precedence over a wildcard one no matter which file came last. The launch
+    # argument would be accepted, logged, and ignored -- which is exactly what
+    # happened the first time this ran, and the only reason it was noticed is
+    # that rl_runtime_node prints the path it actually resolved.
+    # One thread. The graph runs in 8 microseconds; more threads only add
+    # scheduling jitter to a node sharing a CPU with Gazebo.
+    inference_threads: 1
+    # A frozen scan looks exactly like a world that stopped changing, and the
+    # observation has no way to say "I cannot see". Stop instead.
+    scan_timeout_s: 0.5
+    v_max: 2.0
+    w_max: 1.5
+
+safety_node:
+  ros__parameters:
+    desired_topic: /barn/cmd_desired
+    safe_topic: /barn/cmd_safe
+    scan_topic: /barn/scan
+    v_max: 2.0
+    w_max: 1.5
+    # These MUST match contract.MAX_LINEAR_ACCEL / MAX_ANGULAR_ACCEL, which the
+    # training environment applies to every commanded step. They previously read
+    # 2.5 / 3.0 here -- a scaffold leftover -- while barn_safety's own defaults
+    # and the classical stack both use 5.0 / 6.0. A policy trained against one
+    # rate limit and deployed under a slower one plans a trajectory the robot
+    # cannot follow: it commands a turn, gets half of it, and re-plans from a
+    # pose it never expected. Nothing errors; it just steers badly.
+    max_lin_accel: 5.0
+    max_ang_accel: 6.0
+    cmd_timeout_s: 0.4
+    scan_timeout_s: 0.5
+    watchdog_period_s: 0.05

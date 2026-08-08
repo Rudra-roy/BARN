@@ -1,0 +1,48 @@
+[tuning] world=216 trials=12 tag=03_escape_v2
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_216/03_escape_v2
+[tuning] === world 216 trial 1/12 (03_escape_v2) === 03:44:21
+[tuning]   result: 216 1 0 0 44.0894 0.1269
+[tuning] === world 216 trial 2/12 (03_escape_v2) === 03:45:31
+[tuning]   result: 216 1 0 0 48.3270 0.1250
+[tuning] === world 216 trial 3/12 (03_escape_v2) === 03:46:44
+[tuning]   result: 216 1 0 0 45.7230 0.1250
+[tuning] === world 216 trial 4/12 (03_escape_v2) === 03:47:55
+[tuning]   result: 216 1 0 0 41.3600 0.1352
+[tuning] === world 216 trial 5/12 (03_escape_v2) === 03:49:03
+[tuning]   result: 216 1 0 0 24.8165 0.2254
+[tuning] === world 216 trial 6/12 (03_escape_v2) === 03:50:08
+[tuning]   result: 216 1 0 0 41.6345 0.1343
+[tuning] === world 216 trial 7/12 (03_escape_v2) === 03:51:15
+[tuning]   result: 216 1 0 0 23.7898 0.2351
+[tuning] === world 216 trial 8/12 (03_escape_v2) === 03:52:22
+[tuning]   result: 216 1 0 0 48.4070 0.1250
+[tuning] === world 216 trial 9/12 (03_escape_v2) === 03:53:36
+[tuning]   result: 216 1 0 0 40.8016 0.1371
+[tuning] === world 216 trial 10/12 (03_escape_v2) === 03:54:42
+[tuning]   result: 216 1 0 0 41.0201 0.1363
+[tuning] === world 216 trial 11/12 (03_escape_v2) === 03:55:47
+[tuning]   result: 216 1 0 0 41.9843 0.1332
+[tuning] === world 216 trial 12/12 (03_escape_v2) === 03:56:56
+[tuning]   result: 216 1 0 0 35.7007 0.1567
+=== tuning batch: world 216, tag "03_escape_v2" ===
+trials 12   success 12 (100%)   collision 0   timeout 0
+OT 5.62 s   2*OT clip 11.23 s
+AT  min 23.8  median 41.5  max 48.4  sd 7.7
+AT/OT median 7.39   trials above the 2*OT clip: 12/12
+MEAN SCORE 0.1496   (ceiling for this success rate: 0.5000)
+per-trial: 44 48 46 41 25 42 24 48 41 41 42 36
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             1             1             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             1             1             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+  trial_11.log             0             0             0             0             0
+  trial_12.log             0             0             0             0             0

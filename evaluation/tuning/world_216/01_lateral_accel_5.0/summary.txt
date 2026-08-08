@@ -1,0 +1,22 @@
+=== tuning batch: world 216, tag "01_lateral_accel_5.0" ===
+trials 12   success 12 (100%)   collision 0   timeout 0
+OT 5.62 s   2*OT clip 11.23 s
+AT  min 12.2  median 15.6  max 21.1  sd 3.1
+AT/OT median 2.78   trials above the 2*OT clip: 12/12
+MEAN SCORE 0.3647   (ceiling for this success rate: 0.5000)
+per-trial: 14 13 15 21 17 17 19 12 21 16 13 12
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             1             1             1             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+  trial_11.log             0             0             0             0             0
+  trial_12.log             0             0             0             0             0

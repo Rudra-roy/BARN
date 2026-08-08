@@ -1,0 +1,64 @@
+[minor] 15 worlds x 10 trials, tag=minor_10
+[minor] active config deltas vs pristine baseline:
+[minor]   <     emergency_margin: 0.05
+[minor]   >     emergency_margin: 0.02
+
+[minor] >>> world 78 starting 10:35:53
+[minor] <<< world 78 done in 10m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.3573   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 114 starting 10:45:55
+[minor] <<< world 114 done in 8m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.4982   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 120 starting 10:54:31
+[minor] <<< world 120 done in 9m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.3315   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 126 starting 11:04:18
+[minor] <<< world 126 done in 9m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.4048   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 150 starting 11:13:33
+[minor] <<< world 150 done in 9m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.4155   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 162 starting 11:22:39
+[minor] <<< world 162 done in 9m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.3926   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 168 starting 11:32:03
+[minor] <<< world 168 done in 9m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.3423   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 174 starting 11:41:44
+[minor] <<< world 174 done in 9m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.4046   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 180 starting 11:50:54
+[minor] <<< world 180 done in 10m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.2855   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 186 starting 12:01:18
+[minor] <<< world 186 done in 9m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.3796   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 198 starting 12:10:52
+[minor] <<< world 198 done in 8m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.4355   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 216 starting 12:19:47
+[minor] <<< world 216 done in 11m :: trials 10   success 8 (80%)   collision 0   timeout 2 MEAN SCORE 0.3368   (ceiling for this success rate: 0.4000) 
+[minor] >>> world 222 starting 12:31:43
+[minor] <<< world 222 done in 10m :: trials 10   success 9 (90%)   collision 0   timeout 1 MEAN SCORE 0.3634   (ceiling for this success rate: 0.4500) 
+[minor] >>> world 234 starting 12:42:21
+[minor] <<< world 234 done in 9m :: trials 10   success 10 (100%)   collision 0   timeout 0 MEAN SCORE 0.3919   (ceiling for this success rate: 0.5000) 
+[minor] >>> world 288 starting 12:51:30
+[minor] <<< world 288 done in 10m :: trials 10   success 9 (90%)   collision 0   timeout 1 MEAN SCORE 0.4286   (ceiling for this success rate: 0.4500) 
+[minor] sweep finished in 146 min
+=== Tier-2 "minor" worlds: campaign vs tuned (tag "minor_10") ===
+
+world |               campaign |       tuned (headless) |   delta
+      |    succ  medAT   score |    succ  medAT   score |
+-----------------------------------------------------------------
+   78 |   10/10   18.0  0.3699 |   10/10   17.7  0.3574 | -0.0126
+  114 |    8/10   13.0  0.3589 |   10/10   10.1  0.4985 | +0.1397
+  120 |   10/10   19.0  0.3167 |   10/10   17.4  0.3339 | +0.0172
+  126 |   10/10   14.0  0.3979 |   10/10   13.6  0.4075 | +0.0096
+  150 |   10/10   13.0  0.4096 |   10/10   12.7  0.4139 | +0.0044
+  162 |   10/10   14.6  0.3527 |   10/10   13.2  0.3920 | +0.0393
+  168 |   10/10   19.1  0.3083 |   10/10   17.1  0.3456 | +0.0373
+  174 |   10/10   13.6  0.3919 |   10/10   13.2  0.4063 | +0.0144
+  180 |   10/10   19.2  0.3009 |   10/10   20.2  0.2853 | -0.0156
+  186 |    9/10   15.9  0.3346 |   10/10   14.7  0.3768 | +0.0422
+  198 |    9/10   13.9  0.3678 |   10/10   12.3  0.4367 | +0.0688
+  216 |    9/10   16.7  0.2983 |    8/10   13.4  0.3376 | +0.0393
+  222 |   10/10   13.7  0.3884 |    9/10   13.8  0.3625 | -0.0259
+  234 |   10/10   13.5  0.4073 |   10/10   14.2  0.3927 | -0.0146
+  288 |    8/10   12.8  0.3543 |    9/10   11.9  0.4284 | +0.0741
+-----------------------------------------------------------------
+ MEAN |                   95%  0.3572 |                   97%  0.3850 | +0.0278
+
+campaign: 143/150 success, 0 collisions, 7 timeouts
+tuned:    146/150 success, 0 collisions, 4 timeouts
+
+Note: headless vs the campaign's rviz:=true is a confound on AT (not uniform across
+worlds), so treat the success/collision columns as the solid comparison. See RESULTS.md.

@@ -1,0 +1,20 @@
+=== tuning batch: world 222, tag "minor_10" ===
+trials 10   success 9 (90%)   collision 0   timeout 1
+OT 5.52 s   2*OT clip 11.04 s
+AT  min 12.3  median 13.8  max 15.5  sd 1.1
+AT/OT median 2.50   trials above the 2*OT clip: 9/9
+MEAN SCORE 0.3634   (ceiling for this success rate: 0.4500)
+per-trial: 13 15 12 14 T 15 13 13 15 14
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             2             1             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0

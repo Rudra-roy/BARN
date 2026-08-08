@@ -1,0 +1,8 @@
+# Per-trial launch output: ~10 MB across the batches here, against ~600 KB for
+# everything else. What makes a batch reproducible is kept -- raw_results.txt,
+# the classical_mpc.yaml snapshot that produced it, and summary.txt -- while the
+# node spew that only matters while you are debugging that one trial is not.
+#
+# If you need a log after the fact, re-run the batch: the config that produced
+# the numbers is committed next to them, which is the whole point of the layout.
+logs/

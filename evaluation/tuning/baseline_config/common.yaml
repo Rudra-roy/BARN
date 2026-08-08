@@ -1,0 +1,4 @@
+# Shared parameters applied to every node in every mode (wildcard section).
+/**:
+  ros__parameters:
+    use_sim_time: true

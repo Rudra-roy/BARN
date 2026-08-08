@@ -1,0 +1,9 @@
+[tuning] world=216 trials=12 tag=02_shield_escape
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_216/02_shield_escape
+[tuning] === world 216 trial 1/12 (02_shield_escape) === 03:37:43
+[tuning]   result: 216 0 0 1 100.0073 0.0000
+[tuning] === world 216 trial 2/12 (02_shield_escape) === 03:40:08
+[tuning]   result: 216 1 0 0 18.5768 0.3011
+[tuning] === world 216 trial 3/12 (02_shield_escape) === 03:41:08
+[tuning]   result: 216 1 0 0 14.4824 0.3862
+[tuning] === world 216 trial 4/12 (02_shield_escape) === 03:42:03
