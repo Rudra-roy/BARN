@@ -14,6 +14,18 @@ if [[ -n "${FASTRTPS_DEFAULT_PROFILES_FILE:-}" && \
   exit 1
 fi
 
+# A leaked /clock bridge is worse than a leaked Gazebo: it keeps publishing
+# SIMULATION TIME from a world that no longer exists, so every node in the next
+# trial reads corrupted time. The symptom is not a crash -- it is the evaluator
+# timing the reset teleport and ~30 s appearing on every trial, which reads as
+# "the planner got slower". Refuse to start rather than record poisoned results.
+if pgrep -af 'parameter_bridge /clock@' >/dev/null; then
+  echo "error: a stale Gazebo /clock bridge is still running:" >&2
+  pgrep -af 'parameter_bridge /clock@' >&2
+  echo "       It will feed stale sim time to every trial. Kill it by PID first." >&2
+  exit 1
+fi
+
 if pgrep -af '^gz sim( |$)' >/dev/null; then
   echo "error: a stale Gazebo Sim process is already running:" >&2
   pgrep -af '^gz sim( |$)' >&2
