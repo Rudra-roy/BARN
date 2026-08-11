@@ -167,6 +167,28 @@ double SweptFootprintShield::signed_clearance(
   return worst;
 }
 
+void SweptFootprintShield::signed_clearances(
+  const barn_core::Pose2D & pose, const std::vector<ObstaclePoint> & obstacles,
+  std::vector<double> & out) const
+{
+  const double hx = params_.half_length + params_.emergency_margin;
+  const double hy = params_.half_width + params_.emergency_margin;
+  const double ct = std::cos(pose.yaw);
+  const double st = std::sin(pose.yaw);
+  out.resize(obstacles.size());
+  for (std::size_t i = 0; i < obstacles.size(); ++i) {
+    const double dx = obstacles[i].x - pose.x;
+    const double dy = obstacles[i].y - pose.y;
+    const double local_x = ct * dx + st * dy;
+    const double local_y = -st * dx + ct * dy;
+    const double over_x = std::abs(local_x) - hx;
+    const double over_y = std::abs(local_y) - hy;
+    out[i] = (over_x > 0.0 || over_y > 0.0)
+      ? std::hypot(std::max(0.0, over_x), std::max(0.0, over_y))
+      : std::max(over_x, over_y);
+  }
+}
+
 ShieldResult SweptFootprintShield::find_escape(
   const barn_core::VelocityCommand & desired,
   const std::vector<ObstaclePoint> & obstacles) const
@@ -199,31 +221,67 @@ ShieldResult SweptFootprintShield::find_escape(
   const double dt = std::max(1e-3, params_.integration_dt);
   const int steps = std::max(1, static_cast<int>(std::ceil(params_.escape_horizon_s / dt)));
 
-  double best_final = start;
+  // PER-OBSTACLE accept rules. The previous test compared the minimum over ALL
+  // obstacles against its starting value, which is wrong in both directions:
+  //
+  //  * too permissive when trapped (start < 0): a candidate could close on a
+  //    DIFFERENT obstacle all the way down to `start` and still pass, trading one
+  //    intrusion for another. The old comment claimed the min-over-obstacles form
+  //    rejected that automatically; it does not.
+  //  * too strict on a plain veto (start > 0): NO obstacle anywhere was allowed
+  //    to get any closer. Rotating a 0.548 x 0.472 m box in a corridor always
+  //    sweeps a corner toward something, so essentially every rotation was
+  //    rejected -- which is why the escape rarely helped in the state it was
+  //    written for. Measured on world 228: 92 trapped events, only 46 escapes.
+  //
+  // The rules that actually express the intent, per obstacle i:
+  //    c_i(0) >= 0  ->  require c_i(k) >= 0        (never enter a new box)
+  //    c_i(0) <  0  ->  require c_i(k) >= c_i(0)   (never dig deeper into one
+  //                                                 already intruding)
+  std::vector<double> c0;
+  signed_clearances(origin, obstacles, c0);
+  bool any_intruding = false;
+  for (double c : c0) {
+    if (c < 0.0) {any_intruding = true;}
+  }
+
+  // Rank by the quantity being escaped: the worst intrusion when trapped,
+  // otherwise the overall minimum.
+  const auto score_of = [&](const std::vector<double> & c) {
+      double worst = std::numeric_limits<double>::infinity();
+      for (std::size_t i = 0; i < c.size(); ++i) {
+        if (any_intruding && c0[i] >= 0.0) {continue;}
+        worst = std::min(worst, c[i]);
+      }
+      return worst;
+    };
+
+  double best_score = score_of(c0);
+  std::vector<double> ck;
   for (const auto & candidate : candidates) {
     barn_core::Pose2D pose;
     std::vector<barn_core::Pose2D> envelope{pose};
-    double worst_along = std::numeric_limits<double>::infinity();
-    double final_clearance = start;
-    for (int step = 0; step < steps; ++step) {
+    bool ok = true;
+    double final_score = best_score;
+    for (int step = 0; step < steps && ok; ++step) {
       pose.x += dt * candidate.v * std::cos(pose.yaw);
       pose.y += dt * candidate.v * std::sin(pose.yaw);
       pose.yaw = std::atan2(
         std::sin(pose.yaw + dt * candidate.w), std::cos(pose.yaw + dt * candidate.w));
       envelope.push_back(pose);
-      final_clearance = signed_clearance(pose, obstacles);
-      worst_along = std::min(worst_along, final_clearance);
+      signed_clearances(pose, obstacles, ck);
+      for (std::size_t i = 0; i < ck.size() && ok; ++i) {
+        const double floor_i = c0[i] < 0.0 ? c0[i] - 1e-9 : 0.0;
+        if (ck[i] < floor_i) {ok = false;}
+      }
+      final_score = score_of(ck);
     }
-    // Never allow a motion that digs deeper at any point on the way, even if it
-    // ends better -- that is how an "escape" clips a second obstacle. The
-    // min-over-obstacles clearance also means turning into anything else is
-    // rejected automatically.
-    if (worst_along < start - 1e-9 || final_clearance <= best_final + 1e-6) {
+    if (!ok || final_score <= best_score + 1e-6) {
       continue;
     }
-    best_final = final_clearance;
+    best_score = final_score;
     result.command = candidate;
-    result.minimum_clearance = final_clearance;
+    result.minimum_clearance = final_score;
     result.envelope = std::move(envelope);
     result.reason = "emergency_escape";
   }

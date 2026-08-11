@@ -105,6 +105,15 @@ private:
     const barn_core::Pose2D & pose,
     const std::vector<ObstaclePoint> & obstacles) const;
 
+  /// Signed clearance of the veto box at `pose` to EVERY obstacle, in order.
+  /// find_escape needs per-obstacle values, not the minimum: the two are not
+  /// interchangeable, and collapsing them was wrong in both directions (see
+  /// find_escape).
+  void signed_clearances(
+    const barn_core::Pose2D & pose,
+    const std::vector<ObstaclePoint> & obstacles,
+    std::vector<double> & out) const;
+
   /// Last resort when every scale is vetoed: the slowest motion that strictly
   /// increases signed clearance, or a hard veto if nothing does.
   ShieldResult find_escape(

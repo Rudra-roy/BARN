@@ -445,6 +445,21 @@ safety_node:
     # rotation of a 0.55 x 0.47 m box sweeps a corner toward something). Fix that
     # first (per-obstacle rules instead of one global minimum), then re-test at
     # 30+ trials on 228 plus two clean worlds before enabling.
+    # STAYS OFF. Properly powered test, world 228, 30 trials, with the corrected
+    # per-obstacle accept rules:
+    #     baseline      6/10 (60%), score 0.1955
+    #     escape on    22/30 (73%), score 0.1983, 0 collisions
+    # +13 points of reliability for +0.003 of score: the escape converts timeouts
+    # into SLOW finishes (AT median 25.0 s against a baseline whose successes
+    # clustered at 14-21 s), and on this metric a hard zero becoming a poor score
+    # roughly cancels. Enabling a relaxation of a hard safety veto for no
+    # measurable gain is the wrong trade, and the 0.4451 campaign ran without it.
+    #
+    # 177 escapes against 270 trapped (ratio 0.50 -> 0.66 with the corrected accept
+    # rules), so most trapped states still find no acceptable motion. If this is
+    # revisited, the question is not the accept test -- it is that escaping frees
+    # the robot into the same pinch the planner then steers back into. Handing off
+    # to a replan on escape, rather than crawling free, is the untried idea.
     shield_escape_enable: false
 
     shield_latency_s: 0.05
