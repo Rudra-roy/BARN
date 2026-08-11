@@ -1,0 +1,12 @@
+================================================================
+Metric definition:
+  upstream ROS2 master report_test.py  clip=[4*OT, 8*OT]
+----------------------------------------------------------------
+  trials              : 500
+  score (upstream 4OT): 0.1212
+  score (published 2OT): 0.1212
+  delta (upstream-pub): +0.0000
+  success_rate        : 0.970
+  collision_rate      : 0.004
+  timeout_rate        : 0.026
+================================================================
