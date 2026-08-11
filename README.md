@@ -177,4 +177,4 @@ Start with the **[BARN Navigation Tutorial](docs/tutorials/README.md)** (chapter
 
 ## License
 
-[MIT](LICENSE). *(Switch to BSD-3-Clause if you prefer to match the Clearpath/Jackal ecosystem.)*
+[MIT](LICENSE).
