@@ -1,0 +1,20 @@
+=== tuning batch: world 288, tag "61_open_cornering_g1.5" ===
+trials 10   success 9 (90%)   collision 1   timeout 0
+OT 6.23 s   2*OT clip 12.47 s
+AT  min 11.2  median 14.3  max 18.8  sd 2.1
+AT/OT median 2.30   trials above the 2*OT clip: 7/9
+MEAN SCORE 0.3911   (ceiling for this success rate: 0.4500)
+per-trial: 12 14 15 13 11 19 15 16 C 14
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             1             1             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0

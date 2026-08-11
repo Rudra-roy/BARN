@@ -32,13 +32,24 @@ mkdir -p "${OUTDIR}/logs"
 : > "$OUT_FILE"
 cp "${REPO_ROOT}/ros2_ws/src/barn_bringup/config/classical_mpc.yaml" "${OUTDIR}/"
 
+# Completion sentinel. A batch launched detached has no other reliable "is it
+# finished" signal -- counting result lines races the final write, and the driver
+# PID is unusable because setsid/distrobox fork away from it. Anything waiting on
+# this batch polls for DONE, which is written exactly once, last.
+rm -f "${OUTDIR}/DONE"
+
 echo "[tuning] world=${WORLD} trials=${NTRIALS} tag=${TAG}"
 echo "[tuning] out=${OUTDIR}"
 
 for t in $(seq 1 "$NTRIALS"); do
   echo "[tuning] === world ${WORLD} trial ${t}/${NTRIALS} (${TAG}) === $(date -u +%H:%M:%S)"
   # rviz defaults to TRUE in run_single_world.sh -- headless means saying so.
-  BARN_GUI=false BARN_RVIZ=false BARN_PLANNER_RVIZ=false \
+  # Overridable so a batch can be WATCHED when the point is to see the failure
+  # rather than to score it. Note results taken with a viewer are not comparable
+  # with headless ones: the offset is real and not uniform across worlds.
+  BARN_GUI="${BARN_GUI:-false}" \
+  BARN_RVIZ="${BARN_RVIZ:-false}" \
+  BARN_PLANNER_RVIZ="${BARN_PLANNER_RVIZ:-false}" \
   BARN_OUT_FILE="$OUT_FILE" BARN_RESULTS_DIR="$OUTDIR" \
     "${REPO_ROOT}/evaluation/scripts/run_single_world.sh" \
       "$WORLD" classical_mpc "$t" \
@@ -51,3 +62,5 @@ for t in $(seq 1 "$NTRIALS"); do
 done
 
 python3 "${SCRIPT_DIR}/summarize_batch.py" "$OUTDIR" | tee "${OUTDIR}/summary.txt"
+
+date -u +%Y-%m-%dT%H:%M:%SZ > "${OUTDIR}/DONE"

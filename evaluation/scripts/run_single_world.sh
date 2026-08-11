@@ -77,7 +77,8 @@ reap_trial_processes() {
     [ -r "/proc/${pid}/cmdline" ] || continue
     cmdline=$(tr '\0' ' ' < "/proc/${pid}/cmdline")
     case "$cmdline" in
-      *run_single_world.sh*|*run_barn2026_public_suite.sh*|*run_tuning_batch.sh*|*run_minor_worlds.sh*|*pgrep*) continue ;;
+      *run_single_world.sh*|*run_barn2026_public_suite.sh*|*run_tuning_batch.sh*|\
+      *run_minor_worlds.sh*|*instrument_trial.sh*|*record_recovery_trace.py*|*pgrep*) continue ;;
     esac
     kill "-${signal}" "$pid" 2>/dev/null || true
   done

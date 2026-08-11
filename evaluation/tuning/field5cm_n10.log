@@ -1,0 +1,42 @@
+[tuning] world=66 trials=10 tag=111_field_5cm_n10
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_66/111_field_5cm_n10
+[tuning] === world 66 trial 1/10 (111_field_5cm_n10) === 08:33:39
+[tuning]   result: 66 1 0 0 25.0500 0.2131
+[tuning] === world 66 trial 2/10 (111_field_5cm_n10) === 08:34:52
+[tuning]   result: 66 1 0 0 55.8695 0.1250
+[tuning] === world 66 trial 3/10 (111_field_5cm_n10) === 08:36:34
+[tuning]   result: 66 1 0 0 23.3970 0.2281
+[tuning] === world 66 trial 4/10 (111_field_5cm_n10) === 08:37:47
+[tuning]   result: 66 1 0 0 21.2550 0.2511
+[tuning] === world 66 trial 5/10 (111_field_5cm_n10) === 08:38:57
+[tuning]   result: 66 1 0 0 18.3815 0.2904
+[tuning] === world 66 trial 6/10 (111_field_5cm_n10) === 08:40:02
+[tuning]   result: 66 1 0 0 29.3130 0.1821
+[tuning] === world 66 trial 7/10 (111_field_5cm_n10) === 08:41:17
+[tuning]   result: 66 1 0 0 18.8185 0.2836
+[tuning] === world 66 trial 8/10 (111_field_5cm_n10) === 08:42:23
+[tuning]   result: 66 1 0 0 19.6546 0.2716
+[tuning] === world 66 trial 9/10 (111_field_5cm_n10) === 08:43:28
+[tuning]   result: 66 1 0 0 77.0416 0.1250
+[tuning] === world 66 trial 10/10 (111_field_5cm_n10) === 08:45:31
+[tuning]   result: 66 1 0 0 83.6433 0.1250
+=== tuning batch: world 66, tag "111_field_5cm_n10" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.33 s   2*OT clip 10.66 s
+AT  min 18.4  median 24.2  max 83.6  sd 24.0
+AT/OT median 4.55   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.2095   (ceiling for this success rate: 0.5000)
+per-trial: 25 56 23 21 18 29 19 20 77 84
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             1             1             0             0             0
+  trial_2.log             4             4             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             1             1             1             0             0
+  trial_5.log             1             1             0             0             0
+  trial_6.log             2             2             0             0             0
+  trial_7.log             1             1             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             7             7             0             0             0
+  trial_10.log             6             6             0             0             0

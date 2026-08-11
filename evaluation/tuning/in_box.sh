@@ -54,4 +54,9 @@ fi
 
 cmd="${1:?usage: in_box.sh <script-relative-to-evaluation/tuning> [args...]}"
 shift
-exec "$REPO/evaluation/tuning/$cmd" "$@"
+# A bare name is a script in evaluation/tuning/; anything containing a slash is
+# repo-relative, so the campaign suite can use this same scrubbed environment.
+case "$cmd" in
+  */*) exec "$REPO/$cmd" "$@" ;;
+  *)   exec "$REPO/evaluation/tuning/$cmd" "$@" ;;
+esac

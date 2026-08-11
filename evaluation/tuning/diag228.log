@@ -1,0 +1,19 @@
+[instrument] world=228 trials=8 tag=200_diagnose
+[instrument] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_228/200_diagnose
+[instrument] === world 228 trial 1/8 === 12:40:13
+[instrument]   result: 228 0 0 1 100.0004 0.0000 | 2805 trace rows
+[instrument] === world 228 trial 2/8 === 12:42:34
+[instrument]   result: 228 0 0 1 100.0113 0.0000 | 2898 trace rows
+[instrument] === world 228 trial 3/8 === 12:44:59
+[instrument]   result: 228 1 0 0 40.4111 0.1553 | 1601 trace rows
+[instrument] === world 228 trial 4/8 === 12:46:19
+[instrument]   result: 228 0 0 1 100.0024 0.0000 | 2781 trace rows
+[instrument] === world 228 trial 5/8 === 12:48:39
+[instrument]   result: 228 1 0 0 13.9884 0.4488 | 1115 trace rows
+[instrument] === world 228 trial 6/8 === 12:49:35
+[instrument]   result: 228 0 0 1 100.0006 0.0000 | 2830 trace rows
+[instrument] === world 228 trial 7/8 === 12:51:56
+[instrument]   result: 228 0 0 1 100.0125 0.0000 | 2791 trace rows
+[instrument] === world 228 trial 8/8 === 12:54:16
+[instrument]   result: 228 1 0 0 16.6058 0.3780 | 1155 trace rows
+[instrument] done 12:55:14

@@ -1,0 +1,84 @@
+[tuning] world=66 trials=10 tag=100_tier1_fixes
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_66/100_tier1_fixes
+[tuning] === world 66 trial 1/10 (100_tier1_fixes) === 07:43:36
+[tuning]   result: 66 1 0 0 23.8004 0.2243
+[tuning] === world 66 trial 2/10 (100_tier1_fixes) === 07:44:45
+[tuning]   result: 66 1 0 0 26.3939 0.2022
+[tuning] === world 66 trial 3/10 (100_tier1_fixes) === 07:46:02
+[tuning]   result: 66 1 0 0 95.8895 0.1250
+[tuning] === world 66 trial 4/10 (100_tier1_fixes) === 07:48:28
+[tuning]   result: 66 1 0 0 29.9102 0.1784
+[tuning] === world 66 trial 5/10 (100_tier1_fixes) === 07:49:43
+[tuning]   result: 66 1 0 0 36.9082 0.1446
+[tuning] === world 66 trial 6/10 (100_tier1_fixes) === 07:51:10
+[tuning]   result: 66 1 0 0 23.0714 0.2313
+[tuning] === world 66 trial 7/10 (100_tier1_fixes) === 07:52:23
+[tuning]   result: 66 1 0 0 24.5832 0.2171
+[tuning] === world 66 trial 8/10 (100_tier1_fixes) === 07:53:35
+[tuning]   result: 66 1 0 0 27.1513 0.1966
+[tuning] === world 66 trial 9/10 (100_tier1_fixes) === 07:54:48
+[tuning]   result: 66 1 0 0 23.9384 0.2230
+[tuning] === world 66 trial 10/10 (100_tier1_fixes) === 07:55:57
+[tuning]   result: 66 1 0 0 22.3415 0.2389
+=== tuning batch: world 66, tag "100_tier1_fixes" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.33 s   2*OT clip 10.66 s
+AT  min 22.3  median 25.5  max 95.9  sd 21.2
+AT/OT median 4.78   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.1981   (ceiling for this success rate: 0.5000)
+per-trial: 24 26 96 30 37 23 25 27 24 22
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0            53             0             0             0
+  trial_4.log             1             1             0             0             0
+  trial_5.log             0             3             0             0             0
+  trial_6.log             1             1             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             1             1             0             0             0
+[tuning] world=282 trials=10 tag=100_tier1_fixes
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_282/100_tier1_fixes
+[tuning] === world 282 trial 1/10 (100_tier1_fixes) === 07:57:11
+[tuning]   result: 282 1 0 0 28.0308 0.2178
+[tuning] === world 282 trial 2/10 (100_tier1_fixes) === 07:58:30
+[tuning]   result: 282 1 0 0 43.0573 0.1418
+[tuning] === world 282 trial 3/10 (100_tier1_fixes) === 08:00:02
+[tuning]   result: 282 1 0 0 36.9753 0.1651
+[tuning] === world 282 trial 4/10 (100_tier1_fixes) === 08:01:27
+[tuning]   result: 282 0 0 1 100.0020 0.0000
+[tuning] === world 282 trial 5/10 (100_tier1_fixes) === 08:03:58
+[tuning]   result: 282 1 0 0 43.3393 0.1409
+[tuning] === world 282 trial 6/10 (100_tier1_fixes) === 08:05:26
+[tuning]   result: 282 1 0 0 34.3038 0.1780
+[tuning] === world 282 trial 7/10 (100_tier1_fixes) === 08:06:45
+[tuning]   result: 282 1 0 0 94.6488 0.1250
+[tuning] === world 282 trial 8/10 (100_tier1_fixes) === 08:09:10
+[tuning]   result: 282 1 0 0 65.0100 0.1250
+[tuning] === world 282 trial 9/10 (100_tier1_fixes) === 08:11:03
+[tuning]   result: 282 1 0 0 46.7879 0.1305
+[tuning] === world 282 trial 10/10 (100_tier1_fixes) === 08:12:41
+[tuning]   result: 282 1 0 0 27.3775 0.2230
+=== tuning batch: world 282, tag "100_tier1_fixes" ===
+trials 10   success 9 (90%)   collision 0   timeout 1
+OT 6.16 s   2*OT clip 12.33 s
+AT  min 27.4  median 43.1  max 94.6  sd 20.1
+AT/OT median 6.99   trials above the 2*OT clip: 9/9
+MEAN SCORE 0.1447   (ceiling for this success rate: 0.4500)
+per-trial: 28 43 37 T 43 34 95 65 47 27
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             2             2             0             0             0
+  trial_3.log             2             2             0             0             0
+  trial_4.log            15            15             0             0             0
+  trial_5.log             2             2             0             0             0
+  trial_6.log             2             2             0             0             0
+  trial_7.log            10            10             0             0             0
+  trial_8.log             6             6             0             0             0
+  trial_9.log             2             2             0             0             0
+  trial_10.log             0             0             0             0             0

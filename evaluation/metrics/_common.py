@@ -21,7 +21,17 @@ V_MAX = 2.0  # m/s, BARN maximum robot speed (used to derive OT from path length
 # evaluator's output the first time and adjust COLUMN_ORDER if needed. The
 # default matches the common BARN layout:
 #     world_idx  success  collided  timeout  actual_time  optimal_time
-COLUMN_ORDER = ('world_idx', 'success', 'collided', 'timeout', 'actual_time', 'optimal_time')
+# VERIFIED against this evaluator (barn_runner.py:153): the sixth column is the
+# evaluator's own nav_metric, NOT optimal_time. barn_runner computes
+#     nav_metric = success * OT / clip(elapsed, 2*OT, 8*OT)
+# which is exactly the published rule, and writes that. Assuming it was OT made
+# both reports print 0.1212 for a campaign whose real score is 0.4451 -- a
+# plausible-looking number derived by treating a ~0.5 score as an optimal time.
+# The README warned to confirm this on first use; it had not been confirmed.
+#
+# OT is therefore NOT in the file. It is reconstructed from the evaluator's own
+# reference paths (see optimal_times()), which is also what the evaluator does.
+COLUMN_ORDER = ('world_idx', 'success', 'collided', 'timeout', 'actual_time', 'nav_metric')
 
 
 def parse_out_file(path):
@@ -53,7 +63,11 @@ def _normalize(record):
     out['collided'] = _as_bool(record.get('collided', 0))
     out['timeout'] = _as_bool(record.get('timeout', 0))
     out['actual_time'] = float(record.get('actual_time', 0.0) or 0.0)
-    out['optimal_time'] = float(record.get('optimal_time', 0.0) or 0.0)
+    # OT is not in the results file (see COLUMN_ORDER). Reconstruct it from the
+    # evaluator's own reference path for this world -- the same construction
+    # barn_runner.py uses: start + path_N.npy in gazebo coords + goal, length/2.
+    out['nav_metric'] = float(record.get('nav_metric', 0.0) or 0.0)
+    out['optimal_time'] = reference_optimal_time(int(out['world_idx']))
     return out
 
 
@@ -68,6 +82,42 @@ def _as_bool(value):
 # ---------------------------------------------------------------------------
 # Scoring
 # ---------------------------------------------------------------------------
+_OT_CACHE = {}
+
+
+def reference_optimal_time(world_idx):
+    """OT for a world, from the evaluator's own reference path.
+
+    barn_runner.py builds the path as [start] + path_N.npy mapped to gazebo
+    coordinates + [goal], and sets OT = length / 2. Reproduced here because the
+    results file records the resulting SCORE, not OT, so any metric that needs a
+    different clip (the upstream 4*OT variant) has to rebuild it.
+    """
+    if world_idx in _OT_CACHE:
+        return _OT_CACHE[world_idx]
+    import math
+    import os
+    base = os.path.join(
+        os.path.dirname(__file__), '..', '..',
+        'ros2_ws/src/The-Barn-Challenge-Ros2/jackal_helper/worlds/BARN/path_files')
+    f = os.path.join(base, 'path_%d.npy' % world_idx)
+    try:
+        import numpy as np
+        raw = np.load(f, allow_pickle=True)
+    except Exception:
+        _OT_CACHE[world_idx] = 0.0
+        return 0.0
+    RADIUS = 0.075
+    pts = [(-2.0, 3.0)]
+    for r, c in np.asarray(raw, dtype=float):
+        pts.append((r * (RADIUS * 2) + (-RADIUS - 30 * RADIUS * 2),
+                    c * (RADIUS * 2) + (RADIUS + 5)))
+    pts.append((-2.0, 13.0))
+    length = sum(math.dist(pts[i - 1], pts[i]) for i in range(1, len(pts)))
+    _OT_CACHE[world_idx] = length / 2.0
+    return _OT_CACHE[world_idx]
+
+
 def optimal_time(path_length):
     """Optimal traversal time = reference path length / maximum speed."""
     return path_length / V_MAX

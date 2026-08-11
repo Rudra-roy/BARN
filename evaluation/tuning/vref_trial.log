@@ -1,0 +1,5 @@
+[instrument] world=66 trials=1 tag=140_vref
+[instrument] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_66/140_vref
+[instrument] === world 66 trial 1/1 === 20:17:01
+[instrument]   result: 66 1 0 0 29.7506 0.1794 | 1452 trace rows
+[instrument] done 20:18:13

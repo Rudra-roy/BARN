@@ -1,0 +1,42 @@
+[tuning] world=294 trials=10 tag=60_open_cornering
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_294/60_open_cornering
+[tuning] === world 294 trial 1/10 (60_open_cornering) === 07:18:03
+[tuning]   result: 294 1 0 0 23.1125 0.2538
+[tuning] === world 294 trial 2/10 (60_open_cornering) === 07:19:14
+[tuning]   result: 294 1 0 0 28.0554 0.2091
+[tuning] === world 294 trial 3/10 (60_open_cornering) === 07:20:27
+[tuning]   result: 294 1 0 0 30.1352 0.1946
+[tuning] === world 294 trial 4/10 (60_open_cornering) === 07:21:44
+[tuning]   result: 294 1 0 0 27.5668 0.2128
+[tuning] === world 294 trial 5/10 (60_open_cornering) === 07:22:57
+[tuning]   result: 294 1 0 0 32.0248 0.1832
+[tuning] === world 294 trial 6/10 (60_open_cornering) === 07:24:15
+[tuning]   result: 294 1 0 0 22.1210 0.2652
+[tuning] === world 294 trial 7/10 (60_open_cornering) === 07:25:24
+[tuning]   result: 294 1 0 0 22.9379 0.2557
+[tuning] === world 294 trial 8/10 (60_open_cornering) === 07:26:33
+[tuning]   result: 294 1 0 0 26.0081 0.2255
+[tuning] === world 294 trial 9/10 (60_open_cornering) === 07:27:44
+[tuning]   result: 294 1 0 0 25.0498 0.2342
+[tuning] === world 294 trial 10/10 (60_open_cornering) === 07:28:57
+[tuning]   result: 294 1 0 0 29.6489 0.1978
+=== tuning batch: world 294, tag "60_open_cornering" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.89 s   2*OT clip 11.78 s
+AT  min 22.1  median 26.8  max 32.0  sd 3.2
+AT/OT median 4.55   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.2232   (ceiling for this success rate: 0.5000)
+per-trial: 23 28 30 28 32 22 23 26 25 30
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             2             2             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0

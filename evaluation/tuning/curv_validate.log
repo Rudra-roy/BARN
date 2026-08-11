@@ -1,0 +1,84 @@
+[tuning] world=282 trials=10 tag=150_curvature_fix
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_282/150_curvature_fix
+[tuning] === world 282 trial 1/10 (150_curvature_fix) === 14:36:00
+[tuning]   result: 282 0 0 1 100.0027 0.0000
+[tuning] === world 282 trial 2/10 (150_curvature_fix) === 14:38:30
+[tuning]   result: 282 1 0 0 34.5412 0.1768
+[tuning] === world 282 trial 3/10 (150_curvature_fix) === 14:39:51
+[tuning]   result: 282 1 0 0 52.5408 0.1250
+[tuning] === world 282 trial 4/10 (150_curvature_fix) === 14:41:29
+[tuning]   result: 282 1 0 0 18.7018 0.3265
+[tuning] === world 282 trial 5/10 (150_curvature_fix) === 14:42:35
+[tuning]   result: 282 1 0 0 18.3979 0.3319
+[tuning] === world 282 trial 6/10 (150_curvature_fix) === 14:43:41
+[tuning]   result: 282 1 0 0 17.9545 0.3401
+[tuning] === world 282 trial 7/10 (150_curvature_fix) === 14:44:49
+[tuning]   result: 282 0 0 1 100.0111 0.0000
+[tuning] === world 282 trial 8/10 (150_curvature_fix) === 14:47:16
+[tuning]   result: 282 1 0 0 18.2360 0.3349
+[tuning] === world 282 trial 9/10 (150_curvature_fix) === 14:48:20
+[tuning]   result: 282 1 0 0 19.9074 0.3067
+[tuning] === world 282 trial 10/10 (150_curvature_fix) === 14:49:28
+[tuning]   result: 282 1 0 0 16.6439 0.3669
+=== tuning batch: world 282, tag "150_curvature_fix" ===
+trials 10   success 8 (80%)   collision 0   timeout 2
+OT 6.16 s   2*OT clip 12.33 s
+AT  min 16.6  median 18.5  max 52.5  sd 11.8
+AT/OT median 3.01   trials above the 2*OT clip: 8/8
+MEAN SCORE 0.2309   (ceiling for this success rate: 0.4000)
+per-trial: T 35 53 19 18 18 T 18 20 17
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             2             2             0             0             0
+  trial_2.log             2             2             0             0             0
+  trial_3.log             5             5             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+[tuning] world=294 trials=10 tag=150_curvature_fix
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_294/150_curvature_fix
+[tuning] === world 294 trial 1/10 (150_curvature_fix) === 14:50:32
+[tuning]   result: 294 1 0 0 26.5428 0.2210
+[tuning] === world 294 trial 2/10 (150_curvature_fix) === 14:51:44
+[tuning]   result: 294 1 0 0 21.8028 0.2690
+[tuning] === world 294 trial 3/10 (150_curvature_fix) === 14:52:56
+[tuning]   result: 294 1 0 0 27.2295 0.2154
+[tuning] === world 294 trial 4/10 (150_curvature_fix) === 14:54:08
+[tuning]   result: 294 1 0 0 23.3939 0.2507
+[tuning] === world 294 trial 5/10 (150_curvature_fix) === 14:55:18
+[tuning]   result: 294 1 0 0 30.8450 0.1902
+[tuning] === world 294 trial 6/10 (150_curvature_fix) === 14:56:36
+[tuning]   result: 294 1 0 0 27.9266 0.2100
+[tuning] === world 294 trial 7/10 (150_curvature_fix) === 14:57:49
+[tuning]   result: 294 1 0 0 22.4783 0.2609
+[tuning] === world 294 trial 8/10 (150_curvature_fix) === 14:58:58
+[tuning]   result: 294 1 0 0 29.7352 0.1973
+[tuning] === world 294 trial 9/10 (150_curvature_fix) === 15:00:13
+[tuning]   result: 294 1 0 0 24.0449 0.2439
+[tuning] === world 294 trial 10/10 (150_curvature_fix) === 15:01:23
+[tuning]   result: 294 1 0 0 21.1441 0.2774
+=== tuning batch: world 294, tag "150_curvature_fix" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.89 s   2*OT clip 11.78 s
+AT  min 21.1  median 25.3  max 30.8  sd 3.2
+AT/OT median 4.30   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.2336   (ceiling for this success rate: 0.5000)
+per-trial: 27 22 27 23 31 28 22 30 24 21
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             2             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0

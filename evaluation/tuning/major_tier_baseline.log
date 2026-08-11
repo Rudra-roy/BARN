@@ -1,0 +1,378 @@
+[tuning] world=192 trials=10 tag=00_baseline
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_192/00_baseline
+[tuning] === world 192 trial 1/10 (00_baseline) === 09:56:38
+[tuning]   result: 192 1 0 0 23.7916 0.2335
+[tuning] === world 192 trial 2/10 (00_baseline) === 09:57:47
+[tuning]   result: 192 1 0 0 23.7662 0.2338
+[tuning] === world 192 trial 3/10 (00_baseline) === 09:58:56
+[tuning]   result: 192 1 0 0 19.9247 0.2789
+[tuning] === world 192 trial 4/10 (00_baseline) === 10:00:01
+[tuning]   result: 192 1 0 0 23.3776 0.2377
+[tuning] === world 192 trial 5/10 (00_baseline) === 10:01:13
+[tuning]   result: 192 1 0 0 17.2878 0.3214
+[tuning] === world 192 trial 6/10 (00_baseline) === 10:02:16
+[tuning]   result: 192 1 0 0 24.5799 0.2260
+[tuning] === world 192 trial 7/10 (00_baseline) === 10:03:26
+[tuning]   result: 192 1 0 0 24.7501 0.2245
+[tuning] === world 192 trial 8/10 (00_baseline) === 10:04:38
+[tuning]   result: 192 1 0 0 22.2979 0.2492
+[tuning] === world 192 trial 9/10 (00_baseline) === 10:05:47
+[tuning]   result: 192 1 0 0 45.8981 0.1250
+[tuning] === world 192 trial 10/10 (00_baseline) === 10:07:20
+[tuning]   result: 192 1 0 0 50.5395 0.1250
+=== tuning batch: world 192, tag "00_baseline" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.55 s   2*OT clip 11.11 s
+AT  min 17.3  median 23.8  max 50.5  sd 10.6
+AT/OT median 4.28   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.2255   (ceiling for this success rate: 0.5000)
+per-trial: 24 24 20 23 17 25 25 22 46 51
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             2             2             0             0             0
+  trial_10.log             2             2             0             0             0
+[tuning] world=282 trials=10 tag=00_baseline
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_282/00_baseline
+[tuning] === world 282 trial 1/10 (00_baseline) === 10:08:58
+[tuning]   result: 282 1 0 0 17.7635 0.3438
+[tuning] === world 282 trial 2/10 (00_baseline) === 10:10:01
+[tuning]   result: 282 1 0 0 15.3977 0.3966
+[tuning] === world 282 trial 3/10 (00_baseline) === 10:11:05
+[tuning]   result: 282 1 0 0 33.2514 0.1836
+[tuning] === world 282 trial 4/10 (00_baseline) === 10:12:24
+[tuning]   result: 282 1 0 0 17.8296 0.3425
+[tuning] === world 282 trial 5/10 (00_baseline) === 10:13:29
+[tuning]   result: 282 1 0 0 35.4383 0.1723
+[tuning] === world 282 trial 6/10 (00_baseline) === 10:14:52
+[tuning]   result: 282 0 0 1 100.0021 0.0000
+[tuning] === world 282 trial 7/10 (00_baseline) === 10:17:20
+[tuning]   result: 282 1 0 0 24.5990 0.2482
+[tuning] === world 282 trial 8/10 (00_baseline) === 10:18:30
+[tuning]   result: 282 1 0 0 35.7046 0.1710
+[tuning] === world 282 trial 9/10 (00_baseline) === 10:19:55
+[tuning]   result: 282 0 0 1 100.0070 0.0000
+[tuning] === world 282 trial 10/10 (00_baseline) === 10:22:22
+[tuning]   result: 282 1 0 0 25.0878 0.2434
+=== tuning batch: world 282, tag "00_baseline" ===
+trials 10   success 8 (80%)   collision 0   timeout 2
+OT 6.16 s   2*OT clip 12.33 s
+AT  min 15.4  median 24.8  max 35.7  sd 7.8
+AT/OT median 4.03   trials above the 2*OT clip: 8/8
+MEAN SCORE 0.2101   (ceiling for this success rate: 0.4000)
+per-trial: 18 15 33 18 35 T 25 36 T 25
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             2             2             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             3             3             0             0             0
+  trial_6.log            14            14             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             2             2             0             0             0
+  trial_9.log            18            18             0             0             0
+  trial_10.log             1             1             0             0             0
+[tuning] world=138 trials=10 tag=00_baseline
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_138/00_baseline
+[tuning] === world 138 trial 1/10 (00_baseline) === 10:23:37
+[tuning]   result: 138 1 0 0 19.7115 0.3388
+[tuning] === world 138 trial 2/10 (00_baseline) === 10:24:43
+[tuning]   result: 138 1 0 0 24.6150 0.2713
+[tuning] === world 138 trial 3/10 (00_baseline) === 10:25:57
+[tuning]   result: 138 1 0 0 22.6626 0.2947
+[tuning] === world 138 trial 4/10 (00_baseline) === 10:27:05
+[tuning]   result: 138 0 0 1 100.0058 0.0000
+[tuning] === world 138 trial 5/10 (00_baseline) === 10:29:31
+[tuning]   result: 138 1 0 0 23.5609 0.2834
+[tuning] === world 138 trial 6/10 (00_baseline) === 10:30:42
+[tuning]   result: 138 1 0 0 18.7018 0.3571
+[tuning] === world 138 trial 7/10 (00_baseline) === 10:31:46
+[tuning]   result: 138 1 0 0 19.5058 0.3424
+[tuning] === world 138 trial 8/10 (00_baseline) === 10:32:52
+[tuning]   result: 138 1 0 0 24.5279 0.2723
+[tuning] === world 138 trial 9/10 (00_baseline) === 10:34:03
+[tuning]   result: 138 0 0 1 100.0066 0.0000
+[tuning] === world 138 trial 10/10 (00_baseline) === 10:36:29
+[tuning]   result: 138 1 0 0 27.9270 0.2391
+=== tuning batch: world 138, tag "00_baseline" ===
+trials 10   success 8 (80%)   collision 0   timeout 2
+OT 6.74 s   2*OT clip 13.48 s
+AT  min 18.7  median 23.1  max 27.9  sd 3.0
+AT/OT median 3.43   trials above the 2*OT clip: 8/8
+MEAN SCORE 0.2399   (ceiling for this success rate: 0.4000)
+per-trial: 20 25 23 T 24 19 20 25 T 28
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             2             1             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             1             1             1             0             0
+  trial_9.log             4             6             1             0             0
+  trial_10.log             1             1             0             0             0
+[tuning] world=276 trials=10 tag=00_baseline
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_276/00_baseline
+[tuning] === world 276 trial 1/10 (00_baseline) === 10:37:43
+[tuning]   result: 276 1 0 0 22.2573 0.2830
+[tuning] === world 276 trial 2/10 (00_baseline) === 10:38:51
+[tuning]   result: 276 0 0 1 100.0022 0.0000
+[tuning] === world 276 trial 3/10 (00_baseline) === 10:41:20
+[tuning]   result: 276 1 0 0 68.5512 0.1250
+[tuning] === world 276 trial 4/10 (00_baseline) === 10:43:15
+[tuning]   result: 276 1 0 0 16.9366 0.3720
+[tuning] === world 276 trial 5/10 (00_baseline) === 10:44:17
+[tuning]   result: 276 1 0 0 32.7206 0.1925
+[tuning] === world 276 trial 6/10 (00_baseline) === 10:45:36
+[tuning]   result: 276 1 0 0 16.3675 0.3849
+[tuning] === world 276 trial 7/10 (00_baseline) === 10:46:39
+[tuning]   result: 276 1 0 0 74.3974 0.1250
+[tuning] === world 276 trial 8/10 (00_baseline) === 10:48:40
+[tuning]   result: 276 1 0 0 17.4088 0.3619
+[tuning] === world 276 trial 9/10 (00_baseline) === 10:49:43
+[tuning]   result: 276 1 0 0 16.1179 0.3908
+[tuning] === world 276 trial 10/10 (00_baseline) === 10:50:47
+[tuning]   result: 276 1 0 0 44.3709 0.1420
+=== tuning batch: world 276, tag "00_baseline" ===
+trials 10   success 9 (90%)   collision 0   timeout 1
+OT 6.26 s   2*OT clip 12.51 s
+AT  min 16.1  median 22.3  max 74.4  sd 21.8
+AT/OT median 3.56   trials above the 2*OT clip: 9/9
+MEAN SCORE 0.2377   (ceiling for this success rate: 0.4500)
+per-trial: 22 T 69 17 33 16 74 17 16 44
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             1             1             0             0             0
+  trial_2.log             0             2             1             0             0
+  trial_3.log             5             8             1             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             2             2             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             7             7             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             2             2             0             0             0
+[tuning] world=228 trials=10 tag=00_baseline
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_228/00_baseline
+[tuning] === world 228 trial 1/10 (00_baseline) === 10:52:18
+[tuning]   result: 228 1 0 0 17.6513 0.3556
+[tuning] === world 228 trial 2/10 (00_baseline) === 10:53:22
+[tuning]   result: 228 1 0 0 40.3735 0.1555
+[tuning] === world 228 trial 3/10 (00_baseline) === 10:54:48
+[tuning]   result: 228 1 0 0 16.3339 0.3843
+[tuning] === world 228 trial 4/10 (00_baseline) === 10:55:53
+[tuning]   result: 228 1 0 0 19.4915 0.3221
+[tuning] === world 228 trial 5/10 (00_baseline) === 10:57:01
+[tuning]   result: 228 0 0 1 100.0104 0.0000
+[tuning] === world 228 trial 6/10 (00_baseline) === 10:59:26
+[tuning]   result: 228 1 0 0 21.6916 0.2894
+[tuning] === world 228 trial 7/10 (00_baseline) === 11:00:35
+[tuning]   result: 228 0 0 1 100.0113 0.0000
+[tuning] === world 228 trial 8/10 (00_baseline) === 11:03:01
+[tuning]   result: 228 0 0 1 100.0073 0.0000
+[tuning] === world 228 trial 9/10 (00_baseline) === 11:05:27
+[tuning]   result: 228 1 0 0 17.4464 0.3598
+[tuning] === world 228 trial 10/10 (00_baseline) === 11:06:31
+[tuning]   result: 228 1 0 0 18.4845 0.3396
+=== tuning batch: world 228, tag "00_baseline" ===
+trials 10   success 7 (70%)   collision 0   timeout 3
+OT 6.32 s   2*OT clip 12.64 s
+AT  min 16.3  median 18.5  max 40.4  sd 7.8
+AT/OT median 2.93   trials above the 2*OT clip: 7/7
+MEAN SCORE 0.2206   (ceiling for this success rate: 0.3500)
+per-trial: 18 40 16 19 T 22 T T 17 18
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             2             2             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             2             1             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             2             1             0             0
+  trial_8.log             1             3             1             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+[tuning] world=204 trials=10 tag=00_baseline
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_204/00_baseline
+[tuning] === world 204 trial 1/10 (00_baseline) === 11:07:35
+[tuning]   result: 204 1 0 0 24.4299 0.2799
+[tuning] === world 204 trial 2/10 (00_baseline) === 11:08:46
+[tuning]   result: 204 1 0 0 47.8200 0.1430
+[tuning] === world 204 trial 3/10 (00_baseline) === 11:10:19
+[tuning]   result: 204 1 0 0 24.2512 0.2819
+[tuning] === world 204 trial 4/10 (00_baseline) === 11:11:29
+[tuning]   result: 204 1 0 0 19.1818 0.3565
+[tuning] === world 204 trial 5/10 (00_baseline) === 11:12:37
+[tuning]   result: 204 1 0 0 24.7993 0.2757
+[tuning] === world 204 trial 6/10 (00_baseline) === 11:13:49
+[tuning]   result: 204 1 0 0 26.0405 0.2626
+[tuning] === world 204 trial 7/10 (00_baseline) === 11:15:00
+[tuning]   result: 204 1 0 0 47.9519 0.1426
+[tuning] === world 204 trial 8/10 (00_baseline) === 11:16:33
+[tuning]   result: 204 1 0 0 23.7338 0.2881
+[tuning] === world 204 trial 9/10 (00_baseline) === 11:17:42
+[tuning]   result: 204 1 0 0 24.5519 0.2785
+[tuning] === world 204 trial 10/10 (00_baseline) === 11:18:53
+[tuning]   result: 204 1 0 0 17.3887 0.3932
+=== tuning batch: world 204, tag "00_baseline" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 6.85 s   2*OT clip 13.71 s
+AT  min 17.4  median 24.5  max 48.0  sd 10.3
+AT/OT median 3.57   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.2702   (ceiling for this success rate: 0.5000)
+per-trial: 24 48 24 19 25 26 48 24 25 17
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             1             1             0             0             0
+  trial_2.log             3             3             0             0             0
+  trial_3.log             1             1             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             4             4             0             0             0
+  trial_8.log             1             1             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+[tuning] world=210 trials=10 tag=00_baseline
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_210/00_baseline
+[tuning] === world 210 trial 1/10 (00_baseline) === 11:19:56
+[tuning]   result: 210 1 0 0 20.1350 0.2620
+[tuning] === world 210 trial 2/10 (00_baseline) === 11:21:04
+[tuning]   result: 210 1 0 0 17.0163 0.3100
+[tuning] === world 210 trial 3/10 (00_baseline) === 11:22:07
+[tuning]   result: 210 1 0 0 14.7836 0.3568
+[tuning] === world 210 trial 4/10 (00_baseline) === 11:23:10
+[tuning]   result: 210 1 0 0 14.9631 0.3525
+[tuning] === world 210 trial 5/10 (00_baseline) === 11:24:16
+[tuning]   result: 210 1 0 0 35.2036 0.1498
+[tuning] === world 210 trial 6/10 (00_baseline) === 11:25:37
+[tuning]   result: 210 1 0 0 14.4479 0.3651
+[tuning] === world 210 trial 7/10 (00_baseline) === 11:26:38
+[tuning]   result: 210 1 0 0 13.0178 0.4052
+[tuning] === world 210 trial 8/10 (00_baseline) === 11:27:41
+[tuning]   result: 210 1 0 0 15.9809 0.3301
+[tuning] === world 210 trial 9/10 (00_baseline) === 11:28:44
+[tuning]   result: 210 1 0 0 22.2124 0.2375
+[tuning] === world 210 trial 10/10 (00_baseline) === 11:29:56
+[tuning]   result: 210 1 0 0 23.5697 0.2238
+=== tuning batch: world 210, tag "00_baseline" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.27 s   2*OT clip 10.54 s
+AT  min 13.0  median 16.5  max 35.2  sd 6.3
+AT/OT median 3.13   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.2993   (ceiling for this success rate: 0.5000)
+per-trial: 20 17 15 15 35 14 13 16 22 24
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             1             1             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             1             1             0             0             0
+  trial_10.log             0             0             0             0             0
+[tuning] world=264 trials=10 tag=00_baseline
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_264/00_baseline
+[tuning] === world 264 trial 1/10 (00_baseline) === 11:31:07
+[tuning]   result: 264 1 0 0 13.4711 0.4434
+[tuning] === world 264 trial 2/10 (00_baseline) === 11:32:06
+[tuning]   result: 264 1 0 0 13.5856 0.4396
+[tuning] === world 264 trial 3/10 (00_baseline) === 11:33:05
+[tuning]   result: 264 1 0 0 15.8339 0.3772
+[tuning] === world 264 trial 4/10 (00_baseline) === 11:34:07
+[tuning]   result: 264 1 0 0 12.8386 0.4652
+[tuning] === world 264 trial 5/10 (00_baseline) === 11:35:05
+[tuning]   result: 264 1 0 0 16.5735 0.3604
+[tuning] === world 264 trial 6/10 (00_baseline) === 11:36:07
+[tuning]   result: 264 1 0 0 16.7835 0.3559
+[tuning] === world 264 trial 7/10 (00_baseline) === 11:37:11
+[tuning]   result: 264 1 0 0 20.1715 0.2961
+[tuning] === world 264 trial 8/10 (00_baseline) === 11:38:18
+[tuning]   result: 264 1 0 0 15.4064 0.3877
+[tuning] === world 264 trial 9/10 (00_baseline) === 11:39:20
+[tuning]   result: 264 1 0 0 15.0473 0.3969
+[tuning] === world 264 trial 10/10 (00_baseline) === 11:40:25
+[tuning]   result: 264 0 0 1 100.0020 0.0000
+=== tuning batch: world 264, tag "00_baseline" ===
+trials 10   success 9 (90%)   collision 0   timeout 1
+OT 5.96 s   2*OT clip 11.93 s
+AT  min 12.8  median 15.4  max 20.2  sd 2.1
+AT/OT median 2.58   trials above the 2*OT clip: 9/9
+MEAN SCORE 0.3522   (ceiling for this success rate: 0.4500)
+per-trial: 13 14 16 13 17 17 20 15 15 T
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             2             1             0             0
+[tuning] world=246 trials=10 tag=00_baseline
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_246/00_baseline
+[tuning] === world 246 trial 1/10 (00_baseline) === 11:42:53
+[tuning]   result: 246 1 0 0 19.0215 0.2871
+[tuning] === world 246 trial 2/10 (00_baseline) === 11:43:57
+[tuning]   result: 246 1 0 0 12.7124 0.4295
+[tuning] === world 246 trial 3/10 (00_baseline) === 11:44:56
+[tuning]   result: 246 1 0 0 12.7016 0.4299
+[tuning] === world 246 trial 4/10 (00_baseline) === 11:45:54
+[tuning]   result: 246 0 1 0 12.5281 0.0000
+[tuning] === world 246 trial 5/10 (00_baseline) === 11:46:54
+[tuning]   result: 246 1 0 0 20.5051 0.2663
+[tuning] === world 246 trial 6/10 (00_baseline) === 11:48:00
+[tuning]   result: 246 1 0 0 12.9170 0.4227
+[tuning] === world 246 trial 7/10 (00_baseline) === 11:48:58
+[tuning]   result: 246 1 0 0 17.6674 0.3091
+[tuning] === world 246 trial 8/10 (00_baseline) === 11:50:02
+[tuning]   result: 246 1 0 0 20.3268 0.2686
+[tuning] === world 246 trial 9/10 (00_baseline) === 11:51:08
+[tuning]   result: 246 1 0 0 17.3718 0.3143
+[tuning] === world 246 trial 10/10 (00_baseline) === 11:52:11
+[tuning]   result: 246 1 0 0 19.9394 0.2739
+=== tuning batch: world 246, tag "00_baseline" ===
+trials 10   success 9 (90%)   collision 1   timeout 0
+OT 5.50 s   2*OT clip 10.99 s
+AT  min 12.7  median 17.7  max 20.5  sd 3.2
+AT/OT median 3.21   trials above the 2*OT clip: 9/9
+MEAN SCORE 0.3001   (ceiling for this success rate: 0.4500)
+per-trial: 19 13 13 C 21 13 18 20 17 20
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             1             1             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             1             1             0             0             0

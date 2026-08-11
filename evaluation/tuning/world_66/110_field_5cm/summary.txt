@@ -1,0 +1,13 @@
+=== tuning batch: world 66, tag "110_field_5cm" ===
+trials 3   success 3 (100%)   collision 0   timeout 0
+OT 5.33 s   2*OT clip 10.66 s
+AT  min 22.9  median 24.6  max 55.8  sd 15.1
+AT/OT median 4.62   trials above the 2*OT clip: 3/3
+MEAN SCORE 0.1918   (ceiling for this success rate: 0.5000)
+per-trial: 56 25 23
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             5             5             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0

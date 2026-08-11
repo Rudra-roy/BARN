@@ -1,0 +1,20 @@
+=== tuning batch: world 66, tag "31_reachable_horizon" ===
+trials 10   success 8 (80%)   collision 0   timeout 2
+OT 5.33 s   2*OT clip 10.66 s
+AT  min 16.8  median 19.1  max 23.8  sd 2.1
+AT/OT median 3.59   trials above the 2*OT clip: 8/8
+MEAN SCORE 0.2164   (ceiling for this success rate: 0.4000)
+per-trial: 22 19 19 T 24 19 17 19 T 21
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             2             1             0             0
+  trial_5.log             1             1             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             2             1             0             0
+  trial_10.log             0             0             0             0             0

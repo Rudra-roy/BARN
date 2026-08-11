@@ -1,0 +1,13 @@
+[instrument] world=66 trials=5 tag=70_freeze_online
+[instrument] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_66/70_freeze_online
+[instrument] === world 66 trial 1/5 === 15:00:37
+[instrument]   result: 66 1 0 0 28.7755 0.1855 | 1361 trace rows
+[instrument] === world 66 trial 2/5 === 15:01:45
+[instrument]   result: 66 1 0 0 30.5273 0.1748 | 1385 trace rows
+[instrument] === world 66 trial 3/5 === 15:02:55
+[instrument]   result: 66 1 0 0 44.1060 0.1250 | 1716 trace rows
+[instrument] === world 66 trial 4/5 === 15:04:21
+[instrument]   result: 66 1 0 0 32.6650 0.1634 | 1443 trace rows
+[instrument] === world 66 trial 5/5 === 15:05:33
+[instrument]   result: 66 1 0 0 14.6113 0.3653 | 1094 trace rows
+[instrument] done 15:06:28

@@ -1,0 +1,11 @@
+=== tuning batch: world 66, tag "101_registration_check" ===
+trials 1   success 1 (100%)   collision 0   timeout 0
+OT 5.33 s   2*OT clip 10.66 s
+AT  min 28.8  median 28.8  max 28.8  sd 0.0
+AT/OT median 5.41   trials above the 2*OT clip: 1/1
+MEAN SCORE 0.1853   (ceiling for this success rate: 0.5000)
+per-trial: 29
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             2             2             0             0             0

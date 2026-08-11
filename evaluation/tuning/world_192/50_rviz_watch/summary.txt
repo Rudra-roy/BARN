@@ -1,0 +1,15 @@
+=== tuning batch: world 192, tag "50_rviz_watch" ===
+trials 5   success 5 (100%)   collision 0   timeout 0
+OT 5.55 s   2*OT clip 11.11 s
+AT  min 24.4  median 26.0  max 28.3  sd 1.5
+AT/OT median 4.69   trials above the 2*OT clip: 5/5
+MEAN SCORE 0.2129   (ceiling for this success rate: 0.5000)
+per-trial: 25 26 28 24 28
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0

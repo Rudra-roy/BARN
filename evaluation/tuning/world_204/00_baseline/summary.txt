@@ -1,0 +1,20 @@
+=== tuning batch: world 204, tag "00_baseline" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 6.85 s   2*OT clip 13.71 s
+AT  min 17.4  median 24.5  max 48.0  sd 10.3
+AT/OT median 3.57   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.2702   (ceiling for this success rate: 0.5000)
+per-trial: 24 48 24 19 25 26 48 24 25 17
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             1             1             0             0             0
+  trial_2.log             3             3             0             0             0
+  trial_3.log             1             1             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             4             4             0             0             0
+  trial_8.log             1             1             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0

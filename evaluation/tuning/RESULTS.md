@@ -182,3 +182,245 @@ front of an obstacle and floods a tight corridor.
 * `emergency_margin` is still 0.02. With the escape off, that reduction is again
   the only thing shrinking the trap, so it should stay until the escape is
   properly evaluated.
+
+---
+
+# Session 3 — the major tier: where the time actually goes
+
+The 11 worlds scoring below 0.29 (192, 282, 138, 294, 276, 66, 228, 204, 210,
+264, 246). Unlike the minor tier this is a SPEED problem: three of them are
+10/10 successes and still score 0.20-0.26. Converting every failure in the tier
+is worth ~+0.008 campaign-wide; halving AT/OT is worth ~+0.06.
+
+## The tier is not one problem
+
+| world | recovery | AT/OT | diagnosis |
+|---|---|---|---|
+| 66 | 9 episodes / 5 trials | 5.23 | **freeze** — MPC margin infeasible at the current pose |
+| 294 | 0 / 10 trials | 5.36 | **uniformly slow** — never stalls, never goes fast |
+
+Anything measured on one of these does not transfer to the other.
+
+## Instrumentation is what made this tractable
+
+`instrument_trial.sh` + `tools/record_recovery_trace.py` (20 Hz: cmd_desired,
+cmd_safe, pose, planner/control status, shield reason). One trial eliminated an
+entire branch of the search space:
+
+* shield reason `clear` 97% of samples, cut the command in 3.2% by a median 14%,
+  **never zeroed it** — no safety parameter affects these worlds' speed;
+* MPC solve 1.13 ms median against a 35 ms deadline, zero misses.
+
+## World 66: the MPC freezes on its own margin
+
+The obstacle row requires `distance_field >= obstacle_margin` at footprint
+boundary points already inflated by `footprint.margin` (0.04, HARDCODED, not a
+parameter), so the demanded centre clearance is `0.2159 + 0.04 + 0.20 = 0.4559 m`.
+BARN's own reference paths thread gaps at 0.225 m.
+
+Caught live: 6.8 s of a 21 s trial stopped dead at 0.40 m clearance with 0.69 m
+free ahead, shield `clear` at scale 1.0, MPC `solved`, `goal_dist` frozen. The
+constraint is violated at the CURRENT pose, so no action satisfies it and the
+QP's cheapest option is not to move. Same shape as the old shield hard veto.
+
+| world | obstacle_margin 0.20 | 0.10 |
+|---|---|---|
+| 66 | 0.2263, AT max 49.9 s, recovery 9 | **0.2901, AT max 20.4 s, recovery 0** |
+| 294 | 0.1953 | 0.1871 (noise, sd ~4) |
+| 288 | 0.4286, median 11.9 s | 0.4128, median 13.6 s |
+
+It fixes worlds that have the freeze, does nothing where there is none, and
+costs a little on already-fast worlds (less margin -> routes nearer walls).
+**Not adopted**: campaign value depends on freeze prevalence, measured on only
+3 worlds. The minor tier is nearly freeze-free (14 recovery episodes / 150
+trials), so the upside there is small.
+
+## Rejected: fixing the freeze in code (2 variants, world 66, 10 trials each)
+
+Clamping the demanded margin to clearance the robot can actually reach:
+
+| variant | result | why |
+|---|---|---|
+| at the current pose | 10/10 but **0.2522**, 4 trials still stalled | fires too late — the robot halts JUST BEFORE the tight gap, where its own clearance is still fine |
+| min over the whole horizon | **8/10, 2 timeouts, 0.2164** (below baseline) | fires too eagerly — relaxing on the tightest point ahead commits the MPC into pinches it should decline |
+
+| per-step, from `reference[k].clearance` | **9/10, 1 timeout, 0.2372**, recovery 9 / 6 trials | under-engages — see below |
+
+The third was the best-motivated and still failed. It clamped on the clearance at
+the PLANNED path point, but `clearance_weight` routes the plan down corridor
+CENTRES, so the plan's clearance is systematically more optimistic than the
+robot's own while it tracks off-centre. Measured on world 66: the robot's
+clearance is below the 0.4559 m engage threshold 31% of the time, with a median
+of 0.728 m — so the clamp rarely fired where the robot was actually stuck, and
+the batch came out as baseline plus a timeout.
+
+**Conclusion after three attempts: stop feeding the constraint a different
+clearance number.** All three variants did that and the mechanism is not
+sensitive to it. `obstacle_margin: 0.10` works precisely because it lowers the
+demand UNCONDITIONALLY, including when the robot is off-plan — which is the
+situation that traps it. If the QP route is revisited, the question to attack is
+why standing still is the cheapest response to a violated soft constraint at all
+(the slack penalty structure), not which margin the constraint is handed.
+
+All three reverted. Do not retry any of them without a new mechanism.
+
+## World 294: the curvature lookahead sets cruise speed
+
+The speed profile takes the MAX curvature over the next `curvature_lookahead_m`
+and applies it to the current point. An offline model over the evaluator's own
+reference paths (reconstructs OT to within 1% on 5 worlds) predicted mean v_ref
+1.25 m/s for world 294; **measured mean desired_v was 1.137 m/s**. On stall-free
+worlds this term, not the shield and not the MPC, is the cap.
+
+`kLookaheadDistance` was a hardcoded constexpr; it is now the parameter
+`curvature_lookahead_m` (default 3.0, unchanged behaviour).
+
+**Rejected: 3.0 -> 1.5** (world 294, 10 trials). Successes got faster — median
+AT 31.6 -> 28.4 s (-10%), sd 3.8 -> 2.9 — but 10/10 -> 9/10 with a timeout, score
+0.1953 -> 0.1890. Exactly the trade the 1.5 -> 3.0 widening was made to avoid.
+On this metric a hard zero costs far more than 10% of cruise speed.
+
+**The offline model predicted NO CHANGE for this test and was wrong.** It reads
+the reference path; the robot's actual A* path is 1.44x longer with a different
+curvature profile. It predicts cruise speed well and window changes badly.
+
+## Measurement corrections made this session
+
+* "294 regressed under obstacle_margin 0.10" — WRONG, that compared headless
+  against the RViz campaign. The proper headless baseline says neutral.
+* "4x commanded-vs-actual tracking gap" — WRONG. `/barn/pose` publishes at ~11 Hz
+  against a 20 Hz sampler, so 44.7% of steps show zero movement and the median
+  was meaningless. Actual speed reaches 2.04-2.22 m/s, matching peak commands:
+  there is no execution ceiling.
+
+Always baseline headless-vs-headless, and check publish rate before differencing
+a pose series.
+
+## Still open
+
+* 8 of 11 major worlds unmeasured (192, 282, 138, 276, 228, 204, 210, 264, 246).
+* Which of them have the freeze decides whether obstacle_margin 0.10 is worth
+  adopting — recovery-episode count per world is the cheap discriminator.
+* World 294 remains 5.36x OT with everything healthy. Its remaining losses are a
+  1.44x path-length inefficiency and acceleration dynamics, neither investigated.
+* `footprint.margin` (0.04) silently enters the clearance sum with no parameter
+  binding — anyone tuning `obstacle_margin` is really setting `0.2559 + margin`.
+
+---
+
+# Session 4 — the method change that found it
+
+Six mechanisms were hypothesised, implemented and rejected on measurement before
+anything worked. What finally located the defect was abandoning hypothesis-first
+tuning for a direct diff of good runs against bad ones, using traces already on
+disk.
+
+## The diff that reframed everything
+
+World 66 trials split cleanly into ~20 s and ~45-85 s with nothing between.
+Comparing three of each:
+
+| | distance | path/reference | median v | stopped | recovery |
+|---|---|---|---|---|---|
+| FAST (14.6-21.2 s) | 10.6 m | 0.99 | 1.10 | 9% | 0% |
+| SLOW (44.1-84.6 s) | 11.0 m | 1.00 | 0.12 | **50%** | 12% |
+
+Slow trials drive the SAME distance along the SAME-length route. Route selection
+is not the problem -- which is why the A* drivability barrier made things worse
+(0.2263 -> 0.1460), and it also retires the earlier "paths are 1.44x the
+reference" claim (that was world 294 including pre-clock wandering).
+
+The whole difference is time spent stopped. Breaking down 112 s of stopped time
+across the three slow trials:
+
+    29.1%  32.5s  MPC solved, planner OK -- commanding zero anyway
+    27.6%  30.9s  planner in recovery
+    20.3%  22.8s  MPC solved, path retained (cooldown)
+    20.0%  22.4s  startup creep
+     2.8%   3.2s  MPC "solved inaccurate"
+
+**The shield accounts for none of it.** Six interventions had been aimed at the
+shield, the MPC margin and the distance field -- i.e. at 0% of the measured cost.
+
+## The defect
+
+Instrumenting the speed profile per-term and catching a 7.6 s stall:
+
+| term | during stall | while moving |
+|---|---|---|
+| vref_curvature | **11.678 rad/m** | 1.367 |
+| vref_curv_speed | 0.259 m/s | 1.481 |
+| vref_clear_scale | 0.936 | 1.000 |
+| vref_head_scale | 0.518 | 0.615 |
+| vref | 0.132 | 0.911 |
+
+kappa = 11.678 is an 8.6 cm turn radius on a 51 cm robot. The clearance scale and
+heading gate are ruled out -- both are unchanged between stalled and moving.
+
+Cause: `kappa = |dyaw| / ds` guarded only by `ds > 1e-4` (0.1 mm). The elastic
+band displaces path points without resampling, so neighbours can end up nearly
+coincident, and a real yaw change over a sub-millimetre baseline explodes. The
+profile takes the MAX over a 3 m lookahead, so one such sample pins the speed for
+the entire approach. Arithmetic checks out:
+min(sqrt(3.0/11.678), 3.0/11.678) = 0.257 vs 0.259 measured.
+
+This also explains the bimodality that survived every other change: whether a
+trial is 20 s or 80 s depends on whether the band happens to produce a degenerate
+point pair on that run's path. Same route, same length, same config.
+
+Fix: require a 5 cm baseline before trusting a curvature estimate, and clamp
+kappa at 1/0.30 m (a differential-drive robot cannot usefully arc tighter than
+its own rotation radius; anything sharper is a place to rotate in place).
+
+Unlike every rejected change this is a numerical defect, not a tuning trade: no
+margin is reduced, no clearance is given up, the shield's view is unchanged.
+
+## Method note
+
+The diff cost minutes and used data already on disk. The six batches that
+preceded it cost hours. When a metric is bimodal, diff the modes before
+hypothesising a mechanism.
+
+## Session 4 result — three bug fixes, measured
+
+| world | baseline | +curvature | +recovery/replan |
+|---|---|---|---|
+| 66  | 0.2263, 10/10 | 0.3262 | **0.4196** (+85%) |
+| 282 | 0.2101, **8/10** | 0.2309, 8/10 | **0.3205, 10/10** (+53%) |
+| 294 | 0.1953, 10/10 | **0.2336** | 0.2280 (flat, sd 3.2) |
+
+30 trials, ZERO collisions, no world regressed. World 282's two timeouts -- which
+survived every earlier intervention -- cleared with the recovery refund, and its
+sd fell 7.8 -> 2.4. World 66's best trials now run 11.1 s against a 10.66 s
+(2*OT) clip, i.e. close to saturating the metric there.
+
+The three fixes, none of which is a tuning trade:
+
+1. **Curvature from a degenerate baseline.** `kappa = |dyaw|/ds` guarded at
+   `ds > 1e-4` (0.1 mm); the elastic band displaces points without resampling, so
+   near-coincident neighbours produced kappa = 11.678 rad/m (8.6 cm radius on a
+   51 cm robot), which the max-over-3 m lookahead then propagated across the whole
+   approach. Fixed with a 5 cm baseline requirement and a clamp at 1/0.30 m.
+2. **Recovery attempt budget zeroed after 0.18 m.** The robot covers that in
+   ~0.2 s after every episode, so every episode restarted at attempt 1 and the
+   escalation ladder (rotate >=2, clearance boost >=3, fail 5) was unreachable.
+   A* is deterministic, so it returned the same path into the same pinch
+   indefinitely -- the loop observed live in RViz. Now decrements one attempt per
+   metre of real progress; the clearance boost holds for 2 m instead of 0.18 m.
+3. **Global replan fired only on an empty path.** The driven route was the one
+   computed against a nearly-blank map (unknown_cost_multiplier 2.0) and was never
+   re-optimised as the corridor was observed -- visible as the world-294 U-turn.
+   Now re-plans at 2 Hz (13.9 ms against a 500 ms budget), with a >=15%
+   improvement escape from the 2 s swap cooldown.
+
+Also fixed, no measurable effect alone but they make measurements trustworthy:
+planner_status assigned on rejected plans; recovery integrating on measured dt
+rather than a hardcoded 0.033; the dead 600k-cell EDT rebuilt at 15 Hz in
+mapping_node; the A* heuristic cutoff comparing a cost against a distance; and the
+shield escape latch that cancelled itself after one cycle.
+
+REVERTED after measurement: scan-matcher xy budget (broke registration -- the
+translation debit starved the SHARED yaw budget), MPC distance field at 5 cm with
+interpolation (freezes 1.8 -> 2.4/trial), A* drivability barrier (0.2263 ->
+0.1460; the barrier saturates because nearly every BARN route is below the
+threshold).

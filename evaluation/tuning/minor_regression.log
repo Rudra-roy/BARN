@@ -1,0 +1,168 @@
+[tuning] world=114 trials=10 tag=170_minor_regression
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_114/170_minor_regression
+[tuning] === world 114 trial 1/10 (170_minor_regression) === 20:23:27
+[tuning]   result: 114 1 0 0 9.2279 0.5000
+[tuning] === world 114 trial 2/10 (170_minor_regression) === 20:24:22
+[tuning]   result: 114 1 0 0 9.8437 0.5000
+[tuning] === world 114 trial 3/10 (170_minor_regression) === 20:25:19
+[tuning]   result: 114 1 0 0 8.8141 0.5000
+[tuning] === world 114 trial 4/10 (170_minor_regression) === 20:26:16
+[tuning]   result: 114 1 0 0 9.0238 0.5000
+[tuning] === world 114 trial 5/10 (170_minor_regression) === 20:27:11
+[tuning]   result: 114 1 0 0 10.3531 0.5000
+[tuning] === world 114 trial 6/10 (170_minor_regression) === 20:28:06
+[tuning]   result: 114 1 0 0 8.8825 0.5000
+[tuning] === world 114 trial 7/10 (170_minor_regression) === 20:29:00
+[tuning]   result: 114 1 0 0 9.2515 0.5000
+[tuning] === world 114 trial 8/10 (170_minor_regression) === 20:29:55
+[tuning]   result: 114 1 0 0 9.6769 0.5000
+[tuning] === world 114 trial 9/10 (170_minor_regression) === 20:30:54
+[tuning]   result: 114 1 0 0 10.0240 0.5000
+[tuning] === world 114 trial 10/10 (170_minor_regression) === 20:31:52
+[tuning]   result: 114 1 0 0 8.7890 0.5000
+=== tuning batch: world 114, tag "170_minor_regression" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 6.26 s   2*OT clip 12.52 s
+AT  min 8.8  median 9.2  max 10.4  sd 0.5
+AT/OT median 1.48   trials above the 2*OT clip: 0/10
+MEAN SCORE 0.5000   (ceiling for this success rate: 0.5000)
+per-trial: 9 10 9 9 10 9 9 10 10 9
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+[tuning] world=288 trials=10 tag=170_minor_regression
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_288/170_minor_regression
+[tuning] === world 288 trial 1/10 (170_minor_regression) === 20:32:48
+[tuning]   result: 288 1 0 0 12.4364 0.5000
+[tuning] === world 288 trial 2/10 (170_minor_regression) === 20:33:56
+[tuning]   result: 288 1 0 0 11.6977 0.5000
+[tuning] === world 288 trial 3/10 (170_minor_regression) === 20:34:54
+[tuning]   result: 288 1 0 0 10.8125 0.5000
+[tuning] === world 288 trial 4/10 (170_minor_regression) === 20:35:56
+[tuning]   result: 288 1 0 0 11.5186 0.5000
+[tuning] === world 288 trial 5/10 (170_minor_regression) === 20:36:53
+[tuning]   result: 288 1 0 0 10.0794 0.5000
+[tuning] === world 288 trial 6/10 (170_minor_regression) === 20:37:49
+[tuning]   result: 288 1 0 0 12.6801 0.4924
+[tuning] === world 288 trial 7/10 (170_minor_regression) === 20:38:47
+[tuning]   result: 288 1 0 0 11.1487 0.5000
+[tuning] === world 288 trial 8/10 (170_minor_regression) === 20:39:43
+[tuning]   result: 288 1 0 0 10.6524 0.5000
+[tuning] === world 288 trial 9/10 (170_minor_regression) === 20:40:41
+[tuning]   result: 288 1 0 0 12.7463 0.4898
+[tuning] === world 288 trial 10/10 (170_minor_regression) === 20:41:43
+[tuning]   result: 288 1 0 0 10.9835 0.5000
+=== tuning batch: world 288, tag "170_minor_regression" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 6.23 s   2*OT clip 12.47 s
+AT  min 10.1  median 11.3  max 12.7  sd 0.9
+AT/OT median 1.82   trials above the 2*OT clip: 2/10
+MEAN SCORE 0.4982   (ceiling for this success rate: 0.5000)
+per-trial: 12 12 11 12 10 13 11 11 13 11
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0
+[tuning] world=216 trials=10 tag=170_minor_regression
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_216/170_minor_regression
+[tuning] === world 216 trial 1/10 (170_minor_regression) === 20:42:40
+[tuning]   result: 216 1 0 0 12.6410 0.4424
+[tuning] === world 216 trial 2/10 (170_minor_regression) === 20:43:40
+[tuning]   result: 216 1 0 0 13.4309 0.4164
+[tuning] === world 216 trial 3/10 (170_minor_regression) === 20:44:39
+[tuning]   result: 216 1 0 0 11.5390 0.4847
+[tuning] === world 216 trial 4/10 (170_minor_regression) === 20:45:36
+[tuning]   result: 216 1 0 0 13.1798 0.4244
+[tuning] === world 216 trial 5/10 (170_minor_regression) === 20:46:38
+[tuning]   result: 216 1 0 0 12.6227 0.4431
+[tuning] === world 216 trial 6/10 (170_minor_regression) === 20:47:38
+[tuning]   result: 216 1 0 0 12.1604 0.4599
+[tuning] === world 216 trial 7/10 (170_minor_regression) === 20:48:35
+[tuning]   result: 216 1 0 0 12.7733 0.4379
+[tuning] === world 216 trial 8/10 (170_minor_regression) === 20:49:33
+[tuning]   result: 216 1 0 0 14.4168 0.3879
+[tuning] === world 216 trial 9/10 (170_minor_regression) === 20:50:33
+[tuning]   result: 216 1 0 0 16.1093 0.3472
+[tuning] === world 216 trial 10/10 (170_minor_regression) === 20:51:37
+[tuning]   result: 216 0 0 1 100.0099 0.0000
+=== tuning batch: world 216, tag "170_minor_regression" ===
+trials 10   success 9 (90%)   collision 0   timeout 1
+OT 5.62 s   2*OT clip 11.23 s
+AT  min 11.5  median 12.8  max 16.1  sd 1.3
+AT/OT median 2.27   trials above the 2*OT clip: 9/9
+MEAN SCORE 0.3844   (ceiling for this success rate: 0.4500)
+per-trial: 13 13 12 13 13 12 13 14 16 T
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             2             1             0             0
+[tuning] world=234 trials=10 tag=170_minor_regression
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_234/170_minor_regression
+[tuning] === world 234 trial 1/10 (170_minor_regression) === 20:54:05
+[tuning]   result: 234 1 0 0 11.2985 0.4757
+[tuning] === world 234 trial 2/10 (170_minor_regression) === 20:55:02
+[tuning]   result: 234 1 0 0 10.7480 0.5000
+[tuning] === world 234 trial 3/10 (170_minor_regression) === 20:56:00
+[tuning]   result: 234 1 0 0 14.1696 0.3793
+[tuning] === world 234 trial 4/10 (170_minor_regression) === 20:57:00
+[tuning]   result: 234 1 0 0 11.7359 0.4580
+[tuning] === world 234 trial 5/10 (170_minor_regression) === 20:57:58
+[tuning]   result: 234 1 0 0 10.2114 0.5000
+[tuning] === world 234 trial 6/10 (170_minor_regression) === 20:58:54
+[tuning]   result: 234 1 0 0 11.9777 0.4487
+[tuning] === world 234 trial 7/10 (170_minor_regression) === 20:59:52
+[tuning]   result: 234 1 0 0 11.2439 0.4780
+[tuning] === world 234 trial 8/10 (170_minor_regression) === 21:00:49
+[tuning]   result: 234 1 0 0 13.0188 0.4129
+[tuning] === world 234 trial 9/10 (170_minor_regression) === 21:01:49
+[tuning]   result: 234 1 0 0 11.4711 0.4686
+[tuning] === world 234 trial 10/10 (170_minor_regression) === 21:02:46
+[tuning]   result: 234 1 0 0 12.2057 0.4404
+=== tuning batch: world 234, tag "170_minor_regression" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.39 s   2*OT clip 10.77 s
+AT  min 10.2  median 11.6  max 14.2  sd 1.1
+AT/OT median 2.15   trials above the 2*OT clip: 8/10
+MEAN SCORE 0.4562   (ceiling for this success rate: 0.5000)
+per-trial: 11 11 14 12 10 12 11 13 11 12
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0

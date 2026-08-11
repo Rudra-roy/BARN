@@ -1,0 +1,20 @@
+=== tuning batch: world 228, tag "210_shield_escape" ===
+trials 9   success 7 (78%)   collision 0   timeout 2
+OT 6.32 s   2*OT clip 12.64 s
+AT  min 10.2  median 21.7  max 42.8  sd 10.8
+AT/OT median 3.44   trials above the 2*OT clip: 6/7
+MEAN SCORE 0.2449   (ceiling for this success rate: 0.3889)
+per-trial: 43 22 34 T T 26 16 14 10
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             2             1             0             0
+  trial_2.log             0             2             1             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             4             1             0             0
+  trial_6.log             0             2             1             0             0
+  trial_7.log             2             2             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             0             0             0             0
+  trial_10.log             0             0             0             0             0

@@ -1,0 +1,42 @@
+[tuning] world=66 trials=10 tag=31_reachable_horizon
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_66/31_reachable_horizon
+[tuning] === world 66 trial 1/10 (31_reachable_horizon) === 04:21:13
+[tuning]   result: 66 1 0 0 22.4429 0.2378
+[tuning] === world 66 trial 2/10 (31_reachable_horizon) === 04:22:22
+[tuning]   result: 66 1 0 0 18.9384 0.2818
+[tuning] === world 66 trial 3/10 (31_reachable_horizon) === 04:23:27
+[tuning]   result: 66 1 0 0 19.3494 0.2758
+[tuning] === world 66 trial 4/10 (31_reachable_horizon) === 04:24:34
+[tuning]   result: 66 0 0 1 100.0063 0.0000
+[tuning] === world 66 trial 5/10 (31_reachable_horizon) === 04:27:01
+[tuning]   result: 66 1 0 0 23.7953 0.2243
+[tuning] === world 66 trial 6/10 (31_reachable_horizon) === 04:28:14
+[tuning]   result: 66 1 0 0 18.7036 0.2854
+[tuning] === world 66 trial 7/10 (31_reachable_horizon) === 04:29:20
+[tuning]   result: 66 1 0 0 16.8347 0.3170
+[tuning] === world 66 trial 8/10 (31_reachable_horizon) === 04:30:22
+[tuning]   result: 66 1 0 0 18.5130 0.2883
+[tuning] === world 66 trial 9/10 (31_reachable_horizon) === 04:31:26
+[tuning]   result: 66 0 0 1 100.0107 0.0000
+[tuning] === world 66 trial 10/10 (31_reachable_horizon) === 04:33:51
+[tuning]   result: 66 1 0 0 21.0768 0.2532
+=== tuning batch: world 66, tag "31_reachable_horizon" ===
+trials 10   success 8 (80%)   collision 0   timeout 2
+OT 5.33 s   2*OT clip 10.66 s
+AT  min 16.8  median 19.1  max 23.8  sd 2.1
+AT/OT median 3.59   trials above the 2*OT clip: 8/8
+MEAN SCORE 0.2164   (ceiling for this success rate: 0.4000)
+per-trial: 22 19 19 T 24 19 17 19 T 21
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             2             1             0             0
+  trial_5.log             1             1             0             0             0
+  trial_6.log             0             0             0             0             0
+  trial_7.log             0             0             0             0             0
+  trial_8.log             0             0             0             0             0
+  trial_9.log             0             2             1             0             0
+  trial_10.log             0             0             0             0             0

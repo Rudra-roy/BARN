@@ -16,7 +16,17 @@ set -euo pipefail
 MODE="${1:-builtin}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRIALS="${BARN_TRIALS_PER_WORLD:-10}"
-RESULTS_DIR="${BARN_RESULTS_DIR:-results/${MODE}/public_$(printf '%(%Y%m%d_%H%M%S)T' -1)}"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+# MUST be absolute. The evaluator writes to
+# os.path.join(get_pkg_src_path()/res, out_file): an absolute out_file is returned
+# unchanged by os.path.join, but a RELATIVE one is nested under the evaluator's
+# res/ directory, whose subdirectories it never creates. Every write then fails
+# and the result is lost SILENTLY -- the campaign runs to completion, every trial
+# logs "Navigation succeeded", and raw_results.txt stays empty. Cost 42 trials
+# before it was spotted. evaluation/tuning/run_tuning_batch.sh always passed an
+# absolute path, which is why per-world batches recorded fine and only the suite
+# lost data.
+RESULTS_DIR="${BARN_RESULTS_DIR:-${REPO_ROOT}/results/${MODE}/public_$(printf '%(%Y%m%d_%H%M%S)T' -1)}"
 OUT_FILE="${RESULTS_DIR}/raw_results.txt"
 
 mkdir -p "$RESULTS_DIR"

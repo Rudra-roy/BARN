@@ -1,0 +1,126 @@
+[tuning] world=66 trials=10 tag=160_recovery_replan
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_66/160_recovery_replan
+[tuning] === world 66 trial 1/10 (160_recovery_replan) === 15:05:09
+[tuning]   result: 66 1 0 0 13.1247 0.4067
+[tuning] === world 66 trial 2/10 (160_recovery_replan) === 15:06:12
+[tuning]   result: 66 1 0 0 25.7020 0.2077
+[tuning] === world 66 trial 3/10 (160_recovery_replan) === 15:07:23
+[tuning]   result: 66 1 0 0 12.8701 0.4147
+[tuning] === world 66 trial 4/10 (160_recovery_replan) === 15:08:21
+[tuning]   result: 66 1 0 0 13.2079 0.4041
+[tuning] === world 66 trial 5/10 (160_recovery_replan) === 15:09:19
+[tuning]   result: 66 1 0 0 11.1973 0.4767
+[tuning] === world 66 trial 6/10 (160_recovery_replan) === 15:10:16
+[tuning]   result: 66 1 0 0 11.7358 0.4548
+[tuning] === world 66 trial 7/10 (160_recovery_replan) === 15:11:13
+[tuning]   result: 66 1 0 0 11.0886 0.4813
+[tuning] === world 66 trial 8/10 (160_recovery_replan) === 15:12:09
+[tuning]   result: 66 1 0 0 12.6711 0.4212
+[tuning] === world 66 trial 9/10 (160_recovery_replan) === 15:13:08
+[tuning]   result: 66 1 0 0 11.0864 0.4814
+[tuning] === world 66 trial 10/10 (160_recovery_replan) === 15:14:04
+[tuning]   result: 66 1 0 0 11.9164 0.4479
+=== tuning batch: world 66, tag "160_recovery_replan" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.33 s   2*OT clip 10.66 s
+AT  min 11.1  median 12.3  max 25.7  sd 4.2
+AT/OT median 2.31   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.4196   (ceiling for this success rate: 0.5000)
+per-trial: 13 26 13 13 11 12 11 13 11 12
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             1             0             0             0
+  trial_2.log             2             3             0             0             0
+  trial_3.log             0             1             0             0             0
+  trial_4.log             0             1             0             0             0
+  trial_5.log             0             1             0             0             0
+  trial_6.log             0             1             0             0             0
+  trial_7.log             0             1             0             0             0
+  trial_8.log             0             1             0             0             0
+  trial_9.log             0             1             0             0             0
+  trial_10.log             0             1             0             0             0
+[tuning] world=294 trials=10 tag=160_recovery_replan
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_294/160_recovery_replan
+[tuning] === world 294 trial 1/10 (160_recovery_replan) === 15:15:03
+[tuning]   result: 294 1 0 0 27.1098 0.2164
+[tuning] === world 294 trial 2/10 (160_recovery_replan) === 15:16:16
+[tuning]   result: 294 1 0 0 30.1016 0.1949
+[tuning] === world 294 trial 3/10 (160_recovery_replan) === 15:17:31
+[tuning]   result: 294 1 0 0 26.7148 0.2196
+[tuning] === world 294 trial 4/10 (160_recovery_replan) === 15:18:46
+[tuning]   result: 294 1 0 0 34.8085 0.1685
+[tuning] === world 294 trial 5/10 (160_recovery_replan) === 15:20:06
+[tuning]   result: 294 1 0 0 26.3849 0.2223
+[tuning] === world 294 trial 6/10 (160_recovery_replan) === 15:21:18
+[tuning]   result: 294 1 0 0 23.3179 0.2516
+[tuning] === world 294 trial 7/10 (160_recovery_replan) === 15:22:27
+[tuning]   result: 294 1 0 0 21.3562 0.2747
+[tuning] === world 294 trial 8/10 (160_recovery_replan) === 15:23:36
+[tuning]   result: 294 1 0 0 21.6524 0.2709
+[tuning] === world 294 trial 9/10 (160_recovery_replan) === 15:24:46
+[tuning]   result: 294 1 0 0 25.5832 0.2293
+[tuning] === world 294 trial 10/10 (160_recovery_replan) === 15:25:56
+[tuning]   result: 294 1 0 0 25.3438 0.2314
+=== tuning batch: world 294, tag "160_recovery_replan" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.89 s   2*OT clip 11.78 s
+AT  min 21.4  median 26.0  max 34.8  sd 3.8
+AT/OT median 4.41   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.2280   (ceiling for this success rate: 0.5000)
+per-trial: 27 30 27 35 26 23 21 22 26 25
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             1             0             0             0
+  trial_2.log             0             1             0             0             0
+  trial_3.log             1             2             0             0             0
+  trial_4.log             0             1             0             0             0
+  trial_5.log             0             1             0             0             0
+  trial_6.log             0             1             0             0             0
+  trial_7.log             0             1             0             0             0
+  trial_8.log             0             1             0             0             0
+  trial_9.log             0             1             0             0             0
+  trial_10.log             0             1             0             0             0
+[tuning] world=282 trials=10 tag=160_recovery_replan
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_282/160_recovery_replan
+[tuning] === world 282 trial 1/10 (160_recovery_replan) === 15:27:08
+[tuning]   result: 282 1 0 0 15.6716 0.3897
+[tuning] === world 282 trial 2/10 (160_recovery_replan) === 15:28:14
+[tuning]   result: 282 1 0 0 18.4243 0.3314
+[tuning] === world 282 trial 3/10 (160_recovery_replan) === 15:29:18
+[tuning]   result: 282 1 0 0 24.5466 0.2488
+[tuning] === world 282 trial 4/10 (160_recovery_replan) === 15:30:28
+[tuning]   result: 282 1 0 0 15.7778 0.3870
+[tuning] === world 282 trial 5/10 (160_recovery_replan) === 15:31:29
+[tuning]   result: 282 1 0 0 19.7277 0.3095
+[tuning] === world 282 trial 6/10 (160_recovery_replan) === 15:32:35
+[tuning]   result: 282 1 0 0 19.8990 0.3069
+[tuning] === world 282 trial 7/10 (160_recovery_replan) === 15:33:40
+[tuning]   result: 282 1 0 0 21.2423 0.2875
+[tuning] === world 282 trial 8/10 (160_recovery_replan) === 15:34:48
+[tuning]   result: 282 1 0 0 20.0130 0.3051
+[tuning] === world 282 trial 9/10 (160_recovery_replan) === 15:35:54
+[tuning]   result: 282 1 0 0 19.3761 0.3152
+[tuning] === world 282 trial 10/10 (160_recovery_replan) === 15:37:00
+[tuning]   result: 282 1 0 0 18.8706 0.3236
+=== tuning batch: world 282, tag "160_recovery_replan" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 6.16 s   2*OT clip 12.33 s
+AT  min 15.7  median 19.6  max 24.5  sd 2.4
+AT/OT median 3.17   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.3205   (ceiling for this success rate: 0.5000)
+per-trial: 16 18 25 16 20 20 21 20 19 19
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             1             0             0             0
+  trial_2.log             0             1             0             0             0
+  trial_3.log             0             2             0             0             0
+  trial_4.log             0             1             0             0             0
+  trial_5.log             0             1             0             0             0
+  trial_6.log             0             1             0             0             0
+  trial_7.log             0             1             0             0             0
+  trial_8.log             0             1             0             0             0
+  trial_9.log             0             1             0             0             0
+  trial_10.log             0             1             0             0             0

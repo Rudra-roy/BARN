@@ -1,0 +1,45 @@
+[tuning] world=66 trials=10 tag=90_freeze_recovery
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_66/90_freeze_recovery
+[tuning] === world 66 trial 1/10 (90_freeze_recovery) === 09:28:47
+[tuning]   result: 66 1 0 0 37.0203 0.1442
+[tuning] === world 66 trial 2/10 (90_freeze_recovery) === 09:30:09
+[tuning]   result: 66 1 0 0 25.2911 0.2110
+[tuning] === world 66 trial 3/10 (90_freeze_recovery) === 09:31:22
+[tuning]   result: 66 1 0 0 32.8548 0.1625
+[tuning] === world 66 trial 4/10 (90_freeze_recovery) === 09:32:40
+[tuning]   result: 66 1 0 0 33.2871 0.1603
+[tuning] === world 66 trial 5/10 (90_freeze_recovery) === 09:34:01
+[tuning]   result: 66 1 0 0 23.8115 0.2241
+[tuning] === world 66 trial 6/10 (90_freeze_recovery) === 09:35:12
+[tuning]   result: 66 1 0 0 42.0215 0.1270
+[tuning] === world 66 trial 7/10 (90_freeze_recovery) === 09:36:41
+[tuning]   result: 66 1 0 0 41.9973 0.1271
+[tuning] === world 66 trial 8/10 (90_freeze_recovery) === 09:38:11
+[tuning]   result: 66 1 0 0 19.6068 0.2722
+[tuning] === world 66 trial 9/10 (90_freeze_recovery) === 09:39:17
+[tuning]   result: 66 1 0 0 20.1818 0.2645
+[tuning] === world 66 trial 10/10 (90_freeze_recovery) === 09:40:23
+[tuning]   result: 66 1 0 0 50.1553 0.1250
+=== tuning batch: world 66, tag "90_freeze_recovery" ===
+trials 10   success 10 (100%)   collision 0   timeout 0
+OT 5.33 s   2*OT clip 10.66 s
+AT  min 19.6  median 33.1  max 50.2  sd 9.8
+AT/OT median 6.21   trials above the 2*OT clip: 10/10
+MEAN SCORE 0.1818   (ceiling for this success rate: 0.5000)
+per-trial: 37 25 33 33 24 42 42 20 20 50
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             4             0             0             0
+  trial_2.log             0             2             0             0             0
+  trial_3.log             0             4             0             0             0
+  trial_4.log             0             4             0             0             0
+  trial_5.log             0             3             0             0             0
+  trial_6.log             1             5             0             0             0
+  trial_7.log             1             4             0             0             0
+  trial_8.log             0             3             0             0             0
+  trial_9.log             0             2             0             0             0
+  trial_10.log             1             6             2             0             0
+[tuning] world=288 trials=10 tag=90_freeze_recovery
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_288/90_freeze_recovery
+[tuning] === world 288 trial 1/10 (90_freeze_recovery) === 09:41:58

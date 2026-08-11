@@ -1,0 +1,9 @@
+[tuning] world=66 trials=10 tag=80_freeze_escape
+[tuning] out=/run/host/home/mt-labpc/BARN/evaluation/tuning/world_66/80_freeze_escape
+[tuning] === world 66 trial 1/10 (80_freeze_escape) === 09:14:30
+[tuning]   result: 66 1 0 0 17.4673 0.3056
+[tuning] === world 66 trial 2/10 (80_freeze_escape) === 09:15:33
+[tuning]   result: 66 0 0 1 100.0030 0.0000
+[tuning] === world 66 trial 3/10 (80_freeze_escape) === 09:17:58
+[tuning]   result: 66 0 0 1 100.0090 0.0000
+[tuning] === world 66 trial 4/10 (80_freeze_escape) === 09:20:24

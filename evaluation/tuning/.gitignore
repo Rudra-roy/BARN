@@ -6,3 +6,7 @@
 # If you need a log after the fact, re-run the batch: the config that produced
 # the numbers is committed next to them, which is the whole point of the layout.
 logs/
+
+# Transient colcon output from iterating on a change mid-session. The build that
+# matters is reproducible from the committed source; these are scratch.
+build_*.log
