@@ -167,6 +167,17 @@ class RecoveryTraceRecorder(Node):
             'clearance_m': self._fnum(classical, 'clearance_m'),
             'cmd_v': self._fnum(classical, 'selected_speed'),
             'cmd_w': self._fnum(classical, 'selected_yaw_rate'),
+            # Online freeze detector's own verdict. Recording it NEXT TO the raw
+            # inputs is what makes the comparison honest: the same trial can be
+            # replayed through the offline detector and the two verdicts diffed,
+            # instead of comparing across separate runs where the worlds differ.
+            'vref': self._fnum(classical, 'vref'),
+            'vref_curv_speed': self._fnum(classical, 'vref_curv_speed'),
+            'vref_curvature': self._fnum(classical, 'vref_curvature'),
+            'vref_clear_scale': self._fnum(classical, 'vref_clear_scale'),
+            'vref_head_scale': self._fnum(classical, 'vref_head_scale'),
+            'freeze_detected': self._fnum(classical, 'freeze_detected'),
+            'freeze_duration_s': self._fnum(classical, 'freeze_duration_s'),
             # --- safety shield ---
             'safety_reason': safety.get('safety_veto_reason'),
             'safety_scale': self._fnum(safety, 'command_scale'),
