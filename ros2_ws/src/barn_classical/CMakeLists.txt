@@ -64,6 +64,15 @@ if(BUILD_TESTING)
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
   target_link_libraries(test_goal_seeker_math barn_core::barn_core)
 
+  ament_add_gtest(test_freeze_detector test/test_freeze_detector.cpp)
+  target_include_directories(test_freeze_detector PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+  target_link_libraries(test_freeze_detector barn_core::barn_core)
+
+  ament_add_gtest(test_margin_escalator test/test_margin_escalator.cpp)
+  target_include_directories(test_margin_escalator PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+
   ament_add_gtest(test_classical_pipeline test/test_classical_pipeline.cpp)
   target_include_directories(test_classical_pipeline PRIVATE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")

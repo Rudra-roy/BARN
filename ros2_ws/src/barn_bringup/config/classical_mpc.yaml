@@ -65,7 +65,25 @@ mapping_node:
     scan_match_enable: true
     scan_match_yaw_window: 0.06     # rad searched each side per scan
     scan_match_yaw_step: 0.005      # rad per candidate
+    # ATTEMPTED AND REVERTED (2026-08-10): fine 1 cm xy stepping + a per-point
+    # acceptance gate + debiting translation from corr_rate_budget_. Registration
+    # got visibly WORSE: the live scan drifted off the painted map and walls were
+    # painted twice.
+    #
+    # Cause: corr_rate_budget_ is sized for YAW (cap 0.50 rad, regen 0.25 rad/s),
+    # and charging 5.0 rad per metre of translation spends 0.2 rad on a single
+    # 4 cm fix. Two or three of those exhaust the SHARED budget, which then
+    # blocks yaw corrections as well -- and yaw slip during in-place rotation is
+    # the drift this matcher exists to correct.
+    #
+    # The finding behind it still stands (xy has only 3 search levels, the gate is
+    # ~0.5% and open on noise, and only yaw is rate-limited), but the fix needs a
+    # SEPARATE scan_match_max_xy_rate budget, not a shared one. Do not re-apply
+    # without that.
     scan_match_xy_window: 0.04      # m searched each side per scan (translation drift)
+    # REVERTED to the working absolute gate. Making it per-point (0.03) was part
+    # of a matcher change that made registration WORSE -- see the note at
+    # scan_match_xy_window below.
     scan_match_min_score_gain: 0.75 # log-odds improvement required to accept
     scan_match_min_points: 30       # matched hits required to trust a fix
     scan_match_max_yaw_rate: 0.25   # rad/s of accepted yaw correction (divergence guard)
@@ -135,7 +153,138 @@ classical_mpc_node:
     # shield -- an independent authority, unchanged here -- vetoes the commands.
     # The result is stalls and recovery, visible as the tripled variance. The
     # MPC's margin should stay at or above what the shield will actually allow.
+    # RETEST (world 66, speed-bound): 0.20 -> 0.10. The earlier 0.20 -> 0.12
+    # test above was rejected on world 288 with the rationale that it "lets the
+    # MPC plan into the band where barn_safety's shield vetoes". Live telemetry
+    # now CONTRADICTS that rationale: over 1024 navigating samples on world 66
+    # the shield reported "clear" 97% of the time, reduced the command in 3.2%
+    # of samples by a median 14%, and never once zeroed it. The shield is not
+    # the binding constraint anywhere near this margin.
+    #
+    # What IS binding: the MPC constrains distance_field >= obstacle_margin at
+    # footprint boundary points already inflated by footprint.margin (0.04, a
+    # hardcoded default), so the required centre-to-obstacle clearance is
+    # 0.2159 + 0.04 + 0.20 = 0.4559 m. Measured stall on world 66: the robot
+    # stood still for 6.8 s of a 21 s trial at clearance 0.40 m with 0.69 m of
+    # free space ahead, shield clear, MPC reporting "solved". The constraint is
+    # violated at the CURRENT pose, so no action satisfies it and the QP's
+    # optimum is to not move -- the same freeze shape as the old shield veto.
+    # The benchmark's own reference path runs through 0.225 m clearance.
+    #
+    # ACCEPTED (provisional, world 66 + 288): 0.20 -> 0.10.
+    #
+    # The 0.12 rejection recorded above was right about the regression and WRONG
+    # about the cause. Live telemetry (1024 navigating samples, world 66) shows
+    # the shield reporting "clear" 97% of the time, cutting the command in 3.2%
+    # of samples by a median 14%, and NEVER zeroing it. The shield is not the
+    # binding constraint near this margin; the MPC's own obstacle row is.
+    #
+    # That row requires distance_field >= obstacle_margin at footprint boundary
+    # points already inflated by footprint.margin (0.04, hardcoded, not a
+    # parameter), so the demanded centre clearance is 0.2159 + 0.04 + 0.20 =
+    # 0.4559 m. BARN's own reference paths thread gaps at 0.225 m. Caught in the
+    # act on world 66: 6.8 s of a 21 s trial stopped dead at 0.40 m clearance
+    # with 0.69 m free ahead, shield "clear" at scale 1.0, MPC "solved". The
+    # constraint is violated at the CURRENT pose, so no action satisfies it and
+    # the QP's cheapest option is to not move.
+    #
+    #   world 66:  0.2263 -> 0.2901, AT max 49.9 -> 20.4 s, recovery 9 -> 0
+    #   world 288: 0.4286 -> 0.4128, AT median 11.9 -> 13.6 s (sd 2.0 -> 0.7)
+    #
+    # 288 pays because with less margin the planner routes nearer walls on a
+    # world that was never clearance-starved. Net is still positive but the
+    # trade is real; validate across the major tier before adopting campaign-wide.
+    #
+    # TRIED AND REVERTED IN CODE (2 variants, world 66, 10 trials each). Clamping
+    # the demanded margin to clearance the robot can actually reach:
+    #   at the current pose only -> 10/10 but 0.2522, 4 trials still stalled: the
+    #     robot halts JUST BEFORE a tight gap, where its own clearance is still
+    #     fine, so the clamp never engages while the steps inside the gap stay
+    #     infeasible.
+    #   min over the whole horizon -> successes fast (median 19.1, sd 2.1) but
+    #     8/10 with 2 TIMEOUTS and score 0.2164, below baseline: relaxing on the
+    #     tightest point ahead commits the MPC into pinches it should decline.
+    # Do not retry either without a new mechanism.
+    # REJECTED on the tier that matters. World 66 (+0.064) was unrepresentative:
+    # its corridors are wide enough that 0.10 never reaches the shield's band.
+    # On the two heaviest-freeze worlds it converts a SOFT stall into a HARD one.
+    #
+    #            score        success      freezes    SHIELD TRAPPED
+    #   w282  0.2101->0.1313  8/10->5/10   42 -> 0      0 -> 12
+    #   w276  0.2377->0.2045  9/10->7/10   14 -> 1      3 ->  8
+    #
+    # The freeze is genuinely eliminated and the surviving trials are faster and
+    # far steadier (w276 AT sd 21.8 -> 2.7, max 74.4 -> 26.9 s). But the robot
+    # now plans into the band where an obstacle ends up INSIDE barn_safety's veto
+    # box (0.2159 + 0.02 = 0.2359 m), and with the shield's escape search off
+    # that state is unrecoverable -- a timeout instead of a slow finish.
+    #
+    # This is the third independent confirmation of the same mechanism (the
+    # freeze escalator produced 4 traps and 2 timeouts in 3 trials), and it
+    # vindicates the original 0.12 rejection note above, which was dismissed
+    # earlier on telemetry taken where the mechanism could not appear.
+    #
+    # UNTESTED and the obvious next move: 0.10 TOGETHER WITH shield_escape_enable.
+    # The escape was rejected alone because at 0.20 traps are rare so it only cost
+    # time; at 0.10 there are 12 traps in 10 trials for it to work on.
     obstacle_margin: 0.20
+    # Freeze escape: relax obstacle_margin ONLY while the freeze detector reports
+    # the robot stopped with nothing blocking it, then restore slowly. Costs
+    # nothing on worlds that never freeze, which is the point -- lowering the
+    # margin globally to 0.10 fixed world 66 (+0.064) but cost 288 (-0.016).
+    # REJECTED, left OFF. The DETECTOR is good -- validated offline on 8 traces
+    # (77% of freeze time, 0 false positives) and online on 5 real runs (9/9
+    # episodes, per-trial exact). The ACTION is wrong.
+    #
+    # World 66, first 3 trials: 17.5 s, TIMEOUT, TIMEOUT.
+    #
+    #   trial 1: 0 freezes -> 0 shield traps -> fine
+    #   trial 2: 3 freezes -> 4 SHIELD TRAPPED -> timeout
+    #   trial 3: 1 freeze  -> 3 SHIELD TRAPPED -> timeout
+    #   static obstacle_margin 0.10 on the same world: 0 traps, 10/10
+    #
+    # Relaxing the margin mid-trial lets the MPC nose into a gap where an
+    # obstacle ends up INSIDE the shield's veto box (0.2159 + 0.02 = 0.2359 m):
+    # "signed clearance -0.006 m ... no escape motion increases it". The shield's
+    # escape search is off by default, so that state is far harder to leave than
+    # the freeze being fixed. It trades a stall for a deadlock.
+    #
+    # Note the static 0.10 margin does NOT do this, so it is not the value but
+    # CHANGING it mid-trial -- most likely because A*, the elastic band and the
+    # MPC then disagree, and the MPC accepts a trajectory no path was shaped for.
+    # Hypothesis, not established.
+    #
+    # This vindicates the original obstacle_margin rejection note above ("lets
+    # the MPC plan into the band where the shield vetoes"), which was dismissed
+    # earlier on telemetry showing the shield clear 97% of the time -- telemetry
+    # taken on the BASELINE config, where the MPC keeps the robot out of the
+    # shield's band and the mechanism cannot appear.
+    #
+    # If revisited: use the detector to trigger the EXISTING recovery (bounded
+    # and tested) earlier and more specifically than its 3 s no_progress timer,
+    # rather than to move a constraint the rest of the pipeline is planning to.
+    freeze_escape_enable: false
+    # Under test instead: hand the detected freeze to RECOVERY, which is bounded,
+    # tested, and reverses along ground the robot has already occupied -- the
+    # opposite direction to the rejected margin relaxation, which drove it
+    # forward into a shield trap. Fills a real gap: the existing no_progress
+    # timer requires |w| < 0.15 to accept a near-zero speed as stuck, and a
+    # frozen robot twitches to +-0.43 rad/s, so that timer never fires here.
+    #
+    # ALSO REJECTED (world 66, 10 trials): 10/10, 0 collisions, 0 SHIELD TRAPPED
+    # -- the safety problem of the margin relaxation is genuinely solved, and the
+    # trigger fired 24 times for 24 detections, exactly 1:1. But score 0.2263 ->
+    # 0.1818 and AT median ~21.5 -> 33.1 s, with the tail unchanged (max 50.2 vs
+    # 49.9). 24 freezes across 10 trials is 2.4 per trial, and a reverse-plus-
+    # replan costs several seconds each. Reacting to this freeze is more
+    # expensive than the freeze.
+    #
+    # CONCLUSION for the whole detect-and-react line: the detector is good
+    # (9/9 online vs offline, 0 false positives) but NEITHER action beats simply
+    # not freezing. Static obstacle_margin 0.10 scores 0.2901 with ZERO recovery
+    # episodes -- it PREVENTS the state rather than reacting to it, and at 2.4
+    # freezes per trial prevention is worth far more than any reaction can be.
+    freeze_recovery_enable: false
     max_obstacle_slack: 2.0
     # Dynamic (moving) obstacles from barn_dynamic_tracking on /barn/tracks.
     # Family-1 spatiotemporal soft keep-out: predicted per-horizon-step.
@@ -166,6 +315,52 @@ classical_mpc_node:
     # cannot reach barn_safety's veto band. Worth a properly powered test (~30
     # trials/config on a speed-bound world such as 216 or 66) before adopting.
     max_lateral_accel: 3.0
+    # Clearance-gated cornering: the curvature speed limit spends a lateral-accel
+    # budget that grows with the room available AT THE CORNER THAT BINDS, because
+    # the reason to slow for a BARN curve is tracking error near a wall, not
+    # vehicle dynamics. gain 1.0 == the old constant-budget behaviour.
+    #
+    # REJECTED at 1.0 (= old constant-budget behaviour). The idea is sound and
+    # the speed is real, but it raises the COLLISION rate ~20x and that is the
+    # one thing this benchmark cannot absorb.
+    #
+    #   gain 3.0  w66  0.2263 -> 0.2096, 9/10, 1 COLLISION, recovery 9 -> 13
+    #   gain 1.5  w66  0.2263 -> 0.2609, 10/10          (+15%)
+    #   gain 1.5  w294 0.1953 -> 0.2134, 10/10, sd 3.8 -> 1.6   (+9%)
+    #   gain 1.5  w288 0.4286 -> 0.3911, 9/10, 1 COLLISION
+    #
+    # 2 collisions in 40 trials against 0 in 65 baseline trials here and 1 in 430
+    # in the campaign. Halving the gain changed WHICH world collided, not whether
+    # one did -- so this is not a magnitude that can be tuned down safely without
+    # a much larger sample than 10 trials/world to detect a ~2-5% event.
+    #
+    # Why it likely collides: the budget is scaled by the clearance at the
+    # PLANNED corner, but the robot corners with tracking error, so the space it
+    # actually uses is smaller than the space the plan promised -- and the extra
+    # speed is granted precisely where that error grows. A safer formulation
+    # would key on the clearance the robot can GUARANTEE (plan clearance minus a
+    # tracking-error allowance), or restrict the gain to genuinely open ground
+    # (open_clearance ~2.0+) rather than 1.2 m corridors.
+    open_clearance: 1.20
+    open_lateral_accel_gain: 1.0
+    # Window the speed profile scans for the worst curvature ahead (see the
+    # comment in barn_classical/include/barn_classical/local_planner.hpp).
+    #
+    # TRIED AND REVERTED (world 294, 10 trials each): 3.0 -> 1.5 made the
+    # SUCCESSES faster -- median AT 31.6 -> 28.4 s (-10%), sd 3.8 -> 2.9 -- but
+    # cost a timeout, 10/10 -> 9/10, and score 0.1953 -> 0.1890. Exactly the
+    # trade the 1.5 -> 3.0 widening was made to avoid: less runway to
+    # pre-decelerate means arriving at a corner too fast, and the one bad trial
+    # logged 4 recovery episodes and 2 reverses before running out the clock.
+    # On this benchmark a hard zero costs far more than 10% of cruise speed.
+    #
+    # NOTE the offline model predicted NO CHANGE here (mean v_ref 1.25 at both
+    # 1.5 and 3.0 m for world 294) and was wrong: the robot's actual A* path is
+    # 1.44x longer than the reference path the model reads, so its curvature
+    # profile differs. The model predicts CRUISE SPEED well (1.25 predicted vs
+    # 1.137 measured) but does NOT predict the effect of changing this window.
+    # Do not use it to justify a shorter one without a measured trial.
+    curvature_lookahead_m: 3.0
     unknown_speed: 2.0
     mpc_deadline_ms: 35.0
     startup_creep_delay_s: 1.0
@@ -219,6 +414,39 @@ safety_node:
     # swept_footprint_shield.cpp). Collisions are the risk to watch: revert if
     # any batch shows one, since the baseline campaign had 1 in 430 trials.
     emergency_margin: 0.02
+    # Shield escape ENABLED for a first honest test.
+    #
+    # It was disabled on a measurement that is now known to be invalid: the latch
+    # authorising it cleared on its own first non-zero output, so it emitted one
+    # 33 ms command per 1.5 s (~5 mm of travel) and could never leave the veto
+    # box. The "11/12 either way, median AT 16.2 -> 18.3 s, 28 escapes fired"
+    # result was measuring that defect. The latch now keys on the shield's reason
+    # (safety_node.cpp), so the escape runs continuously while the shield blocks.
+    #
+    # World 228 is the right test: 5 of 8 instrumented trials timed out, and 97%
+    # of 515 stopped seconds were emergency_veto/emergency_trapped -- the exact
+    # state find_escape exists for. World 216, where it was originally judged,
+    # produces traps only rarely.
+    # Left OFF: this is a relaxation of a hard safety veto, and the 500-trial
+    # campaign that measured 0.4451 ran without it. Enabling it would mean the
+    # shipped config differs from the only campaign-scale result we have.
+    #
+    # It does work now, and the earlier rejection was invalid (the latch
+    # authorising it cleared on its own first output, so it emitted ~5 mm per
+    # 1.5 s). First fair test, world 228, the world where 97% of stopped time is
+    # emergency_veto/emergency_trapped:
+    #     baseline  0.1955, 6/10       escape on  0.2449, 7/9, 0 collisions
+    #     46 escapes fired, best trial 10.15 s (0.5000, the clip)
+    # It converts trapped states into slow finishes, which is the right trade
+    # when a timeout scores 0.
+    #
+    # Not adopted because: one world, n=9, and 92 trapped events still found no
+    # acceptable escape -- the accept test is too strict on a plain veto (any
+    # rotation of a 0.55 x 0.47 m box sweeps a corner toward something). Fix that
+    # first (per-obstacle rules instead of one global minimum), then re-test at
+    # 30+ trials on 228 plus two clean worlds before enabling.
+    shield_escape_enable: false
+
     shield_latency_s: 0.05
     braking_decel: 2.5
     shield_horizon_s: 0.0

@@ -254,10 +254,21 @@ void Recovery::finish_replan()
 
 void Recovery::notify_progress()
 {
-  // Only meaningful while not mid-episode; the caller invokes this from the
-  // normal-navigation path where recovery is inactive.
-  if (state_ == RecoveryState::kInactive) {
-    attempts_ = 0;
+  // Refund ONE attempt, not the whole budget.
+  //
+  // This used to zero attempts_. The caller invoked it after 0.18 m of travel,
+  // which the robot covers in ~0.2 s the moment recovery hands back, so every
+  // episode restarted at attempt 1: rotate_after_reverse_ (attempts >= 2) and
+  // boost_after_ (>= 3) almost never engaged, and kFailed (5) never latched.
+  // The escalation ladder existed and was unreachable.
+  //
+  // The consequence is a closed loop, observed directly: recovery finishes ->
+  // replans -> A* is deterministic and returns the SAME path through the SAME
+  // pinch -> the robot re-enters the same state -> recovery again as "attempt 1".
+  // Decrementing makes the second episode genuinely different from the first,
+  // which is the only thing that breaks the loop.
+  if (state_ == RecoveryState::kInactive && attempts_ > 0) {
+    --attempts_;
   }
 }
 

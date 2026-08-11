@@ -148,6 +148,10 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   local.horizon_m = declare_parameter<double>("local_horizon_m", 8.0); // Increased horizon to support high speeds
   local.max_yaw_rate = declare_parameter<double>("max_yaw_rate", 2.5);
   local.max_lateral_accel = declare_parameter<double>("max_lateral_accel", 1.5);
+  local.curvature_lookahead_m = declare_parameter<double>("curvature_lookahead_m", 3.0);
+  local.open_clearance = declare_parameter<double>("open_clearance", 1.20);
+  local.open_lateral_accel_gain = declare_parameter<double>("open_lateral_accel_gain", 3.0);
+
   local_planner_ = LocalPlanner(local);
 
   MpcParams mpc;
@@ -165,6 +169,25 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   mpc.max_dynamic_obstacles = declare_parameter<int>("max_dynamic_obstacles", 8);
   mpc.max_linearization_passes = 4;  // One extra pass for better convergence
   controller_ = Controller(mpc);
+  // Freeze escape: relax obstacle_margin ONLY while the freeze detector reports
+  // the robot is stopped with nothing blocking it, then restore. Default OFF --
+  // every behaviour change this session had to earn its way in on measurements,
+  // and this one has not run a batch yet.
+  freeze_escape_enable_ = declare_parameter<bool>("freeze_escape_enable", false);
+  freeze_recovery_enable_ = declare_parameter<bool>("freeze_recovery_enable", false);
+  recovery_refund_distance_m_ =
+    declare_parameter<double>("recovery_refund_distance_m", 1.0);
+  clearance_boost_hold_m_ = declare_parameter<double>("clearance_boost_hold_m", 2.0);
+  path_improvement_ratio_ = declare_parameter<double>("path_improvement_ratio", 0.85);
+  {
+    MarginEscalatorParams esc;
+    esc.nominal = controller_.params().obstacle_margin;
+    esc.minimum = declare_parameter<double>("freeze_margin_min", 0.10);
+    esc.step = declare_parameter<double>("freeze_margin_step", 0.05);
+    esc.step_interval_s = declare_parameter<double>("freeze_margin_step_interval_s", 0.5);
+    esc.restore_after_s = declare_parameter<double>("freeze_margin_restore_after_s", 2.0);
+    margin_escalator_ = MarginEscalator(esc);
+  }
 
   // Dynamic-obstacle tracking feed (Track C -> MPC keep-out constraints).
   enable_dynamic_obstacles_ = declare_parameter<bool>("enable_dynamic_obstacles", true);
@@ -236,14 +259,21 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
     this, get_clock(), std::chrono::milliseconds(100),
     std::bind(&ClassicalMpcNode::local_plan_step, this));
   replan_timer_ = rclcpp::create_timer(this, get_clock(), std::chrono::milliseconds(500), [this]() {
-    bool need_replan = false;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      need_replan = global_path_.empty();
-    }
-    if (need_replan) {
-      request_plan();
-    }
+    // Re-plan PERIODICALLY, not only when the path is empty.
+    //
+    // This used to fire only on `global_path_.empty()`, so every other replan was
+    // reactive (map invalidation, empty local plan, veto escalation). The route
+    // the robot drove was therefore the one computed when the map was almost
+    // entirely UNKNOWN -- priced at unknown_cost_multiplier 2.0 against a blank
+    // grid -- and it was never re-optimised as the corridor was actually
+    // observed. Watched directly on world 294: the first plan commits to a narrow
+    // gap, the robot drives it, then U-turns onto the real route once the map
+    // fills, paying the detour on every trial.
+    //
+    // A* costs 13.9 ms against a 500 ms budget, so 2 Hz is ~2.8% of one core.
+    // Whether the fresh plan is actually adopted is decided by the improvement
+    // test at the swap site below, which is what keeps this from oscillating.
+    request_plan();
   });
   planner_thread_ = std::thread(&ClassicalMpcNode::planner_loop, this);
   RCLCPP_INFO(get_logger(), "classical_mpc_node ready: 20 Hz MPC, 10 Hz local, 2 Hz global");
@@ -332,9 +362,18 @@ void ClassicalMpcNode::map_callback(const nav_msgs::msg::OccupancyGrid::SharedPt
   }
   auto next_planning_grid = planning_grid_at_10cm(next);
   barn_core::DistanceField2D next_field;
-  // The controller/local planner use metric queries, so a 10 cm EDT preserves
-  // their interface while reducing the continuously updated field to one
-  // quarter of the 5 cm occupancy map's cells.
+  // TRIED AND REJECTED (world 66, 10 trials): building this field from the 5 cm
+  // map instead of the 10 cm planning grid, plus bilinear interpolation in
+  // distance_world. The theory was that max-pooling (any occupied 5 cm subcell
+  // marks the whole 10 cm cell) plus a centre-to-centre EDT pads obstacles by up
+  // to ~0.12 m, so the MPC reports its constraint violated in corridors that are
+  // actually drivable. The measured freeze gap was 0.056 m, inside that band.
+  //
+  // It did not hold: freezes went 1.8 -> 2.4 per trial and score 0.2263 ->
+  // 0.2095. The padding is real but it is not what causes the freeze.
+  //
+  // Note one trial ran 77 s with ZERO freezes, so a large part of this world's
+  // slowness is not the freeze at all.
   next_field.rebuild(next_planning_grid);
 
   // NOTE: Binary inflation has been removed from the A* planning path.
@@ -565,11 +604,42 @@ void ClassicalMpcNode::planner_loop()
             Path2D ahead(global_path_.begin() + 5, global_path_.end());
             ahead_blocked = !path_validator_.is_path_clear(ahead, *grid_, false);
           }
-          if (!ahead_blocked) {
-            // Path ahead is fine, keep it
+          // Improvement escape: a materially better route is worth taking even
+          // inside the cooldown. The cooldown exists to stop oscillation between
+          // near-equal paths, not to refuse a genuinely shorter one -- and with
+          // periodic re-planning above, most candidates arrive while the map is
+          // still filling in, which is exactly when a real improvement appears.
+          double retained_len = 0.0;
+          for (std::size_t i = 1; i < global_path_.size(); ++i) {
+            retained_len += std::hypot(
+              global_path_[i].x - global_path_[i - 1].x,
+              global_path_[i].y - global_path_[i - 1].y);
+          }
+          double candidate_len = 0.0;
+          for (std::size_t i = 1; i < candidate.size(); ++i) {
+            candidate_len += std::hypot(
+              candidate[i].x - candidate[i - 1].x,
+              candidate[i].y - candidate[i - 1].y);
+          }
+          const bool much_better = accepted && retained_len > 0.1 &&
+            candidate_len < path_improvement_ratio_ * retained_len;
+          if (much_better) {
+            force_accept = true;
+          } else if (!ahead_blocked) {
+            // Path ahead is fine, keep it.
+            //
+            // Record the status in BOTH branches. Previously this was assigned
+            // only when `accepted`, so a plan that FAILED during cooldown kept
+            // whatever label preceded it -- which silently corrupted every
+            // planner_status statistic gathered from a live run (a measured
+            // "22-26% retained_cooldown, 17% failed_dead_end" was read through
+            // this hole). Only signal replan_completed_ on a real plan.
             if (accepted) {
               planner_status_ = "retained_cooldown";
               replan_completed_ = true;
+            } else {
+              planner_status_ = stats.timed_out ? "timeout_during_cooldown"
+                                                : "failed_during_cooldown";
             }
             goto done;
           }
@@ -780,7 +850,17 @@ void ClassicalMpcNode::control_step()
       controller_.reset();
     } else if (recovery_.active()) {
       const auto ctx = recovery_context(state.pose, field, scan, veto_active);
-      command = recovery_.step(0.033, ctx);
+      // Integrate recovery on the MEASURED period, not the timer's nominal one.
+      // The control timer is configured at 33 ms but the achieved rate is ~20 Hz
+      // (the executor serialises every callback into one group), and under
+      // Gazebo the RTF varies. With a hardcoded 0.033 every recovery timeout --
+      // reverse 6.0 s, blocked-bail 0.7 s, rotate, replan -- stretched by
+      // whatever the real overrun was, so recovery ran ~50% longer than
+      // configured and no recovery tuning number was reproducible.
+      const double recovery_dt = last_control_stamp_.nanoseconds() > 0
+        ? std::clamp((stamp - last_control_stamp_).seconds(), 0.005, 0.2)
+        : 0.033;
+      command = recovery_.step(recovery_dt, ctx);
       // The no-progress watchdog only ticks in the MPC branch below, so its
       // timer goes stale while recovery runs (often several seconds of rotating
       // in place). Force a clean re-initialisation on the first MPC tick after
@@ -847,15 +927,32 @@ void ClassicalMpcNode::control_step()
         progress_initialized_ = true;
       } else if (
         std::hypot(state.pose.x - progress_pose_.x, state.pose.y - progress_pose_.y) > 0.18) {
+        const double advanced = std::hypot(
+          state.pose.x - progress_pose_.x, state.pose.y - progress_pose_.y);
         progress_pose_ = state.pose;
         last_progress_time_ = stamp;
-        // Real ground covered — refund the recovery attempt budget so
-        // max_recovery_attempts bounds *consecutive* failed episodes, not the
-        // lifetime total. Without this, enough scattered recoveries latch
-        // kFailed and the robot stops for the rest of the trial.
-        recovery_.notify_progress();
-        // Relax any clearance boost back to baseline now that we are moving.
-        if (global_planner_.params().clearance_weight > base_clearance_weight_) {
+
+        // 0.18 m is the right threshold for "is it still moving" (the
+        // no_progress timer above), and much too small for the two decisions
+        // below, which used to share it. Accumulate real distance instead.
+        progress_since_refund_ += advanced;
+        progress_since_boost_ += advanced;
+
+        // Refund ONE recovery attempt per metre of ground actually covered, so
+        // max_recovery_attempts bounds consecutive failures without the budget
+        // being wiped by the 0.2 s of motion that follows every episode.
+        if (progress_since_refund_ >= recovery_refund_distance_m_) {
+          progress_since_refund_ = 0.0;
+          recovery_.notify_progress();
+        }
+
+        // Hold a clearance boost until it has actually bought a different route.
+        // Relaxing it after 0.18 m discarded the wider routing before the robot
+        // had driven any of it, so attempt 3+ escalation achieved nothing.
+        if (global_planner_.params().clearance_weight > base_clearance_weight_ &&
+          progress_since_boost_ >= clearance_boost_hold_m_)
+        {
+          progress_since_boost_ = 0.0;
           auto params = global_planner_.params();
           params.clearance_weight = base_clearance_weight_;
           global_planner_.set_params(params);
@@ -869,6 +966,28 @@ void ClassicalMpcNode::control_step()
         recovery_.trigger(recovery_context(state.pose, field, scan, veto_active));
         status = "no_progress_recovery";
         RCLCPP_INFO(get_logger(), "[Recovery] Triggered due to: no_progress. Action taken: %s", to_string(recovery_.state()));
+      } else if (freeze_recovery_enable_ && freeze_detector_.frozen()) {
+        // The MPC freeze does not reach the no_progress branch above. That
+        // branch needs `|w| < 0.15` to accept a near-zero speed as "stuck", but
+        // a frozen robot twitches: desired_w was measured swinging to +-0.43
+        // rad/s while desired_v sat at exactly 0.00 for 6.8 s. So the 2 s timer
+        // never fires and the robot holds position until the trial ends.
+        //
+        // Hand the state to RECOVERY rather than to a parameter. Recovery is
+        // bounded, tested, and reverses along a breadcrumb the robot has already
+        // physically occupied. The alternative -- relaxing obstacle_margin while
+        // frozen -- was measured and rejected: it moved the robot FORWARD into a
+        // gap nothing had planned for, and 4 of 4 freeze episodes across two
+        // trials ended in SHIELD TRAPPED and a timeout. Backward along known-good
+        // ground is the opposite direction, which is the point.
+        recovery_.trigger(recovery_context(state.pose, field, scan, veto_active));
+        status = "freeze_recovery";
+        // Clear the latch so this triggers once per freeze, not every cycle
+        // while recovery is working.
+        freeze_detector_.reset();
+        RCLCPP_WARN(
+          get_logger(), "[Recovery] Triggered due to: mpc_freeze. Action taken: %s",
+          to_string(recovery_.state()));
       }
 
       const int turn_sign = command.w > 0.35 ? 1 : (command.w < -0.35 ? -1 : 0);
@@ -926,6 +1045,39 @@ void ClassicalMpcNode::control_step()
   output.twist.angular.z = command.w;
   command_pub_->publish(output);
   last_command_ = command;
+  last_control_stamp_ = stamp;
+
+  // --- Freeze detection (DIAGNOSTIC ONLY -- changes no behaviour) ----------
+  //
+  // Reports the state where the robot is stopped and NOTHING is stopping it:
+  // the MPC's obstacle row is violated at the current pose, so no action
+  // satisfies it and the QP's cheapest answer is v = 0. See freeze_detector.hpp.
+  //
+  // `mpc_solved` deliberately excludes recovery, startup creep and
+  // waiting-for-inputs: those stops are explained and something is already
+  // acting on them. `shield_passive` excludes a live veto for the same reason.
+  {
+    const bool mpc_solved = status.rfind("solved", 0) == 0;
+    const double goal_distance = have_goal
+      ? std::hypot(goal.x - state.pose.x, goal.y - state.pose.y)
+      : 0.0;
+    freeze_detector_.update(
+      stamp.seconds(), state.pose, command.v, goal_distance, !veto_active, mpc_solved);
+    // Act on it only when enabled; otherwise this stays pure diagnostics.
+    if (freeze_escape_enable_) {
+      const double margin = margin_escalator_.update(stamp.seconds(), freeze_detector_.frozen());
+      controller_.set_obstacle_margin(margin);
+    }
+    if (freeze_detector_.just_fired()) {
+      RCLCPP_WARN(
+        get_logger(),
+        "MPC FREEZE: stopped with nothing blocking -- clearance %.2f m, shield passive, "
+        "status '%s'. Demanded clearance is half_width + footprint_margin + obstacle_margin; "
+        "if the corridor is narrower the constraint cannot be satisfied at this pose.",
+        clearance, status.c_str());
+    }
+  }
+
   publish_debug(stamp, command, status, mpc_ms, clearance);
 }
 
@@ -979,11 +1131,31 @@ void ClassicalMpcNode::publish_debug(
   }
   status.values.push_back(key_value("mpc_ms", std::to_string(mpc_ms)));
   status.values.push_back(key_value("clearance_m", std::to_string(clearance)));
+  // Speed-profile breakdown for the point the controller is tracking. 32.5 s of
+  // stopped time in three slow trials had every component reporting healthy --
+  // MPC solved, planner success, shield clear -- with the command at zero. These
+  // say WHICH term produced that zero.
+  {
+    const auto & pd = local_planner_.profile_debug();
+    status.values.push_back(key_value("vref", std::to_string(pd.v_ref)));
+    status.values.push_back(key_value("vref_curv_speed", std::to_string(pd.curvature_speed)));
+    status.values.push_back(key_value("vref_curvature", std::to_string(pd.curvature)));
+    status.values.push_back(key_value("vref_clear_scale", std::to_string(pd.clearance_scale)));
+    status.values.push_back(key_value("vref_head_scale", std::to_string(pd.heading_scale)));
+  }
   status.values.push_back(key_value("selected_speed", std::to_string(command.v)));
   status.values.push_back(key_value("selected_yaw_rate", std::to_string(command.w)));
   status.values.push_back(
     key_value("recovery_state", std::to_string(static_cast<int>(recovery_.state()))));
   status.values.push_back(key_value("recovery_attempts", std::to_string(recovery_.attempts())));
+  // Diagnostic only: nothing consumes these yet. They exist so the online
+  // detector can be scored against the offline numbers on real runs before any
+  // parameter is allowed to move.
+  status.values.push_back(key_value("freeze_detected", freeze_detector_.frozen() ? "1" : "0"));
+  status.values.push_back(
+    key_value("obstacle_margin_active", std::to_string(margin_escalator_.margin())));
+  status.values.push_back(
+    key_value("freeze_duration_s", std::to_string(freeze_detector_.duration_s())));
   array.status.push_back(status);
   diagnostics_pub_->publish(array);
 

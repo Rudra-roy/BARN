@@ -25,6 +25,8 @@
 #include "barn_classical/global_planner_astar.hpp"
 #include "barn_classical/local_planner.hpp"
 #include "barn_classical/path_validator.hpp"
+#include "barn_classical/freeze_detector.hpp"
+#include "barn_classical/margin_escalator.hpp"
 #include "barn_classical/recovery.hpp"
 #include "barn_core/distance_field.hpp"
 #include "barn_core/occupancy.hpp"
@@ -163,6 +165,19 @@ private:
   int consecutive_veto_count_{0};
   int veto_replan_threshold_{0};  // populated from parameter in constructor
   bool veto_active_{false};
+  // Diagnostic-only: reports the MPC-freeze state, drives nothing.
+  FreezeDetector freeze_detector_;
+  // Relaxes obstacle_margin only while the detector reports a freeze.
+  MarginEscalator margin_escalator_;
+  bool freeze_escape_enable_{false};
+  bool freeze_recovery_enable_{false};
+  double recovery_refund_distance_m_{1.0};
+  double clearance_boost_hold_m_{2.0};
+  double path_improvement_ratio_{0.85};
+  double progress_since_refund_{0.0};
+  double progress_since_boost_{0.0};
+  // Previous control_step stamp, so recovery integrates on the real period.
+  rclcpp::Time last_control_stamp_{0, 0, RCL_ROS_TIME};
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr command_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr global_path_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr local_path_pub_;

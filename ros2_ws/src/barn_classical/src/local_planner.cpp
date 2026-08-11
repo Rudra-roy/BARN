@@ -16,6 +16,40 @@ namespace barn_classical
 namespace
 {
 
+// Curvature from a finite difference is only meaningful over a physically
+// meaningful baseline, and only up to a physically meaningful value.
+//
+// MEASURED: during a 7.6 s stall with the MPC reporting "solved", the planner
+// reporting success and the shield reporting clear, the lookahead curvature was
+// 11.678 rad/m -- an 8.6 cm turn radius on a 51 cm robot -- which drove
+// curvature_speed to 0.259 m/s and v_ref to 0.132. While moving, the same
+// quantity was 1.367. It is an artifact, not geometry.
+//
+// Cause: kappa = |dyaw| / ds was guarded only by `ds > 1e-4` (0.1 mm). The
+// elastic band displaces path points without resampling, so neighbours can end
+// up nearly coincident and a real yaw change divided by a near-zero baseline
+// explodes. Because the profile takes the MAX over the lookahead window, one
+// such sample pins the speed for the whole approach to it.
+//
+// kMinCurvatureBaseline: below this the sample says nothing about curvature.
+// kMaxCurvature: 1/0.30 m. A differential-drive robot cannot usefully arc
+// tighter than its own rotation radius; anything sharper is a place to rotate in
+// place, which the entry-heading gate already handles -- not a reason to crawl.
+constexpr double kMinCurvatureBaseline = 0.05;
+constexpr double kMaxCurvature = 1.0 / 0.30;
+
+double curvature_between(
+  const barn_core::Pose2D & prev, const barn_core::Pose2D & next)
+{
+  const double ds = std::hypot(next.x - prev.x, next.y - prev.y);
+  if (ds < kMinCurvatureBaseline) {
+    return 0.0;
+  }
+  const double k = std::abs(barn_core::wrap_angle(next.yaw - prev.yaw)) / ds;
+  return std::min(k, kMaxCurvature);
+}
+
+
 std::size_t nearest_path_index(const Path2D & path, const barn_core::Pose2D & pose)
 {
   std::size_t best = 0;
@@ -140,22 +174,20 @@ LocalTrajectory LocalPlanner::plan(
 
     double curvature = 0.0;
     if (i > 0 && i + 1 < refined.size()) {
-      const double ds = std::hypot(
-        refined[i + 1].x - refined[i - 1].x,
-        refined[i + 1].y - refined[i - 1].y);
-      if (ds > 1e-4) {
-        curvature = std::abs(barn_core::wrap_angle(
-          refined[i + 1].yaw - refined[i - 1].yaw)) / ds;
-      }
+      curvature = curvature_between(refined[i - 1], refined[i + 1]);
     }
 
     // Lookahead curvature: scan ahead ~1.5 m to find the worst-case curvature.
     // This pre-decelerates the robot BEFORE reaching a corner, instead of only
     // reacting when it's already at the turn (where MPC overshoots and stalls).
     double lookahead_curvature = curvature;
+    // Clearance AT THE CORNER THAT BINDS, not at the robot. The speed being set
+    // here is for negotiating that corner, so the space available there is what
+    // decides how fast it can be taken.
+    double limiting_clearance = point.clearance;
     {
       double lookahead_arc = 0.0;
-      constexpr double kLookaheadDistance = 3.0;
+      const double kLookaheadDistance = params_.curvature_lookahead_m;
       for (std::size_t j = i + 1; j + 1 < refined.size(); ++j) {
         lookahead_arc += std::hypot(
           refined[j].x - refined[j - 1].x, refined[j].y - refined[j - 1].y);
@@ -163,29 +195,47 @@ LocalTrajectory LocalPlanner::plan(
           break;
         }
         if (j > 0 && j + 1 < refined.size()) {
-          const double ds_j = std::hypot(
-            refined[j + 1].x - refined[j - 1].x,
-            refined[j + 1].y - refined[j - 1].y);
-          if (ds_j > 1e-4) {
-            const double curv_j = std::abs(barn_core::wrap_angle(
-              refined[j + 1].yaw - refined[j - 1].yaw)) / ds_j;
-            lookahead_curvature = std::max(lookahead_curvature, curv_j);
+          const double curv_j = curvature_between(refined[j - 1], refined[j + 1]);
+          if (curv_j > lookahead_curvature) {
+            lookahead_curvature = curv_j;
+            limiting_clearance = distance_field.distance_world(refined[j].x, refined[j].y);
           }
         }
       }
     }
+    const double min_clearance = params_.footprint.half_width + params_.footprint.margin;
+
+    // Spend the lateral-acceleration budget according to how much room the corner
+    // has. Previously this was a constant, so a curve was taken at exactly the
+    // same speed threading a 0.3 m gap as crossing an open field -- and since the
+    // curvature is a MAX over the lookahead window, one corner pinned the speed
+    // for the whole approach to it. Observed directly: the robot decelerates hard
+    // for every curve regardless of size or surroundings.
+    //
+    // A lateral-accel cap is nominally about tipping or slipping, but a 0.43 m
+    // Jackal at ~1 m/s is nowhere near either. The real reason to slow for a BARN
+    // curve is that tracking error near a wall becomes a collision -- and that
+    // reason scales with clearance, so the budget does too. In a pinch the
+    // original conservatism is unchanged; in the open the robot is allowed to
+    // corner at up to open_lateral_accel_gain x the budget.
+    double lateral_budget = params_.max_lateral_accel;
+    if (std::isfinite(limiting_clearance)) {
+      const double span = std::max(1e-3, params_.open_clearance - min_clearance);
+      const double t = std::clamp((limiting_clearance - min_clearance) / span, 0.0, 1.0);
+      lateral_budget *= 1.0 + t * (std::max(1.0, params_.open_lateral_accel_gain) - 1.0);
+    }
+
     const double effective_curvature = lookahead_curvature;
     const double curvature_speed = effective_curvature > 1e-4 ?
       std::min(
-        std::sqrt(params_.max_lateral_accel / effective_curvature),
+        std::sqrt(lateral_budget / effective_curvature),
         params_.max_yaw_rate / effective_curvature)
       : params_.max_speed;
 
     // Soft side-clearance slowdown: reduce speed in narrow spaces for safety.
-    // Lowered minimum from 0.85 to 0.45 so the robot meaningfully decelerates
-    // near obstacles instead of maintaining 85% speed through tight corners.
+    // NOTE the comment below is stale -- the code produces a 0.85..1.0 range, not
+    // a 0.45 floor. Left as-is: it is a 15% effect and not what governs speed.
     double clearance_scale = 1.0;
-    const double min_clearance = params_.footprint.half_width + params_.footprint.margin;
     if (std::isfinite(point.clearance)) {
       if (point.clearance < params_.desired_clearance) {
         const double t = (point.clearance - min_clearance) / (params_.desired_clearance - min_clearance);
@@ -194,6 +244,15 @@ LocalTrajectory LocalPlanner::plan(
     }
 
     point.v_ref = std::min(params_.max_speed, curvature_speed) * clearance_scale;
+    if (result.empty()) {
+      // First point == the one the controller tracks next. Recorded so a live
+      // trial can say WHICH term zeroed the command, not merely that it was zero.
+      debug_.curvature = effective_curvature;
+      debug_.curvature_speed = curvature_speed;
+      debug_.clearance_scale = clearance_scale;
+      debug_.heading_scale = 1.0;
+      debug_.v_ref = point.v_ref;
+    }
     if (point.in_unknown) {
       point.v_ref = std::min(point.v_ref, params_.unknown_speed);
     }
@@ -219,6 +278,10 @@ LocalTrajectory LocalPlanner::plan(
       const double fade = std::max(0.0, 1.0 - arc / params_.heading_align_distance);
       const double scale = 1.0 - fade * (1.0 - heading_scale);
       result[i].v_ref *= scale;
+      if (i == 0) {
+        debug_.heading_scale = scale;
+        debug_.v_ref = result[0].v_ref;
+      }
     }
   }
 

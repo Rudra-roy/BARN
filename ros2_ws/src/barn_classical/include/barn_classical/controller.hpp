@@ -70,6 +70,15 @@ public:
 
   void reset();
 
+  /// Read-only view of the active parameters.
+  const MpcParams & params() const {return params_;}
+
+  /// Obstacle margin, adjustable at runtime so a supervisor can relax it out of
+  /// a freeze and restore it afterwards (see MarginEscalator). Deliberately the
+  /// ONLY mutable parameter: everything else stays fixed for the run, so a
+  /// surprising trajectory has one candidate explanation rather than twenty.
+  void set_obstacle_margin(double margin) {params_.obstacle_margin = margin;}
+
 private:
   MpcParams params_;
   std::vector<double> warm_start_;
