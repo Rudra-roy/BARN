@@ -406,7 +406,9 @@ void MappingNode::publish_grid()
   message.header.stamp = now();
   message.header.frame_id = map_frame_;
 
-  distance_field_.rebuild(grid_);
+  // (Removed: distance_field_.rebuild(grid_). Written here, read nowhere -- the
+  // MPC builds its own field from the published grid. 5.76 ms per call at 15 Hz,
+  // ~8.6% of a core, inside grid_mutex_ so it also blocked scan integration.)
   message.info.resolution = static_cast<float>(grid_.resolution());
   message.info.width = static_cast<uint32_t>(grid_.width());
   message.info.height = static_cast<uint32_t>(grid_.height());

@@ -156,17 +156,34 @@ void SafetyNode::desired_callback(const geometry_msgs::msg::TwistStamped::Shared
     result = shield_.apply(limited, obstacle_points_, allow_escape);
   }
 
-  // Latch on "the planner wants to move and the shield is giving it nothing".
-  // Any motion at all, from either side, clears it.
+  // Latch on the SHIELD'S STATE, not on the magnitude of its output.
+  //
+  // This used to clear the latch whenever the output was non-zero. The escape's
+  // own first command is non-zero, so it cleared the latch that authorised it:
+  // next cycle allow_escape was false, the shield vetoed back to zero, and the
+  // 1.5 s wait restarted. At 30 Hz the escape therefore emitted ONE 33 ms
+  // command every 1.5 s -- about 5 mm of travel -- and could never leave the box.
+  //
+  // The earlier evaluation of the escape ("11/12 either way, median AT 16.2 ->
+  // 18.3 s, 28 escapes fired, 5 still trapped") measured this defect rather than
+  // the escape: 28 firings x 1.5 s of enforced waiting is most of the 2 s per
+  // trial it appeared to cost. Any judgement about shield_escape_enable made
+  // before this fix is void.
+  //
+  // Latching on the reason keeps the escape authorised for as long as the shield
+  // is still blocking, so it runs continuously instead of twitching, and clears
+  // as soon as the shield reports clear/braking_distance_clamp.
   const bool wants_motion = std::abs(desired.v) > 1e-6 || std::abs(desired.w) > 1e-6;
-  const bool fully_stopped =
-    std::abs(result.command.v) < 1e-6 && std::abs(result.command.w) < 1e-6;
-  if (wants_motion && fully_stopped) {
+  const bool shield_blocking = result.reason == "emergency_veto" ||
+    result.reason == "emergency_trapped" || result.reason == "emergency_escape";
+  if (wants_motion && shield_blocking) {
     if (!stopped_latched_) {
       stopped_latched_ = true;
       stopped_since_ = stamp;
     }
-  } else {
+  } else if (!shield_blocking) {
+    // Only a genuinely unblocked shield clears the latch. A momentary zero from
+    // the planner (reason "stationary") must not re-arm the 1.5 s wait.
     stopped_latched_ = false;
   }
   limiter_.override_last(result.command);

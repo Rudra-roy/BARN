@@ -90,7 +90,6 @@ private:
   std::atomic<double> current_yaw_rate_{0.0};
 
   barn_core::OccupancyGrid2D grid_;
-  barn_core::DistanceField2D distance_field_;
   geometry_msgs::msg::PoseStamped last_pose_;
   bool have_pose_{false};
   bool map_initialized_{false};
