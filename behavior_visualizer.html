@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BARN Navigation Behavior Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main: #0B0F19;
+      --bg-card: #111827;
+      --bg-card-hover: #1F2937;
+      --border-color: #1F2937;
+      --border-focus: #3B82F6;
+      --text-primary: #F9FAFB;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      
+      --accent-blue: #3B82F6;
+      --accent-cyan: #06B6D4;
+      --accent-emerald: #10B981;
+      --accent-amber: #F59E0B;
+      --accent-rose: #EF4444;
+      --accent-purple: #8B5CF6;
+
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      background: linear-gradient(180deg, #111827 0%, rgba(17, 24, 39, 0.8) 100%);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(8px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: white;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .brand-text h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text p {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .tab-container {
+      display: flex;
+      gap: 6px;
+      background: #0D1322;
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 6px 12px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-blue);
+      color: white;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    main {
+      flex: 1;
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      gap: 20px;
+      max-width: 1680px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .sim-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .canvas-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+    }
+
+    .canvas-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .scene-title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-bug {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--accent-rose);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .badge-fixed {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .mode-toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #0D1322;
+      padding: 4px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .mode-toggle-btn {
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-toggle-btn.active.bug-mode {
+      background: var(--accent-rose);
+      color: white;
+    }
+
+    .mode-toggle-btn.active.fix-mode {
+      background: var(--accent-emerald);
+      color: white;
+    }
+
+    .mode-toggle-btn:not(.active) {
+      background: transparent;
+      color: var(--text-muted);
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      background: #080C15;
+      border-radius: 10px;
+      border: 1px solid #1E293B;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .canvas-overlay-state {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(6px);
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: none;
+    }
+
+    .overlay-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .overlay-value {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .controls-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 18px;
+    }
+
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: #374151;
+      border-color: #4B5563;
+    }
+
+    .btn-primary {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #2563EB;
+      border-color: #2563EB;
+    }
+
+    .speed-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .speed-btn {
+      padding: 4px 8px;
+      background: #0D1322;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .speed-btn.active {
+      background: var(--accent-blue);
+      color: white;
+      border-color: var(--accent-blue);
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .telemetry-box {
+      background: #0A0E1A;
+      border: 1px solid #1E293B;
+      padding: 9px 11px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .tele-label {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .tele-val {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .gauge-bar-container {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .gauge-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .gauge-bg {
+      height: 7px;
+      background: #1E293B;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .gauge-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent-blue);
+      border-radius: 4px;
+      transition: width 0.1s linear, background-color 0.2s;
+    }
+
+    .gauge-fill.warning { background: var(--accent-amber); }
+    .gauge-fill.danger { background: var(--accent-rose); }
+    .gauge-fill.ok { background: var(--accent-emerald); }
+
+    .gauge-threshold-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #EF4444;
+      z-index: 2;
+    }
+
+    .event-log {
+      max-height: 150px;
+      overflow-y: auto;
+      background: #080C15;
+      border: 1px solid #1E293B;
+      border-radius: 8px;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .event-item {
+      line-height: 1.35;
+      display: flex;
+      gap: 6px;
+    }
+
+    .event-time { color: var(--text-muted); }
+    .event-msg.info { color: #60A5FA; }
+    .event-msg.warn { color: #FBBF24; }
+    .event-msg.err { color: #F87171; }
+    .event-msg.ok { color: #34D399; }
+
+    .explanation-card {
+      background: linear-gradient(145deg, #111827, #131E33);
+      border: 1px solid #1F2E4D;
+      border-radius: 12px;
+      padding: 13px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #CBD5E1;
+    }
+
+    .explanation-card strong { color: #93C5FD; }
+    .explanation-card p + p { margin-top: 8px; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">AG</div>
+      <div class="brand-text">
+        <h1>BARN Motion Recovery Visualizer</h1>
+        <p>Interactive simulation of all 4 motion logic scenarios</p>
+      </div>
+    </div>
+
+    <div class="tab-container">
+      <button class="tab-btn active" id="tab-scene-1" onclick="switchScene(1)">
+        <span>1. Clearance Gating</span>
+      </button>
+      <button class="tab-btn" id="tab-scene-2" onclick="switchScene(2)">
+        <span>2. Strict Reverse Distance</span>
+      </button>
+      <button class="tab-btn" id="tab-scene-3" onclick="switchScene(3)">
+        <span>3. Anti-U-Turn Deadlock</span>
+      </button>
+      <button class="tab-btn" id="tab-scene-4" onclick="switchScene(4)">
+        <span>4. Sensitive Stall Watchdog</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="sim-panel">
+      <div class="canvas-card">
+        <div class="canvas-header">
+          <div class="scene-title">
+            <span id="scene-heading">Scene 1: Clearance Gating (Endless Reverse Loop)</span>
+            <span class="badge badge-bug" id="mode-badge">Regression Behavior</span>
+          </div>
+
+          <div class="mode-toggle-group">
+            <button class="mode-toggle-btn active bug-mode" id="btn-mode-bug" onclick="setMode('bug')">
+              Over-Constrained (Bug)
+            </button>
+            <button class="mode-toggle-btn" id="btn-mode-fix" onclick="setMode('fix')">
+              Balanced (Solution)
+            </button>
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="simCanvas" width="900" height="480"></canvas>
+          <div class="canvas-overlay-state">
+            <span class="overlay-label">Active State Machine</span>
+            <span class="overlay-value" id="overlay-state-val" style="color: #60A5FA;">
+              <span id="state-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#60A5FA;"></span>
+              NORMAL_DRIVING
+            </span>
+          </div>
+        </div>
+
+        <div class="legend" id="sim-legend">
+          <!-- Dynamic legend -->
+        </div>
+      </div>
+
+      <div class="controls-bar">
+        <div class="btn-group">
+          <button class="btn btn-primary" id="btn-play" onclick="togglePlay()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <span id="play-text">Pause</span>
+          </button>
+          <button class="btn" onclick="stepSimulation()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+            Step
+          </button>
+          <button class="btn" onclick="resetSimulation()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            Reset
+          </button>
+        </div>
+
+        <div class="speed-selector">
+          <span>Speed:</span>
+          <button class="speed-btn" onclick="setSpeed(0.5)">0.5x</button>
+          <button class="speed-btn active" id="spd-1" onclick="setSpeed(1.0)">1.0x</button>
+          <button class="speed-btn" onclick="setSpeed(2.0)">2.0x</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-title">Live Telemetry</div>
+        <div class="telemetry-grid">
+          <div class="telemetry-box">
+            <span class="tele-label" id="label-v">Forward Velocity (v)</span>
+            <span class="tele-val" id="val-v">0.35 m/s</span>
+          </div>
+          <div class="telemetry-box">
+            <span class="tele-label" id="label-w">Angular Speed (ω)</span>
+            <span class="tele-val" id="val-w">0.00 rad/s</span>
+          </div>
+          <div class="telemetry-box">
+            <span class="tele-label" id="label-c">Wall Clearance</span>
+            <span class="tele-val" id="val-clearance">0.45 m</span>
+          </div>
+          <div class="telemetry-box">
+            <span class="tele-label" id="label-metric">Reverse Dist / Metric</span>
+            <span class="tele-val" id="val-custom-metric" style="color: #F87171;">0.00 m</span>
+          </div>
+        </div>
+
+        <!-- Metric 1: Stall Timer / Status gauge -->
+        <div class="gauge-bar-container">
+          <div class="gauge-header">
+            <span id="gauge1-title">Stall Watchdog Timer</span>
+            <span id="val-gauge1">0.00s / 1.20s</span>
+          </div>
+          <div class="gauge-bg">
+            <div class="gauge-threshold-line" id="gauge1-thresh" style="left: 100%;"></div>
+            <div class="gauge-fill" id="gauge1-fill"></div>
+          </div>
+        </div>
+
+        <!-- Metric 2: Clearance / Reverse Progress -->
+        <div class="gauge-bar-container">
+          <div class="gauge-header">
+            <span id="gauge2-title">Clearance vs 0.40m Threshold</span>
+            <span id="val-gauge2">100%</span>
+          </div>
+          <div class="gauge-bg">
+            <div class="gauge-threshold-line" id="gauge2-thresh" style="left: 50%;"></div>
+            <div class="gauge-fill" id="gauge2-fill" style="width: 70%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">What is Happening?</div>
+        <div class="explanation-card" id="explanation-text">
+          <!-- Dynamic explanation inserted by JS -->
+        </div>
+      </div>
+
+      <div class="card" style="flex:1;">
+        <div class="card-title">Decision Event Log</div>
+        <div class="event-log" id="event-log-container">
+          <div class="event-item"><span class="event-time">[0.0s]</span><span class="event-msg info">System initialized</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let activeScene = 1; // 1: Clearance Gating, 2: Strict Reverse, 3: Anti U-Turn, 4: Sensitive Watchdog
+    let activeMode = 'bug'; // 'bug' or 'fix'
+    let isPlaying = true;
+    let simSpeed = 1.0;
+    let loopCount = 0;
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Telemetry Elements
+    const valV = document.getElementById('val-v');
+    const valW = document.getElementById('val-w');
+    const valClearance = document.getElementById('val-clearance');
+    const valMetric = document.getElementById('val-custom-metric');
+    const labelMetric = document.getElementById('label-metric');
+    const gauge1Title = document.getElementById('gauge1-title');
+    const valGauge1 = document.getElementById('val-gauge1');
+    const gauge1Fill = document.getElementById('gauge1-fill');
+    const gauge1Thresh = document.getElementById('gauge1-thresh');
+    const gauge2Title = document.getElementById('gauge2-title');
+    const valGauge2 = document.getElementById('val-gauge2');
+    const gauge2Fill = document.getElementById('gauge2-fill');
+    const gauge2Thresh = document.getElementById('gauge2-thresh');
+    
+    const overlayState = document.getElementById('overlay-state-val');
+    const eventLog = document.getElementById('event-log-container');
+    const explanationText = document.getElementById('explanation-text');
+    const sceneHeading = document.getElementById('scene-heading');
+    const modeBadge = document.getElementById('mode-badge');
+    const btnPlay = document.getElementById('btn-play');
+    const playText = document.getElementById('play-text');
+    const simLegend = document.getElementById('sim-legend');
+
+    // Simulation State
+    const sim = {
+      time: 0,
+      x: 80,
+      y: 240,
+      yaw: 0,
+      v: 0.35,
+      w: 0.0,
+      state: 'DRIVE',
+      clearance: 0.50,
+      stallTimer: 0.0,
+      reverseDistance: 0.0,
+      breadcrumbs: [],
+      lastTimestamp: null
+    };
+
+    function resetSimulation() {
+      sim.time = 0;
+      sim.stallTimer = 0;
+      sim.reverseDistance = 0;
+      sim.breadcrumbs = [];
+      loopCount = 0;
+      eventLog.innerHTML = '';
+      logEvent('Simulation reset to initial state', 'info');
+
+      if (activeScene === 1) {
+        sim.x = 80; sim.y = 240; sim.yaw = 0; sim.v = 0.35; sim.w = 0.0; sim.state = 'DRIVE';
+      } else if (activeScene === 2) {
+        // Long tunnel scene
+        sim.x = 60; sim.y = 240; sim.yaw = 0; sim.v = 0.35; sim.w = 0.0; sim.state = 'DRIVE';
+      } else if (activeScene === 3) {
+        // Dead-end U-turn scene
+        sim.x = 80; sim.y = 240; sim.yaw = 0; sim.v = 0.30; sim.w = 0.0; sim.state = 'DRIVE';
+      } else {
+        // 90-degree corner scene
+        sim.x = 180; sim.y = 360; sim.yaw = -Math.PI / 2; sim.v = 0.25; sim.w = 0.0; sim.state = 'DRIVE';
+      }
+      updateUI();
+    }
+
+    function switchScene(sceneNum) {
+      activeScene = sceneNum;
+      for (let i = 1; i <= 4; i++) {
+        document.getElementById(`tab-scene-${i}`).classList.toggle('active', i === sceneNum);
+      }
+      
+      const titles = {
+        1: 'Scene 1: Clearance Gating (Endless Reverse Loop)',
+        2: 'Scene 2: Strict Reverse Distance (Tunnel Breadcrumb Exhaustion)',
+        3: 'Scene 3: Anti-U-Turn Rejection Deadlock (Dead-End Trapped)',
+        4: 'Scene 4: Sensitive No-Progress Stall Trigger (Creep Interrupted)'
+      };
+      sceneHeading.textContent = titles[sceneNum];
+      resetSimulation();
+      updateExplanation();
+      updateLegend();
+    }
+
+    function setMode(mode) {
+      activeMode = mode;
+      document.getElementById('btn-mode-bug').classList.toggle('active', mode === 'bug');
+      document.getElementById('btn-mode-fix').classList.toggle('active', mode === 'fix');
+      
+      if (mode === 'bug') {
+        modeBadge.className = 'badge badge-bug';
+        modeBadge.textContent = 'Regression Behavior';
+      } else {
+        modeBadge.className = 'badge badge-fixed';
+        modeBadge.textContent = 'Balanced Solution';
+      }
+      resetSimulation();
+      updateExplanation();
+    }
+
+    function setSpeed(spd) {
+      simSpeed = spd;
+      document.querySelectorAll('.speed-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      playText.textContent = isPlaying ? 'Pause' : 'Play';
+      if (isPlaying) {
+        sim.lastTimestamp = performance.now();
+        requestAnimationFrame(tick);
+      }
+    }
+
+    function stepSimulation() {
+      if (isPlaying) togglePlay();
+      updatePhysics(0.05);
+      render();
+      updateUI();
+    }
+
+    function logEvent(msg, type = 'info') {
+      const item = document.createElement('div');
+      item.className = 'event-item';
+      item.innerHTML = `<span class="event-time">[${sim.time.toFixed(1)}s]</span><span class="event-msg ${type}">${msg}</span>`;
+      eventLog.appendChild(item);
+      eventLog.scrollTop = eventLog.scrollHeight;
+    }
+
+    function updateLegend() {
+      if (activeScene === 1) {
+        simLegend.innerHTML = `
+          <div class="legend-item"><div class="legend-dot" style="background: #3B82F6;"></div> Planned Path</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #06B6D4;"></div> Breadcrumbs</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #EF4444;"></div> Corridor Walls (38 cm Gap)</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #10B981;"></div> Goal Area</div>
+        `;
+      } else if (activeScene === 2) {
+        simLegend.innerHTML = `
+          <div class="legend-item"><div class="legend-dot" style="background: #06B6D4;"></div> Dropped Breadcrumbs</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #EF4444;"></div> 3-Meter Long Tunnel (35 cm clearance)</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #F59E0B;"></div> Obstacle / Pinch Point</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #8B5CF6;"></div> Reversing Trail</div>
+        `;
+      } else if (activeScene === 3) {
+        simLegend.innerHTML = `
+          <div class="legend-item"><div class="legend-dot" style="background: #EF4444;"></div> Dead-End Obstacle Wall</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #3B82F6;"></div> Global Planner U-Turn Route (180°)</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #F87171;"></div> Anti-U-Turn Guard (Rejecting)</div>
+        `;
+      } else {
+        simLegend.innerHTML = `
+          <div class="legend-item"><div class="legend-dot" style="background: #3B82F6;"></div> 90° Corner Turn Path</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #EF4444;"></div> Corner Obstacles</div>
+          <div class="legend-item"><div class="legend-dot" style="background: #F59E0B;"></div> Watchdog Timer Bar</div>
+        `;
+      }
+    }
+
+    function updateExplanation() {
+      if (activeScene === 1) {
+        if (activeMode === 'bug') {
+          explanationText.innerHTML = `
+            <p><strong>The Regression:</strong> In tight corridors (38 cm), clearance is only 0.35 m (&lt; 0.40 m gate).</p>
+            <p>When the robot pauses, <code>kRotateToGap</code> immediately aborts because <code>clearance &lt; 0.40m</code> and forces <code>ReverseToClearance</code>.</p>
+            <p>The robot backs out, replans, drives right back in, and repeats <strong>infinitely</strong>!</p>
+          `;
+        } else {
+          explanationText.innerHTML = `
+            <p><strong>The Solution:</strong> Adaptive clearance gating. Narrow forward paths don't trigger false aborts; the robot creeps forward with safe margins straight to the goal.</p>
+          `;
+        }
+      } else if (activeScene === 2) {
+        if (activeMode === 'bug') {
+          explanationText.innerHTML = `
+            <p><strong>The Regression (Strict Reverse Distance):</strong> The exit condition requires <code>reversed &gt;= 0.40m AND clearance &gt;= 0.40m</code>.</p>
+            <p>Inside a 3-meter tunnel, clearance is <em>always</em> 0.35m everywhere!</p>
+            <p>Because clearance is never &gt;= 0.40m inside the tunnel, reversing 40 cm fails to exit. The robot <strong>backs up the entire 3-meter tunnel</strong>, erasing all progress and exhausting breadcrumbs!</p>
+          `;
+        } else {
+          explanationText.innerHTML = `
+            <p><strong>The Solution:</strong> Bounded local reverse. The robot backs up just 40 cm to clear the pinch, pauses, recalculates local path alignment, and resumes forward progress without discarding the whole tunnel.</p>
+          `;
+        }
+      } else if (activeScene === 3) {
+        if (activeMode === 'bug') {
+          explanationText.innerHTML = `
+            <p><strong>The Regression (Anti-U-Turn Deadlock):</strong> The robot reaches a dead-end corridor. The global planner correctly computes a 180° turn path to escape.</p>
+            <p>Because clearance is low (0.35m), the Anti-U-Turn guard <strong>rejects the planner's path</strong> (<code>rejected_uturn_low_clearance</code>) and forces emergency reverse.</p>
+            <p>The robot and planner fight indefinitely: planner wants to turn around, guard rejects it!</p>
+          `;
+        } else {
+          explanationText.innerHTML = `
+            <p><strong>The Solution:</strong> Dead-End Escape Acceptance. The guard allows valid backward escape plans when the forward path is permanently blocked, executing a safe turn sequence.</p>
+          `;
+        }
+      } else {
+        if (activeMode === 'bug') {
+          explanationText.innerHTML = `
+            <p><strong>The Regression:</strong> The watchdog checks only <code>v &lt; 0.08 m/s</code>, ignoring steering <code>ω</code>.</p>
+            <p>During a 90° corner, the robot creeps slowly (v = 0.03 m/s) while turning hard (ω = 0.45 rad/s). After 1.2s, the timer triggers a <strong>false stall recovery</strong>, aborting the turn!</p>
+          `;
+        } else {
+          explanationText.innerHTML = `
+            <p><strong>The Solution:</strong> Motion is verified by translation AND angular velocity. Active steering resets the stall timer, allowing smooth corner completion.</p>
+          `;
+        }
+      }
+    }
+
+    // Physics Simulation Loop
+    function updatePhysics(dt) {
+      sim.time += dt;
+
+      if (activeScene === 1) {
+        // SCENE 1: Clearance Gating
+        const corridorStartX = 340, corridorEndX = 680;
+        sim.clearance = (sim.x >= corridorStartX - 30 && sim.x <= corridorEndX + 30) ? 0.35 : 0.60;
+
+        if (sim.state === 'DRIVE') {
+          if (sim.breadcrumbs.length === 0 || Math.hypot(sim.x - sim.breadcrumbs[sim.breadcrumbs.length-1].x, sim.y - sim.breadcrumbs[sim.breadcrumbs.length-1].y) > 20) {
+            sim.breadcrumbs.push({x: sim.x, y: sim.y});
+          }
+        }
+
+        if (activeMode === 'bug') {
+          if (sim.state === 'DRIVE') {
+            if (sim.x < corridorStartX + 120) {
+              sim.x += sim.v * 100 * dt; sim.v = 0.30;
+            } else {
+              sim.v = 0.02; sim.stallTimer += dt;
+              if (sim.stallTimer >= 0.8) {
+                logEvent('Stall triggered! Attempting RotateToGap', 'warn');
+                sim.state = 'ROTATE_TO_GAP';
+              }
+            }
+          } else if (sim.state === 'ROTATE_TO_GAP') {
+            if (sim.clearance < 0.40) {
+              logEvent('Clearance 0.35m < 0.40m gate! Rotate aborted -> Forced Reverse', 'err');
+              sim.state = 'REVERSE'; sim.stallTimer = 0;
+            }
+          } else if (sim.state === 'REVERSE') {
+            sim.v = -0.25; sim.x += sim.v * 100 * dt;
+            if (sim.x <= corridorStartX - 80) {
+              logEvent('Reversed >= 0.40m into open space. Requesting replan...', 'ok');
+              sim.state = 'REPLAN'; sim.v = 0;
+            }
+          } else if (sim.state === 'REPLAN') {
+            sim.stallTimer += dt;
+            if (sim.stallTimer >= 0.5) {
+              loopCount++;
+              logEvent(`Replan completed. Re-entering corridor (Loop #${loopCount})`, 'warn');
+              sim.state = 'DRIVE'; sim.stallTimer = 0;
+            }
+          }
+        } else {
+          if (sim.state === 'DRIVE') {
+            sim.x += (sim.x < corridorStartX ? 0.35 : 0.20) * 100 * dt;
+            if (sim.x > 800) {
+              sim.state = 'GOAL_REACHED'; sim.v = 0;
+              logEvent('SUCCESS: Reached goal without reverse loops!', 'ok');
+            }
+          }
+        }
+      } 
+      else if (activeScene === 2) {
+        // SCENE 2: Strict Reverse Distance in Long Tunnel
+        const tunnelStartX = 180, tunnelEndX = 720;
+        const obstacleX = 580; // deep in tunnel
+
+        sim.clearance = (sim.x >= tunnelStartX && sim.x <= tunnelEndX) ? 0.35 : 0.65;
+
+        if (sim.state === 'DRIVE') {
+          if (sim.breadcrumbs.length === 0 || Math.hypot(sim.x - sim.breadcrumbs[sim.breadcrumbs.length-1].x, sim.y - sim.breadcrumbs[sim.breadcrumbs.length-1].y) > 15) {
+            sim.breadcrumbs.push({x: sim.x, y: sim.y});
+          }
+
+          if (sim.x < obstacleX - 35) {
+            sim.v = 0.30;
+            sim.x += sim.v * 100 * dt;
+          } else {
+            // Reached pinch point deep in tunnel
+            sim.v = 0.0;
+            sim.state = 'REVERSE';
+            sim.reverseDistance = 0.0;
+            logEvent('Obstacle pinch encountered at x=580! Starting ReverseToClearance', 'warn');
+          }
+        } else if (sim.state === 'REVERSE') {
+          sim.v = -0.22;
+          const dx = Math.abs(sim.v * 100 * dt);
+          sim.x -= dx;
+          sim.reverseDistance += (dx / 100);
+
+          if (activeMode === 'bug') {
+            // BUG MODE: requires reversed >= 0.40m AND clearance >= 0.40m
+            if (sim.reverseDistance >= 0.40 && sim.clearance < 0.40) {
+              // Reversed 0.40m, but clearance is STILL 0.35m inside the tunnel!
+              if (sim.time % 0.5 < 0.05) {
+                logEvent(`Reversed ${sim.reverseDistance.toFixed(2)}m >= 0.40m, but Clearance (${sim.clearance.toFixed(2)}m < 0.40m). CANNOT STOP!`, 'err');
+              }
+            }
+
+            if (sim.x <= tunnelStartX - 40) {
+              logEvent('REVERSED ENTIRE 3-METER TUNNEL! Progress lost and breadcrumbs exhausted.', 'err');
+              sim.state = 'REPLAN';
+              sim.v = 0;
+            }
+          } else {
+            // FIX MODE: stops after 0.40m local reverse
+            if (sim.reverseDistance >= 0.40) {
+              logEvent('Reversed 0.40m safely. Pausing and re-aligning local path inside tunnel...', 'ok');
+              sim.state = 'DRIVE_ADJUSTED';
+              sim.v = 0.15;
+            }
+          }
+        } else if (sim.state === 'DRIVE_ADJUSTED') {
+          // Creeps safely around pinch
+          sim.x += 18 * dt;
+          sim.y = 240 + Math.sin(sim.time * 2) * 8; // slight nudge
+          if (sim.x > obstacleX + 50) {
+            sim.state = 'GOAL_REACHED';
+            sim.v = 0;
+            logEvent('SUCCESS: Cleared pinch point and completed tunnel!', 'ok');
+          }
+        } else if (sim.state === 'REPLAN') {
+          sim.stallTimer += dt;
+          if (sim.stallTimer >= 0.8) {
+            sim.state = 'DRIVE';
+            sim.stallTimer = 0;
+            logEvent('Restarting tunnel from the very beginning...', 'warn');
+          }
+        }
+      }
+      else if (activeScene === 3) {
+        // SCENE 3: Anti-U-Turn Dead-End Deadlock
+        const deadEndX = 620;
+        sim.clearance = 0.35; // narrow corridor
+
+        if (sim.state === 'DRIVE') {
+          if (sim.breadcrumbs.length === 0 || Math.hypot(sim.x - sim.breadcrumbs[sim.breadcrumbs.length-1].x, sim.y - sim.breadcrumbs[sim.breadcrumbs.length-1].y) > 20) {
+            sim.breadcrumbs.push({x: sim.x, y: sim.y});
+          }
+
+          if (sim.x < deadEndX - 40) {
+            sim.v = 0.28;
+            sim.x += sim.v * 100 * dt;
+          } else {
+            sim.v = 0.0;
+            logEvent('Dead-end reached! Global planner computes 180° U-turn route.', 'info');
+            sim.state = 'EVALUATE_UTURN';
+          }
+        } else if (sim.state === 'EVALUATE_UTURN') {
+          if (activeMode === 'bug') {
+            // BUG MODE: Rejects 180° U-turn because clearance < 0.40m!
+            logEvent('Anti-U-Turn Guard: Heading error 180° > 90° & clearance 0.35m < 0.40m -> PATH REJECTED!', 'err');
+            sim.state = 'REJECTED_DEADLOCK';
+            sim.stallTimer = 0;
+          } else {
+            // FIX MODE: Accepts dead-end escape route and starts controlled pivot
+            logEvent('Dead-End detected: Global U-turn accepted. Initiating backward exit maneuver.', 'ok');
+            sim.state = 'EXECUTE_ESCAPE';
+          }
+        } else if (sim.state === 'REJECTED_DEADLOCK') {
+          sim.stallTimer += dt;
+          if (sim.stallTimer >= 1.0) {
+            logEvent('DEADLOCK: Planner sends U-turn -> Guard rejects -> Planner retries -> Guard rejects!', 'err');
+            sim.stallTimer = 0;
+          }
+        } else if (sim.state === 'EXECUTE_ESCAPE') {
+          // Escapes smoothly
+          sim.v = -0.22;
+          sim.x += sim.v * 100 * dt;
+          if (sim.x < 200) {
+            sim.state = 'GOAL_REACHED';
+            sim.v = 0;
+            logEvent('SUCCESS: Successfully escaped dead-end using alternate branch!', 'ok');
+          }
+        }
+      }
+      else {
+        // SCENE 4: 90-Degree Corner Creep vs Sensitive Stall
+        const cornerPivotX = 180, cornerPivotY = 160;
+
+        if (activeMode === 'bug') {
+          if (sim.state === 'DRIVE') {
+            if (sim.y > cornerPivotY) {
+              sim.y -= 70 * dt; sim.v = 0.25; sim.w = 0.0;
+            } else {
+              // Tight corner turn
+              sim.v = 0.03; sim.w = 0.45; sim.yaw += sim.w * dt; sim.x += 10 * dt;
+              sim.stallTimer += dt;
+              if (sim.stallTimer >= 1.2) {
+                logEvent('Watchdog triggered: v=0.03m/s < 0.08m/s for 1.2s! FALSE STALL!', 'err');
+                sim.state = 'REVERSE'; sim.v = -0.20; sim.w = 0.0;
+              }
+            }
+          } else if (sim.state === 'REVERSE') {
+            sim.x -= 30 * dt; sim.y += 30 * dt; sim.stallTimer += dt;
+            if (sim.stallTimer >= 2.5) {
+              logEvent('Recovery failed: Turn aborted and robot pushed away.', 'err');
+              sim.state = 'REPLAN';
+            }
+          }
+        } else {
+          if (sim.state === 'DRIVE') {
+            if (sim.y > cornerPivotY) {
+              sim.y -= 70 * dt; sim.v = 0.25; sim.w = 0.0;
+            } else if (sim.yaw < 0) {
+              sim.v = 0.05; sim.w = 0.55; sim.yaw += sim.w * dt; sim.x += 35 * dt; sim.y -= 10 * dt;
+              sim.stallTimer = 0.0; // Reset because steering active!
+            } else {
+              sim.yaw = 0; sim.v = 0.35; sim.w = 0.0; sim.x += 100 * dt;
+              if (sim.x > 750) {
+                sim.state = 'GOAL_REACHED'; sim.v = 0;
+                logEvent('SUCCESS: Robot negotiated corner without false stall!', 'ok');
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Render Canvas
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Subtle grid
+      ctx.strokeStyle = '#131D31'; ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+
+      if (activeScene === 1) drawScene1();
+      else if (activeScene === 2) drawScene2();
+      else if (activeScene === 3) drawScene3();
+      else drawScene4();
+
+      // Draw Breadcrumbs
+      if (sim.breadcrumbs.length > 1) {
+        ctx.strokeStyle = '#06B6D4'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(sim.breadcrumbs[0].x, sim.breadcrumbs[0].y);
+        for (let i = 1; i < sim.breadcrumbs.length; i++) {
+          ctx.lineTo(sim.breadcrumbs[i].x, sim.breadcrumbs[i].y);
+        }
+        ctx.stroke(); ctx.setLineDash([]);
+
+        for (let b of sim.breadcrumbs) {
+          ctx.fillStyle = '#06B6D4'; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      // Draw Robot
+      drawRobot(sim.x, sim.y, sim.yaw);
+    }
+
+    function drawScene1() {
+      const corridorStartX = 340, corridorEndX = 680, corridorWidth = 90;
+      const topWallY = 240 - corridorWidth / 2, bottomWallY = 240 + corridorWidth / 2;
+
+      ctx.fillStyle = '#1E293B'; ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 2;
+      ctx.fillRect(corridorStartX, 40, corridorEndX - corridorStartX, topWallY - 40);
+      ctx.strokeRect(corridorStartX, 40, corridorEndX - corridorStartX, topWallY - 40);
+      ctx.fillRect(corridorStartX, bottomWallY, corridorEndX - corridorStartX, canvas.height - 40 - bottomWallY);
+      ctx.strokeRect(corridorStartX, bottomWallY, corridorEndX - corridorStartX, canvas.height - 40 - bottomWallY);
+
+      ctx.fillStyle = '#EF4444'; ctx.font = '12px JetBrains Mono';
+      ctx.fillText('NARROW CORRIDOR (38 cm width)', corridorStartX + 30, topWallY - 10);
+      ctx.fillText('Clearance = 0.35m (< 0.40m gate)', corridorStartX + 30, bottomWallY + 25);
+
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; ctx.strokeStyle = '#10B981'; ctx.lineWidth = 2;
+      ctx.fillRect(760, 180, 80, 120); ctx.strokeRect(760, 180, 80, 120);
+      ctx.fillStyle = '#10B981'; ctx.font = 'bold 13px Inter'; ctx.fillText('GOAL', 785, 245);
+
+      ctx.strokeStyle = '#3B82F6'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(80, 240); ctx.lineTo(800, 240); ctx.stroke();
+    }
+
+    function drawScene2() {
+      // Scene 2: 3-Meter Long Tunnel
+      const tunnelStartX = 180, tunnelEndX = 740, tunnelWidth = 85;
+      const topY = 240 - tunnelWidth / 2, botY = 240 + tunnelWidth / 2;
+
+      ctx.fillStyle = '#1E293B'; ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 2;
+      // Top long wall
+      ctx.fillRect(tunnelStartX, 40, tunnelEndX - tunnelStartX, topY - 40);
+      ctx.strokeRect(tunnelStartX, 40, tunnelEndX - tunnelStartX, topY - 40);
+      // Bottom long wall
+      ctx.fillRect(tunnelStartX, botY, tunnelEndX - tunnelStartX, canvas.height - 40 - botY);
+      ctx.strokeRect(tunnelStartX, botY, tunnelEndX - tunnelStartX, canvas.height - 40 - botY);
+
+      // Obstacle inside tunnel
+      ctx.fillStyle = '#F59E0B'; ctx.strokeStyle = '#D97706';
+      ctx.beginPath(); ctx.arc(580, 215, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = '#EF4444'; ctx.font = '12px JetBrains Mono';
+      ctx.fillText('LONG 3-METER TUNNEL (Clearance = 0.35m everywhere)', tunnelStartX + 20, topY - 12);
+      ctx.fillStyle = '#F59E0B'; ctx.fillText('Pinch Point (x=580)', 530, topY + 25);
+
+      // Goal area
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; ctx.strokeStyle = '#10B981'; ctx.lineWidth = 2;
+      ctx.fillRect(780, 180, 70, 120); ctx.strokeRect(780, 180, 70, 120);
+      ctx.fillStyle = '#10B981'; ctx.font = 'bold 12px Inter'; ctx.fillText('EXIT', 800, 245);
+    }
+
+    function drawScene3() {
+      // Scene 3: Dead End with U-Turn Planner
+      const corridorStartX = 160, deadEndX = 640, corridorWidth = 90;
+      const topY = 240 - corridorWidth / 2, botY = 240 + corridorWidth / 2;
+
+      ctx.fillStyle = '#1E293B'; ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 2;
+      // Top wall
+      ctx.fillRect(corridorStartX, 50, deadEndX - corridorStartX, topY - 50);
+      ctx.strokeRect(corridorStartX, 50, deadEndX - corridorStartX, topY - 50);
+      // Bottom wall
+      ctx.fillRect(corridorStartX, botY, deadEndX - corridorStartX, canvas.height - 50 - botY);
+      ctx.strokeRect(corridorStartX, botY, deadEndX - corridorStartX, canvas.height - 50 - botY);
+      // Dead-end end cap wall
+      ctx.fillRect(deadEndX, topY, 40, corridorWidth);
+      ctx.strokeRect(deadEndX, topY, 40, corridorWidth);
+
+      // Label
+      ctx.fillStyle = '#EF4444'; ctx.font = '12px JetBrains Mono';
+      ctx.fillText('DEAD-END BLOCKED (Wall ahead)', deadEndX - 190, topY + 35);
+
+      // Global Planner U-Turn Path (Blue curved arrow pointing back)
+      ctx.strokeStyle = '#3B82F6'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(deadEndX - 60, 230);
+      ctx.arc(deadEndX - 60, 240, 15, -Math.PI/2, Math.PI/2, false);
+      ctx.lineTo(80, 255);
+      ctx.stroke(); ctx.setLineDash([]);
+
+      ctx.fillStyle = '#3B82F6'; ctx.font = '11px JetBrains Mono';
+      ctx.fillText('Global Plan: 180° U-Turn Escape Route', 220, botY + 30);
+    }
+
+    function drawScene4() {
+      // 90-Degree Corner Maze
+      ctx.fillStyle = '#1E293B'; ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 2;
+      ctx.fillRect(40, 40, 90, 400); ctx.strokeRect(40, 40, 90, 400);
+      ctx.fillRect(230, 210, 500, 230); ctx.strokeRect(230, 210, 500, 230);
+      ctx.fillRect(230, 40, 500, 60); ctx.strokeRect(230, 40, 500, 60);
+
+      ctx.strokeStyle = '#3B82F6'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(180, 400); ctx.lineTo(180, 160);
+      ctx.arcTo(180, 160, 300, 160, 40); ctx.lineTo(750, 160); ctx.stroke();
+
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; ctx.strokeStyle = '#10B981'; ctx.lineWidth = 2;
+      ctx.fillRect(720, 100, 80, 110); ctx.strokeRect(720, 100, 80, 110);
+      ctx.fillStyle = '#10B981'; ctx.font = 'bold 13px Inter'; ctx.fillText('GOAL', 742, 160);
+
+      ctx.fillStyle = '#F59E0B'; ctx.font = '12px JetBrains Mono';
+      ctx.fillText('90° Tight Turn (Requires v < 0.08 & ω > 0.40)', 250, 135);
+    }
+
+    function drawRobot(x, y, yaw) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(yaw);
+
+      // Clearance circle
+      ctx.strokeStyle = sim.clearance < 0.40 ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.3)';
+      ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(0, 0, 32, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+
+      // Robot Chassis
+      ctx.fillStyle = '#1E3A8A'; ctx.strokeStyle = '#60A5FA'; ctx.lineWidth = 2;
+      ctx.fillRect(-22, -16, 44, 32); ctx.strokeRect(-22, -16, 44, 32);
+
+      // Wheels
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(-20, -20, 12, 5); ctx.fillRect(8, -20, 12, 5);
+      ctx.fillRect(-20, 15, 12, 5); ctx.fillRect(8, 15, 12, 5);
+
+      // Front Heading
+      ctx.fillStyle = '#38BDF8';
+      ctx.beginPath(); ctx.moveTo(22, -8); ctx.lineTo(30, 0); ctx.lineTo(22, 8); ctx.closePath(); ctx.fill();
+
+      // Sensor
+      ctx.fillStyle = '#F43F5E';
+      ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.restore();
+    }
+
+    function updateUI() {
+      valV.textContent = `${sim.v.toFixed(2)} m/s`;
+      valW.textContent = `${sim.w.toFixed(2)} rad/s`;
+      valClearance.textContent = `${sim.clearance.toFixed(2)} m`;
+
+      if (activeScene === 2) {
+        labelMetric.textContent = 'Reverse Distance';
+        valMetric.textContent = `${sim.reverseDistance.toFixed(2)} m`;
+        gauge1Title.textContent = 'Reversed vs 0.40m Threshold';
+        valGauge1.textContent = `${sim.reverseDistance.toFixed(2)}m / 0.40m`;
+        const revPct = Math.min(100, (sim.reverseDistance / 0.40) * 100);
+        gauge1Fill.style.width = `${revPct}%`;
+        gauge1Fill.className = revPct >= 100 ? 'gauge-fill ok' : 'gauge-fill';
+
+        gauge2Title.textContent = 'Tunnel Clearance vs 0.40m';
+        valGauge2.textContent = `${sim.clearance.toFixed(2)}m / 0.40m`;
+        const clrPct = Math.min(100, (sim.clearance / 0.8) * 100);
+        gauge2Fill.style.width = `${clrPct}%`;
+        gauge2Fill.className = sim.clearance < 0.40 ? 'gauge-fill danger' : 'gauge-fill ok';
+      } else {
+        labelMetric.textContent = 'Loop / Metric';
+        valMetric.textContent = `${loopCount}`;
+        gauge1Title.textContent = 'Stall Watchdog Timer';
+        valGauge1.textContent = `${sim.stallTimer.toFixed(2)}s / 1.20s`;
+        const stallPct = Math.min(100, (sim.stallTimer / 1.2) * 100);
+        gauge1Fill.style.width = `${stallPct}%`;
+        gauge1Fill.className = stallPct > 80 ? 'gauge-fill danger' : (stallPct > 50 ? 'gauge-fill warning' : 'gauge-fill');
+
+        gauge2Title.textContent = 'Wall Clearance';
+        valGauge2.textContent = `${sim.clearance.toFixed(2)}m`;
+        const clrPct = Math.min(100, (sim.clearance / 0.8) * 100);
+        gauge2Fill.style.width = `${clrPct}%`;
+        gauge2Fill.className = sim.clearance < 0.40 ? 'gauge-fill danger' : 'gauge-fill ok';
+      }
+
+      overlayState.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${getStateColor(sim.state)};"></span> ${sim.state}`;
+    }
+
+    function getStateColor(state) {
+      switch(state) {
+        case 'DRIVE': case 'DRIVE_ADJUSTED': return '#34D399';
+        case 'ROTATE_TO_GAP': case 'EVALUATE_UTURN': return '#FBBF24';
+        case 'REVERSE': case 'REJECTED_DEADLOCK': return '#F87171';
+        case 'REPLAN': return '#A78BFA';
+        case 'GOAL_REACHED': case 'EXECUTE_ESCAPE': return '#10B981';
+        default: return '#60A5FA';
+      }
+    }
+
+    function tick(timestamp) {
+      if (!isPlaying) return;
+      if (!sim.lastTimestamp) sim.lastTimestamp = timestamp;
+      const dt = Math.min(0.1, (timestamp - sim.lastTimestamp) / 1000) * simSpeed;
+      sim.lastTimestamp = timestamp;
+
+      updatePhysics(dt);
+      render();
+      updateUI();
+
+      requestAnimationFrame(tick);
+    }
+
+    // Initialize
+    updateLegend();
+    updateExplanation();
+    resetSimulation();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

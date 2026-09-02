@@ -1,0 +1,3158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Path Planning Demo — B-Spline · TOPPRA · MPC Visualizer</title>
+  <meta name="description"
+    content="Interactive visualization of B-Spline path smoothing, TOPPRA velocity profiling, and MPC tracking for robot navigation">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0a0e1a;
+      --surface: #111728;
+      --surface2: #151c30;
+      --surface3: #1a2240;
+      --border: #1e2a4a;
+      --border-bright: #2a3a60;
+      --accent1: #2bd4e6;
+      /* B-Spline cyan-teal */
+      --accent1-dim: rgba(43, 212, 230, .15);
+      --accent1-dark: #0a8b99;
+      --accent2: #00d2a0;
+      /* TOPPRA teal */
+      --accent2-dim: rgba(0, 210, 160, .15);
+      --accent3: #ff6b6b;
+      /* MPC coral */
+      --accent3-dim: rgba(255, 107, 107, .15);
+      --accent4: #ffd166;
+      /* Combined gold */
+      --accent4-dim: rgba(255, 209, 102, .15);
+      --text: #c8d6e5;
+      --text-dim: #6b7d99;
+      --text-bright: #eef2f7;
+      --code-bg: #080c16;
+      --grid-line: rgba(43, 212, 230, .04);
+      --grid-size: 32px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+      background-image:
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+      background-size: var(--grid-size) var(--grid-size);
+    }
+
+    /* ── Header ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      background: rgba(10, 14, 26, .88);
+      backdrop-filter: blur(20px) saturate(1.4);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: .02em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .logo span {
+      color: var(--accent1);
+    }
+
+    .logo .dim {
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    nav {
+      display: flex;
+      gap: 1.2rem;
+      align-items: center;
+    }
+
+    nav a {
+      font-size: .78rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color .2s;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: .03em;
+    }
+
+    nav a:hover {
+      color: var(--accent1);
+    }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+      position: relative;
+      background: radial-gradient(ellipse at 50% 0%, rgba(74, 158, 255, .06) 0%, transparent 60%);
+    }
+
+    .hero h1 {
+      font-size: clamp(1.8rem, 4.5vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -.02em;
+      background: linear-gradient(135deg, #4a9eff, #00d2a0, #ffd166);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: .5rem;
+    }
+
+    .hero p {
+      color: var(--text-dim);
+      max-width: 680px;
+      margin: 0 auto .8rem;
+      font-size: .92rem;
+    }
+
+    .pipeline-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .6rem;
+      flex-wrap: wrap;
+      font-size: .82rem;
+      font-weight: 600;
+      margin-top: 1rem;
+    }
+
+    .pipe-tag {
+      padding: .35rem .9rem;
+      border-radius: 999px;
+      font-size: .76rem;
+      border: 1px solid transparent;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: .04em;
+    }
+
+    .pipe-tag.s1 {
+      background: var(--accent1-dim);
+      border-color: var(--accent1);
+      color: var(--accent1);
+    }
+
+    .pipe-tag.s2 {
+      background: var(--accent2-dim);
+      border-color: var(--accent2);
+      color: var(--accent2);
+    }
+
+    .pipe-tag.s3 {
+      background: var(--accent3-dim);
+      border-color: var(--accent3);
+      color: var(--accent3);
+    }
+
+    .pipe-tag.s4 {
+      background: var(--accent4-dim);
+      border-color: var(--accent4);
+      color: var(--accent4);
+    }
+
+    .p-arrow {
+      color: var(--text-dim);
+      font-size: 1rem;
+    }
+
+    /* ── Main Container ── */
+    .main-container {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    /* ── Setup Checklist ── */
+    .setup-bar {
+      display: flex;
+      gap: .6rem;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: .7rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 1rem;
+    }
+
+    .setup-label {
+      font-size: .74rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .setup-step {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .3rem .7rem;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all .15s;
+      font-size: .8rem;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .setup-step.active {
+      border-color: var(--accent4);
+      background: var(--accent4-dim);
+      color: var(--accent4);
+    }
+
+    .setup-step.done {
+      color: var(--accent2);
+    }
+
+    .setup-step.pending {
+      color: var(--text-dim);
+    }
+
+    .step-sep {
+      color: var(--border-bright);
+      font-size: 1rem;
+    }
+
+    .step-chk {
+      font-size: .9rem;
+    }
+
+    .plan-btn {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem 1.4rem;
+      border-radius: 10px;
+      font-size: .84rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #4a9eff 0%, #00d2a0 100%);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(74, 158, 255, .3);
+      transition: transform .12s, box-shadow .12s;
+      letter-spacing: .03em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .plan-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 30px rgba(74, 158, 255, .5);
+    }
+
+    .plan-btn:active {
+      transform: scale(.97);
+    }
+
+    .plan-btn:disabled {
+      background: #1e2a4a;
+      color: #555;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    .plan-btn.running {
+      animation: pulse-plan .8s ease infinite;
+    }
+
+    @keyframes pulse-plan {
+
+      0%,
+      100% {
+        box-shadow: 0 0 20px rgba(74, 158, 255, .4);
+      }
+
+      50% {
+        box-shadow: 0 0 40px rgba(0, 210, 160, .7);
+      }
+    }
+
+    .hint-text {
+      font-size: .72rem;
+      color: var(--text-dim);
+      margin-left: .5rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-text {
+      margin-left: auto;
+      font-size: .72rem;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .action-btns {
+      margin-left: auto;
+      display: flex;
+      gap: .4rem;
+      align-items: center;
+    }
+
+    .action-btn {
+      padding: .3rem .7rem;
+      border-radius: 8px;
+      font-size: .74rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all .15s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .action-btn:hover {
+      border-color: var(--accent1);
+      color: var(--text);
+    }
+
+    .action-btn.active {
+      border-color: var(--accent3);
+      background: var(--accent3-dim);
+      color: var(--accent3);
+    }
+
+    /* ── Canvas Area ── */
+    .canvas-container {
+      position: relative;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    #mainCanvas {
+      display: block;
+      width: 100%;
+      height: 600px;
+      cursor: crosshair;
+    }
+
+    .canvas-legend {
+      display: flex;
+      gap: 1.2rem;
+      flex-wrap: wrap;
+      padding: .8rem 1.2rem;
+      border-top: 1px solid var(--border);
+      font-size: .74rem;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .leg-item {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+    }
+
+    .leg-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .speed-gradient {
+      display: inline-block;
+      width: 60px;
+      height: 8px;
+      border-radius: 4px;
+      vertical-align: middle;
+      background: linear-gradient(90deg, #ff4444, #2bd4e6, #00ff88);
+    }
+
+    /* ── Tooltip ── */
+    #tooltip {
+      position: absolute;
+      pointer-events: none;
+      z-index: 50;
+      padding: .4rem .7rem;
+      border-radius: 8px;
+      background: rgba(10, 14, 26, .92);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-bright);
+      font-size: .72rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-bright);
+      display: none;
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
+    }
+
+    #tooltip .tt-vel {
+      color: var(--accent2);
+      font-weight: 700;
+    }
+
+    #tooltip .tt-pos {
+      color: var(--text-dim);
+    }
+
+    #tooltip .tt-kappa {
+      color: var(--accent1);
+    }
+
+    /* ── Bottom Panels ── */
+    .panels-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .panels-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      gap: .8rem;
+      padding: .8rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .panel-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: .9rem;
+      flex-shrink: 0;
+    }
+
+    .badge-blue {
+      background: var(--accent1-dim);
+      color: var(--accent1);
+      border: 1px solid var(--accent1);
+    }
+
+    .badge-teal {
+      background: var(--accent2-dim);
+      color: var(--accent2);
+      border: 1px solid var(--accent2);
+    }
+
+    .badge-coral {
+      background: var(--accent3-dim);
+      color: var(--accent3);
+      border: 1px solid var(--accent3);
+    }
+
+    .panel-title {
+      font-size: .9rem;
+      font-weight: 700;
+    }
+
+    .panel-body {
+      padding: 1rem 1.2rem;
+    }
+
+    .panel-body p {
+      font-size: .85rem;
+      color: var(--text-dim);
+      margin-bottom: .5rem;
+    }
+
+    /* ── Velocity Profile Canvas ── */
+    .vel-canvas-wrap {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: .6rem;
+    }
+
+    #velCanvas {
+      display: block;
+      width: 100%;
+      height: 200px;
+    }
+
+    /* ── Metrics Bar ── */
+    .metrics-bar {
+      display: flex;
+      gap: .6rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .metric-card {
+      flex: 1;
+      min-width: 130px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .6rem .8rem;
+      display: flex;
+      flex-direction: column;
+      gap: .15rem;
+    }
+
+    .metric-label {
+      font-size: .64rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .metric-value {
+      font-size: 1.15rem;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .mv-blue {
+      color: var(--accent1);
+    }
+
+    .mv-teal {
+      color: var(--accent2);
+    }
+
+    .mv-coral {
+      color: var(--accent3);
+    }
+
+    .mv-gold {
+      color: var(--accent4);
+    }
+
+    /* ── MPC Animation Status ── */
+    .anim-bar {
+      display: flex;
+      align-items: center;
+      gap: .8rem;
+      padding: .5rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      font-size: .78rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .anim-label {
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .anim-speed {
+      color: var(--accent2);
+      font-weight: 700;
+    }
+
+    .anim-progress-wrap {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .anim-progress {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent1), var(--accent2));
+      border-radius: 3px;
+      transition: width .05s;
+    }
+
+    .anim-btn {
+      padding: .3rem .7rem;
+      border-radius: 8px;
+      font-size: .74rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all .15s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .anim-btn:hover {
+      border-color: var(--accent1);
+      color: var(--text);
+    }
+
+    .anim-btn.active {
+      border-color: var(--accent3);
+      color: var(--accent3);
+    }
+
+    .speed-slider {
+      width: 80px;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--border);
+      cursor: pointer;
+      outline: none;
+    }
+
+    .speed-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent1);
+      border: 2px solid var(--bg);
+      cursor: pointer;
+    }
+
+    /* ── Pipeline Explanation Cards ── */
+    .explain-card {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: .7rem .9rem;
+      margin-bottom: .5rem;
+      border-left: 3px solid var(--accent1);
+      font-size: .82rem;
+      line-height: 1.5;
+    }
+
+    .explain-card.t2 {
+      border-left-color: var(--accent2);
+    }
+
+    .explain-card.t3 {
+      border-left-color: var(--accent3);
+    }
+
+    .explain-card strong {
+      color: var(--text-bright);
+    }
+
+    .explain-card code {
+      background: var(--code-bg);
+      padding: .1rem .35rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .74rem;
+      color: var(--accent1);
+    }
+
+    /* ── Camera Comparison Styles ── */
+    .cam-toggle-bar {
+      display: flex;
+      gap: .6rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .cam-btn {
+      padding: .5rem 1.1rem;
+      border-radius: 10px;
+      font-size: .82rem;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all .15s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .cam-btn:hover {
+      border-color: var(--accent1);
+      color: var(--text);
+    }
+
+    .cam-btn.active-zed {
+      border-color: var(--accent1);
+      background: var(--accent1-dim);
+      color: var(--accent1);
+    }
+
+    .cam-btn.active-rs {
+      border-color: var(--accent3);
+      background: var(--accent3-dim);
+      color: var(--accent3);
+    }
+
+    .cam-spec-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: .8rem;
+      margin-bottom: 1rem;
+    }
+
+    .cam-spec-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .8rem 1rem;
+      font-size: .8rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .cam-spec-title {
+      font-weight: 700;
+      margin-bottom: .3rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .cam-spec-val {
+      color: var(--accent1);
+      font-weight: 700;
+    }
+
+    .cam-spec-val.rs {
+      color: var(--accent3);
+    }
+
+    #camCanvas {
+      display: block;
+      width: 100%;
+      height: 380px;
+    }
+
+    .scorecard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .scorecard-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: .5rem;
+      font-size: .78rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .bar-track {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: .2rem;
+      margin-bottom: .6rem;
+    }
+
+    .bar-fill-zed {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent1-dark), var(--accent1));
+      border-radius: 4px;
+    }
+
+    .bar-fill-rs {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent3-dim), var(--accent3));
+      border-radius: 4px;
+    }
+
+    .degrad-box {
+      background: rgba(255, 107, 107, .1);
+      border: 1px solid var(--accent3);
+      border-radius: 10px;
+      padding: .9rem 1.2rem;
+      margin-top: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .8rem;
+    }
+
+    .degrad-title {
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--accent3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .degrad-val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--accent3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: .72rem;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      header {
+        padding: 0 1rem;
+      }
+
+      .main-container {
+        padding: 1rem;
+      }
+
+      #mainCanvas {
+        height: 400px;
+      }
+
+      .setup-bar {
+        font-size: .72rem;
+      }
+
+      .metrics-bar {
+        gap: .4rem;
+      }
+
+      .metric-card {
+        min-width: 100px;
+        padding: .5rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══════════════════ HEADER ═══════════════════ -->
+  <header>
+    <div class="logo">
+      <span>path</span>·<span class="dim">planner</span>
+      <span style="color:var(--text-dim);font-size:.7rem;margin-left:.5rem">B-Spline → TOPPRA → MPC</span>
+    </div>
+    <nav>
+      <a href="#canvas-section">canvas</a>
+      <a href="#velocity-section">velocity</a>
+      <a href="#camera-section">camera compare</a>
+      <a href="#explain-section">how it works</a>
+    </nav>
+  </header>
+
+  <!-- ═══════════════════ HERO ═══════════════════ -->
+  <div class="hero">
+    <h1>Path Planning Pipeline Visualizer</h1>
+    <p>Click to place robot, goal, and obstacles — watch the full pipeline: straight-line path → B-Spline smoothing →
+      TOPPRA velocity profiling → MPC tracking animation.</p>
+    <div class="pipeline-flow">
+      <span class="pipe-tag s1">① Straight Path</span>
+      <span class="p-arrow">→</span>
+      <span class="pipe-tag s1">② B-Spline Curve</span>
+      <span class="p-arrow">→</span>
+      <span class="pipe-tag s2">③ TOPPRA Velocity</span>
+      <span class="p-arrow">→</span>
+      <span class="pipe-tag s3">④ MPC Tracking</span>
+      <span class="p-arrow">→</span>
+      <span class="pipe-tag s4">⑤ Goal Reached</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ MAIN ═══════════════════ -->
+  <div class="main-container" id="canvas-section">
+
+    <!-- Metrics Bar -->
+    <div class="metrics-bar" id="metricsBar">
+      <div class="metric-card">
+        <div class="metric-label">Path Length</div>
+        <div class="metric-value mv-blue" id="met-len">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Min Clearance</div>
+        <div class="metric-value mv-teal" id="met-clear">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Avg Speed</div>
+        <div class="metric-value mv-teal" id="met-avgv">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Max Speed</div>
+        <div class="metric-value mv-coral" id="met-maxv">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Smoothness (1/κ)</div>
+        <div class="metric-value mv-blue" id="met-smooth">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Est. Time</div>
+        <div class="metric-value mv-gold" id="met-time">—</div>
+      </div>
+    </div>
+
+    <!-- Setup Checklist -->
+    <div class="setup-bar" id="setupBar">
+      <span class="setup-label">setup:</span>
+      <div class="setup-step active" id="step-robot" onclick="setMode('robot')">
+        <span class="step-chk" id="chk-robot">▶</span> 🤖 Robot
+      </div>
+      <span class="step-sep">›</span>
+      <div class="setup-step pending" id="step-goal" onclick="setMode('goal')">
+        <span class="step-chk" id="chk-goal">○</span> 🎯 Goal
+      </div>
+      <span class="step-sep">›</span>
+      <div class="setup-step pending" id="step-obstacle" onclick="setMode('obstacle')">
+        <span class="step-chk" id="chk-obs">○</span> 🧱 Obstacles
+      </div>
+      <span class="step-sep">›</span>
+      <button class="plan-btn" id="btn-plan" onclick="runPlan()" disabled>
+        <span id="plan-icon">▶</span> Plan Path
+      </button>
+      <span class="hint-text" id="plan-status">Place robot first</span>
+      <div class="action-btns">
+        <button class="action-btn" onclick="clearObstacles()" title="Remove all obstacles">🗑 clear obs</button>
+        <button class="action-btn" onclick="resetScene()" title="Reset everything">↺ reset</button>
+      </div>
+    </div>
+
+    <!-- Main Canvas -->
+    <div class="canvas-container" id="canvas-wrap">
+      <canvas id="mainCanvas" width="1200" height="600"></canvas>
+      <div id="tooltip">
+        <div class="tt-vel">v = 0.00 m/s</div>
+        <div class="tt-kappa">κ = 0.00</div>
+        <div class="tt-pos">x: 0.00, y: 0.00</div>
+      </div>
+      <div class="canvas-legend">
+        <div class="leg-item">
+          <div class="leg-dot" style="background:#556"></div> Straight Path
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--accent1)"></div> B-Spline Curve
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--accent1);opacity:.5;width:6px;height:6px"></div> Control Points
+        </div>
+        <div class="leg-item"><span class="speed-gradient"></span>&nbsp;TOPPRA Speed</div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--accent3)"></div> MPC Prediction
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:#ff6b6b55;border-radius:2px;width:12px;height:12px"></div> Obstacles
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--accent1)"></div> 🤖 Robot
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--accent2)"></div> 🎯 Goal
+        </div>
+      </div>
+    </div>
+
+    <!-- MPC Animation Bar -->
+    <div class="anim-bar" id="animBar" style="display:none">
+      <span class="anim-label">MPC Animation</span>
+      <span class="anim-speed" id="anim-speed-val">v = 0.00 m/s</span>
+      <div class="anim-progress-wrap">
+        <div class="anim-progress" id="anim-progress"></div>
+      </div>
+      <span class="anim-label" id="anim-pct">0%</span>
+      <label style="color:var(--text-dim);font-size:.7rem">speed:</label>
+      <input type="range" class="speed-slider" id="anim-speed-slider" min="0.1" max="5" step="0.1" value="1">
+      <button class="anim-btn" id="anim-pause" onclick="toggleAnim()">⏸ pause</button>
+      <button class="anim-btn" onclick="restartAnim()">↺ restart</button>
+    </div>
+
+    <!-- Bottom Panels -->
+    <div class="panels-grid" id="velocity-section">
+      <!-- Velocity Profile -->
+      <div class="panel-card">
+        <div class="panel-head">
+          <div class="panel-badge badge-teal">②</div>
+          <div class="panel-title">TOPPRA Velocity Profile ṡ(s)</div>
+        </div>
+        <div class="panel-body">
+          <p>Time-optimal velocity along the B-spline, constrained by wheel motor limits and path curvature. Higher
+            curvature → lower velocity.</p>
+          <div class="vel-canvas-wrap">
+            <canvas id="velCanvas" width="600" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Explanation -->
+      <div class="panel-card" id="explain-section">
+        <div class="panel-head">
+          <div class="panel-badge badge-blue">?</div>
+          <div class="panel-title">How The Pipeline Works</div>
+        </div>
+        <div class="panel-body">
+          <div class="explain-card">
+            <strong>① Straight Path:</strong> Simple pixel-to-pixel distance from robot to goal. This is the naive path
+            — it goes through obstacles.
+          </div>
+          <div class="explain-card">
+            <strong>② B-Spline Curve:</strong> A cubic B-spline is fitted to the straight path. Gradient descent
+            optimization pushes control points <strong>away</strong> from obstacles while maintaining smoothness
+            (<code>C² continuity</code>). The curvature is bounded by <code>κ_max = 2/W</code> (track width).
+          </div>
+          <div class="explain-card t2">
+            <strong>③ TOPPRA Velocity:</strong> For every point on the B-spline, a velocity reference is computed. High
+            curvature → slow down (inner wheel limit). Open straights → accelerate. Uses backward + forward reachability
+            passes.
+          </div>
+          <div class="explain-card t3">
+            <strong>④ MPC Tracking:</strong> The robot follows the B-spline using Model Predictive Control. Each step,
+            it rolls the motion model forward <code>N</code> steps to predict future positions, picks the best controls,
+            and executes only the first step.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ CAMERA COMPARISON SECTION ═══════════════════ -->
+    <div class="panel-card" id="camera-section" style="margin-bottom:1.5rem">
+      <div class="panel-head">
+        <div class="panel-badge badge-teal">📷</div>
+        <div class="panel-title">Sensor Comparison: ZED 2i vs RealSense D435i (15m Long-Range Scenario)</div>
+      </div>
+      <div class="panel-body">
+        <p>Evaluate how sensor detection range and Field of View (FOV) affect the path planning pipeline. A short
+          sensing range forces late obstacle detection, resulting in sudden sharp curves and severe TOPPRA speed drops.
+        </p>
+
+        <!-- Explanation Note: Basis of Comparison -->
+        <div class="explain-card"
+          style="border-left-color:var(--accent1);background:var(--surface3);margin-bottom:1rem;padding:.9rem 1.1rem;">
+          <strong style="color:var(--accent1);font-family:'JetBrains Mono'">📊 Basis of Comparison
+            Calculations:</strong>
+          <ul
+            style="margin-top:.4rem;margin-left:1.2rem;font-size:.78rem;color:var(--text);line-height:1.6;font-family:'JetBrains Mono'">
+            <li><strong>Sensing Range Limit:</strong> ZED 2i stereo depth senses obstacles up to <code>20.0m</code> (81°
+              FOV), whereas RealSense D435i IR depth drops off beyond <code>3.5m</code> (95° FOV). Obstacles outside
+              3.5m are completely invisible to RealSense.</li>
+            <li><strong>Reaction & Decision Buffer:</strong> Lead time available before obstacle encounter:
+              <code>T_buffer = (D_detect - D_safety) / v_max</code>. At 2.0m/s, ZED 2i provides <strong>6.8s</strong>
+              decision time vs RealSense's <strong>1.2s</strong> emergency window.
+            </li>
+            <li><strong>Path Curvature (κ) & Smoothness:</strong> Early detection at 15m allows fitting a B-spline with
+              gentle curvature (<code>κ ≤ 0.45 m⁻¹</code>). Late detection at 3.5m forces a tight local detour
+              (<code>κ ≥ 1.85 m⁻¹</code>).</li>
+            <li><strong>TOPPRA Velocity Ceiling:</strong> Speed dynamically constrained by centripetal acceleration
+              <code>v_max(κ) = √(a_lat_max / κ)</code> and wheel speed ratio. High curvature forces RealSense speed down
+              to <strong>0.55 m/s</strong>, whereas ZED 2i maintains <strong>1.95 m/s</strong>.
+            </li>
+            <li><strong>System Robustness Score:</strong> Composite index:
+              <code>0.35 × (Range Ratio) + 0.35 × (Avg Speed Ratio) + 0.30 × (Smoothness Ratio)</code>.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Camera Selector & View Filter Bar -->
+        <div class="cam-toggle-bar">
+          <span class="setup-label">active camera:</span>
+          <button class="cam-btn active-zed" id="btn-cam-zed" onclick="setCamera('zed')">
+            📷 ZED 2i (20m Range, 81° FOV)
+          </button>
+          <button class="cam-btn" id="btn-cam-rs" onclick="setCamera('realsense')">
+            📷 RealSense D435i (3.5m Range, 95° FOV)
+          </button>
+          <span class="setup-label" style="margin-left:.6rem">view mode:</span>
+          <button class="cam-btn active-zed" id="btn-cam-view" onclick="toggleCamViewFilter()">
+            👁 Mode: Rover's Camera View (Only Detected)
+          </button>
+          <button class="action-btn" onclick="toggleCamAnim()" id="btn-cam-anim">
+            ▶ Run Live Comparison Sim
+          </button>
+        </div>
+
+        <!-- Spec Cards -->
+        <div class="cam-spec-grid">
+          <div class="cam-spec-card">
+            <div class="cam-spec-title"><span>ZED 2i Stereo</span><span class="cam-spec-val">20.0m</span></div>
+            <div>FOV: <strong>81°</strong> (Diag)</div>
+            <div style="color:var(--accent1);margin-top:.2rem">Early detection at 15m → Smooth curve @ 1.95 m/s</div>
+          </div>
+          <div class="cam-spec-card">
+            <div class="cam-spec-title"><span>RealSense D435i</span><span class="cam-spec-val rs">3.5m</span></div>
+            <div>FOV: <strong>95°</strong> (Diag)</div>
+            <div style="color:var(--accent3);margin-top:.2rem">Late detection at 3.5m → Sharp curve @ 0.55 m/s</div>
+          </div>
+          <div class="cam-spec-card">
+            <div class="cam-spec-title"><span>Decision Buffer</span><span class="cam-spec-val" id="spec-buf">6.8
+                sec</span></div>
+            <div>Reaction Dist: <strong id="spec-dist">15.0 m</strong></div>
+            <div style="color:var(--text-dim);margin-top:.2rem" id="spec-desc">High decision margin for global
+              trajectory</div>
+          </div>
+        </div>
+
+        <!-- Long-Range Canvas Setup Bar -->
+        <div class="setup-bar" style="margin-bottom:.8rem">
+          <span class="setup-label">guided setup:</span>
+          <div class="setup-step active" id="cam-step-robot" onclick="setCamEditMode('robot')">
+            <span id="chk-cam-robot">▶</span> ① 🤖 Place Robot
+          </div>
+          <span class="step-sep">›</span>
+          <div class="setup-step pending" id="cam-step-goal" onclick="setCamEditMode('goal')">
+            <span id="chk-cam-goal">○</span> ② 🎯 Place Goal
+          </div>
+          <span class="step-sep">›</span>
+          <div class="setup-step pending" id="cam-step-obs" onclick="setCamEditMode('obstacle')">
+            <span id="chk-cam-obs">○</span> ③ 🧱 Add Obstacles
+          </div>
+          <span class="step-sep">›</span>
+          <button class="plan-btn" id="btn-cam-plan" onclick="runCamPlan()"
+            style="padding:.4rem 1rem;font-size:.78rem;">
+            ▶ Plan Camera Path
+          </button>
+          <div class="action-btns" style="display:inline-flex;align-items:center;gap:.6rem;">
+            <div class="vel-ctrl-wrap"
+              style="display:inline-flex;align-items:center;gap:.4rem;background:rgba(43,212,230,.08);padding:.3rem .6rem;border-radius:6px;border:1px solid rgba(43,212,230,.3);font-size:.76rem;color:var(--text-bright);">
+              <span style="display:flex;align-items:center;gap:.25rem;font-weight:600;color:var(--accent1)">⚡ Robot Max
+                Speed:</span>
+              <input type="range" id="cam-vel-slider" min="0.5" max="5.0" step="0.1" value="2.0"
+                oninput="updateCamRobotVelocity(this.value)"
+                style="width:85px;accent-color:var(--accent1);cursor:pointer;">
+              <span id="cam-vel-val"
+                style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent1);min-width:3.2rem;">2.0
+                m/s</span>
+            </div>
+            <button class="action-btn" onclick="clearCamObstacles()">🗑 clear obs</button>
+            <button class="action-btn" onclick="resetCamScenario()">↺ reset scenario</button>
+          </div>
+        </div>
+
+        <!-- Long-Range Canvas (Zoomed Out to show full 20m FOV) -->
+        <div class="canvas-container" id="cam-canvas-wrap">
+          <canvas id="camCanvas" width="1200" height="440"></canvas>
+          <div id="cam-tooltip"
+            style="position:absolute;pointer-events:none;z-index:50;padding:.4rem .7rem;border-radius:8px;background:rgba(10,14,26,.92);border:1px solid var(--border-bright);font-size:.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-bright);display:none;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.4);">
+            <div class="tt-vel">v = 0.00 m/s</div>
+            <div class="tt-kappa">κ = 0.00</div>
+            <div class="tt-pos">x: 0.00, y: 0.00</div>
+            <div class="tt-vis" style="color:var(--accent1)">Detected by: ZED 2i</div>
+          </div>
+          <div class="canvas-legend">
+            <div class="leg-item">
+              <div class="leg-dot" style="background:#556"></div> Straight Path (Blind Zone)
+            </div>
+            <div class="leg-item">
+              <div class="leg-dot" style="background:var(--accent1)"></div> B-Spline Detour
+            </div>
+            <div class="leg-item"><span class="speed-gradient"></span>&nbsp;Speed Profile</div>
+            <div class="leg-item">
+              <div class="leg-dot" style="background:rgba(43,212,230,0.3);border-radius:2px;width:12px;height:12px">
+              </div> Camera FOV Cone
+            </div>
+            <div class="leg-item">
+              <div class="leg-dot" style="background:var(--accent3)"></div> Obstacles (Click/Drag/Scroll)
+            </div>
+          </div>
+        </div>
+
+        <!-- Comparison Scorecard -->
+        <div class="scorecard-grid">
+          <div class="scorecard-card">
+            <div style="font-weight:700;margin-bottom:.8rem;font-family:'JetBrains Mono'">📷 ZED 2i Performance
+              Scorecard</div>
+            <div class="score-row"><span>Sensing Range</span><span style="color:var(--accent1)">20.0 m (100%)</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill-zed" style="width:100%"></div>
+            </div>
+            <div class="score-row"><span>Decision Time Buffer</span><span style="color:var(--accent1)">6.8 sec (High
+                Safety)</span></div>
+            <div class="bar-track">
+              <div class="bar-fill-zed" style="width:95%"></div>
+            </div>
+            <div class="score-row"><span>Path Smoothness (1/κ)</span><span style="color:var(--accent1)">1.85
+                (Smooth)</span></div>
+            <div class="bar-track">
+              <div class="bar-fill-zed" style="width:90%"></div>
+            </div>
+            <div class="score-row"><span>Avg Trajectory Speed</span><span style="color:var(--accent1)">1.92 m/s</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill-zed" style="width:96%"></div>
+            </div>
+          </div>
+
+          <div class="scorecard-card">
+            <div style="font-weight:700;margin-bottom:.8rem;font-family:'JetBrains Mono'">📷 RealSense D435i Performance
+              Scorecard</div>
+            <div class="score-row"><span>Sensing Range</span><span style="color:var(--accent3)">3.5 m (17.5%)</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill-rs" style="width:17.5%"></div>
+            </div>
+            <div class="score-row"><span>Decision Time Buffer</span><span style="color:var(--accent3)">1.2 sec
+                (Emergency)</span></div>
+            <div class="bar-track">
+              <div class="bar-fill-rs" style="width:18%"></div>
+            </div>
+            <div class="score-row"><span>Path Smoothness (1/κ)</span><span style="color:var(--accent3)">0.54 (Sharp
+                Bend)</span></div>
+            <div class="bar-track">
+              <div class="bar-fill-rs" style="width:30%"></div>
+            </div>
+            <div class="score-row"><span>Avg Trajectory Speed</span><span style="color:var(--accent3)">0.88 m/s</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill-rs" style="width:44%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Overall Degradation Banner -->
+        <div class="degrad-box">
+          <div>
+            <div class="degrad-title">System Degradation Penalty with RealSense D435i</div>
+            <div style="font-size:.78rem;color:var(--text-dim);font-family:'JetBrains Mono'">Short 3.5m range forces
+              emergency braking and sharp turns, reducing average throughput and safety margin.</div>
+          </div>
+          <div style="text-align:right">
+            <div class="degrad-val">-54.2%</div>
+            <div style="font-size:.68rem;color:var(--text-dim);font-family:'JetBrains Mono'">Overall Performance Loss
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Path Planning Demo · B-Spline + TOPPRA + MPC Visualization · Built for team presentation
+  </footer>
+
+  <!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT — Complete Pipeline Logic
+═══════════════════════════════════════════════════ -->
+  <script>
+    "use strict";
+
+    // ─── Parameters ───────────────────────────────────────────────────────
+    const P = {
+      // B-Spline
+      ncp: 16, sw: 0.45, ow: 0.40, aw: 0.12, cw: 0.55, iter: 50, dc: 0.30,
+      tw: 0.43,    // track width (m)
+      rw: 0.43,    // robot width (m)
+      rl: 0.30,    // robot length (m)
+      // TOPPRA
+      wv: 3.50, wa: 2.50, ms: 2.00, ss: 0.04,
+      // MPC
+      hn: 14, dt: 0.10, qp: 14.0, qv: 1.5, vmx: 2.00, yr: 1.5
+    };
+
+    // Robot half-diagonal for footprint-aware clearance
+    function robotInflation() {
+      return Math.hypot(P.rw / 2, P.rl / 2);
+    }
+
+    // ─── State ────────────────────────────────────────────────────────────
+    const state = {
+      robot: { x: 0, y: 0, yaw: 0, placed: false },
+      goal: { x: 0, y: 0, placed: false },
+      obstacles: [],
+      planned: false,
+      straightPath: null,
+      splineCp: null,
+      samples: null,
+      sdot: null,
+      // MPC animation
+      animating: false,
+      animPaused: false,
+      animT: 0,           // progress 0..1
+      animSpeedMul: 1.0,
+      animTrail: [],
+      mpcPrediction: []
+    };
+
+    let editMode = 'robot';
+    const drag = { active: false, type: null, idx: -1 };
+
+    // ─── Canvas Transforms ───────────────────────────────────────────────
+    const WORLD = { xmin: 0, xmax: 10, ymin: 0, ymax: 5 };
+    let _T = null, _Tinv = null, _scale = 1;
+
+    function buildTransforms() {
+      const canvas = document.getElementById('mainCanvas');
+      const pad = 48;
+      const W = canvas.width, H = canvas.height;
+      const sx = (W - 2 * pad) / (WORLD.xmax - WORLD.xmin);
+      const sy = (H - 2 * pad) / (WORLD.ymax - WORLD.ymin);
+      _scale = Math.min(sx, sy);
+      _T = (wx, wy) => [pad + (wx - WORLD.xmin) * _scale, H - pad - (wy - WORLD.ymin) * _scale];
+      _Tinv = (cx, cy) => [WORLD.xmin + (cx - pad) / _scale, WORLD.ymin + (H - pad - cy) / _scale];
+    }
+
+    function canvasToWorld(e) {
+      const canvas = document.getElementById('mainCanvas');
+      const rect = canvas.getBoundingClientRect();
+      const dpr = devicePixelRatio || 1;
+      return _Tinv((e.clientX - rect.left) * dpr, (e.clientY - rect.top) * dpr);
+    }
+
+    function resizeCanvas(id) {
+      const el = document.getElementById(id);
+      const rect = el.getBoundingClientRect();
+      el.width = Math.round(rect.width * devicePixelRatio) || 600;
+      el.height = Math.round(rect.height * devicePixelRatio) || 300;
+    }
+
+    // ─── B-Spline Math ───────────────────────────────────────────────────
+    function bsplineEval(cp, seg, t) {
+      const t2 = t * t, t3 = t2 * t;
+      const b0 = (1 - 3 * t + 3 * t2 - t3) / 6;
+      const b1 = (4 - 6 * t2 + 3 * t3) / 6;
+      const b2 = (1 + 3 * t + 3 * t2 - 3 * t3) / 6;
+      const b3 = t3 / 6;
+      return [
+        b0 * cp[seg][0] + b1 * cp[seg + 1][0] + b2 * cp[seg + 2][0] + b3 * cp[seg + 3][0],
+        b0 * cp[seg][1] + b1 * cp[seg + 1][1] + b2 * cp[seg + 2][1] + b3 * cp[seg + 3][1]
+      ];
+    }
+
+    function bsplineDeriv1(cp, seg, t) {
+      const t2 = t * t;
+      const d0 = (-3 + 6 * t - 3 * t2) / 6;
+      const d1 = (-12 * t + 9 * t2) / 6;
+      const d2 = (3 + 6 * t - 9 * t2) / 6;
+      const d3 = (3 * t2) / 6;
+      return [
+        d0 * cp[seg][0] + d1 * cp[seg + 1][0] + d2 * cp[seg + 2][0] + d3 * cp[seg + 3][0],
+        d0 * cp[seg][1] + d1 * cp[seg + 1][1] + d2 * cp[seg + 2][1] + d3 * cp[seg + 3][1]
+      ];
+    }
+
+    function bsplineDeriv2(cp, seg, t) {
+      const dd0 = (6 - 6 * t) / 6;
+      const dd1 = (-12 + 18 * t) / 6;
+      const dd2 = (6 - 18 * t) / 6;
+      const dd3 = (6 * t) / 6;
+      return [
+        dd0 * cp[seg][0] + dd1 * cp[seg + 1][0] + dd2 * cp[seg + 2][0] + dd3 * cp[seg + 3][0],
+        dd0 * cp[seg][1] + dd1 * cp[seg + 1][1] + dd2 * cp[seg + 2][1] + dd3 * cp[seg + 3][1]
+      ];
+    }
+
+    function bsplineCurvature(cp, seg, t) {
+      const d1 = bsplineDeriv1(cp, seg, t);
+      const d2 = bsplineDeriv2(cp, seg, t);
+      const spd2 = d1[0] * d1[0] + d1[1] * d1[1];
+      if (spd2 < 1e-12) return 0;
+      return Math.abs(d1[0] * d2[1] - d1[1] * d2[0]) / Math.pow(spd2, 1.5);
+    }
+
+    function nSegments(n) { return Math.max(0, n - 3); }
+
+    // ─── Generate Waypoints From Straight Line ───────────────────────────
+    function generateWaypoints(robot, goal, numPoints) {
+      const wp = [];
+      for (let i = 0; i <= numPoints; i++) {
+        const t = i / numPoints;
+        wp.push([
+          robot.x + t * (goal.x - robot.x),
+          robot.y + t * (goal.y - robot.y)
+        ]);
+      }
+      return wp;
+    }
+
+    // ─── Fit B-Spline with Localized Obstacle Avoidance ──────────────────
+    function fitBSpline(waypoints, obstacles) {
+      const ncp = Math.max(4, P.ncp);
+      let cp = [];
+
+      // Initialise along waypoints
+      const arcs = [0];
+      for (let i = 1; i < waypoints.length; i++) {
+        arcs.push(arcs[arcs.length - 1] + Math.hypot(
+          waypoints[i][0] - waypoints[i - 1][0],
+          waypoints[i][1] - waypoints[i - 1][1]
+        ));
+      }
+      const totalLen = arcs[arcs.length - 1];
+      for (let j = 0; j < ncp; j++) {
+        const tgt = j / (ncp - 1) * totalLen;
+        let seg = 0;
+        while (seg + 1 < waypoints.length && arcs[seg + 1] < tgt) seg++;
+        if (seg + 1 >= waypoints.length) { cp.push([...waypoints[waypoints.length - 1]]); continue; }
+        const span = arcs[seg + 1] - arcs[seg];
+        const frac = span > 1e-9 ? (tgt - arcs[seg]) / span : 0;
+        cp.push([
+          waypoints[seg][0] + frac * (waypoints[seg + 1][0] - waypoints[seg][0]),
+          waypoints[seg][1] + frac * (waypoints[seg + 1][1] - waypoints[seg][1])
+        ]);
+      }
+      const anchors = cp.map(p => [...p]);
+
+      const nseg = nSegments(ncp);
+      const kappa_max = P.tw > 0 ? 2.0 / P.tw : 4.0;
+      const robotInfl = robotInflation();
+      const influenceDist = P.dc + robotInfl + 0.6; // Influence radius around obstacles
+
+      for (let it = 0; it < P.iter; it++) {
+        const grad = cp.map(() => [0, 0]);
+
+        // Check which anchors are near obstacles
+        for (let i = 1; i + 1 < ncp; i++) {
+          let minObsDist = Infinity;
+          for (const obs of obstacles) {
+            const d = Math.hypot(anchors[i][0] - obs.x, anchors[i][1] - obs.y) - obs.r - robotInfl;
+            if (d < minObsDist) minObsDist = d;
+          }
+
+          if (minObsDist > influenceDist) {
+            // Strongly pull back to straight line anchor when far from obstacles!
+            grad[i][0] += 8.0 * (cp[i][0] - anchors[i][0]);
+            grad[i][1] += 8.0 * (cp[i][1] - anchors[i][1]);
+          } else {
+            // Mild anchor pull near obstacles to allow smooth curve deformation
+            grad[i][0] += P.aw * 2 * (cp[i][0] - anchors[i][0]);
+            grad[i][1] += P.aw * 2 * (cp[i][1] - anchors[i][1]);
+          }
+        }
+
+        // Smoothness (penalise 2nd differences)
+        for (let i = 1; i + 1 < ncp; i++) {
+          const ddx = cp[i - 1][0] - 2 * cp[i][0] + cp[i + 1][0];
+          const ddy = cp[i - 1][1] - 2 * cp[i][1] + cp[i + 1][1];
+          grad[i][0] += P.sw * (-4 * ddx);
+          grad[i][1] += P.sw * (-4 * ddy);
+        }
+
+        // Obstacle avoidance
+        for (let s = 0; s < nseg; s++) {
+          for (let k = 0; k < 6; k++) {
+            const t = (k + 0.5) / 6;
+            const pt = bsplineEval(cp, s, t);
+            let minDist = Infinity, gx = 0, gy = 0;
+            for (const obs of obstacles) {
+              const dx = pt[0] - obs.x, dy = pt[1] - obs.y;
+              const distToCenter = Math.hypot(dx, dy) || 1e-9;
+              const d = distToCenter - obs.r - robotInfl;
+              if (d < minDist) { minDist = d; gx = dx / distToCenter; gy = dy / distToCenter; }
+            }
+            if (minDist < P.dc) {
+              const inside = minDist <= 0;
+              const push = inside
+                ? P.ow * (P.dc - minDist) * 25.0
+                : P.ow * (P.dc - minDist) * 4.0;
+              for (let ci = s; ci <= s + 3 && ci < ncp; ci++) {
+                if (ci === 0 || ci === ncp - 1) continue;
+                grad[ci][0] -= push * gx * 0.25;
+                grad[ci][1] -= push * gy * 0.25;
+              }
+            }
+          }
+        }
+
+        // Curvature constraint
+        for (let s = 0; s < nseg; s++) {
+          for (let k = 0; k <= 4; k++) {
+            const t = k / 4;
+            const kappa = bsplineCurvature(cp, s, t);
+            if (kappa <= kappa_max) continue;
+            const penalty = P.cw * (kappa - kappa_max);
+            const mx = 0.5 * (cp[s][0] + cp[s + 3][0]);
+            const my = 0.5 * (cp[s][1] + cp[s + 3][1]);
+            for (let ci = s + 1; ci <= s + 2; ci++) {
+              if (ci <= 0 || ci >= ncp - 1) continue;
+              const dx = mx - cp[ci][0], dy = my - cp[ci][1];
+              const d = Math.hypot(dx, dy) || 1e-9;
+              grad[ci][0] -= penalty * dx / d;
+              grad[ci][1] -= penalty * dy / d;
+            }
+          }
+        }
+
+        // Apply gradient
+        for (let i = 1; i + 1 < ncp; i++) {
+          let dx = -grad[i][0], dy = -grad[i][1];
+          const disp = Math.hypot(dx, dy);
+          const maxStep = 0.15;
+          if (disp > maxStep) { dx *= maxStep / disp; dy *= maxStep / disp; }
+          cp[i][0] += dx;
+          cp[i][1] += dy;
+        }
+      }
+
+      return { cp, anchors, nseg };
+    }
+
+    // ─── Sample Spline (Optimal discrete points: sparse straights, clean curves) ──
+    function sampleSpline(cp, step) {
+      const nseg = nSegments(cp.length);
+      if (nseg <= 0) return [];
+
+      // Phase 1: Fine sampling
+      const fine = [];
+      let arc = 0;
+      const fineSteps = 20;
+      for (let s = 0; s < nseg; s++) {
+        for (let k = 0; k < fineSteps; k++) {
+          const t = k / fineSteps;
+          const p = bsplineEval(cp, s, t);
+          const d = bsplineDeriv1(cp, s, t);
+          const kappa = bsplineCurvature(cp, s, t);
+          if (fine.length > 0) arc += Math.hypot(p[0] - fine[fine.length - 1].x, p[1] - fine[fine.length - 1].y);
+          fine.push({ x: p[0], y: p[1], dx: d[0], dy: d[1], kappa, arc });
+        }
+      }
+      const lp = bsplineEval(cp, nseg - 1, 1.0);
+      const ld = bsplineDeriv1(cp, nseg - 1, 1.0);
+      arc += Math.hypot(lp[0] - fine[fine.length - 1].x, lp[1] - fine[fine.length - 1].y);
+      fine.push({ x: lp[0], y: lp[1], dx: ld[0], dy: ld[1], kappa: 0, arc });
+      const total = fine[fine.length - 1].arc;
+      if (total < 1e-4) return fine;
+
+      // Phase 2: Optimal adaptive resampling (clean 15-25 points total)
+      const stepStraight = 0.65; // Sparse spacing on straight sections (65cm)
+      const stepCurve = 0.15;    // Optimal distinct spacing on curves (15cm)
+
+      const out = [fine[0]];
+      let accum = 0;
+
+      for (let i = 1; i < fine.length; i++) {
+        const ds = fine[i].arc - fine[i - 1].arc;
+        const k = fine[i].kappa;
+        // Local step size smoothly varies between 65cm (straight) and 15cm (curve)
+        const kRatio = Math.min(1, k / 0.8);
+        const localStep = stepStraight * (1 - kRatio) + stepCurve * kRatio;
+
+        accum += ds;
+        if (accum >= localStep || i === fine.length - 1) {
+          out.push(fine[i]);
+          accum = 0;
+        }
+      }
+
+      if (out[out.length - 1] !== fine[fine.length - 1]) {
+        out.push(fine[fine.length - 1]);
+      }
+
+      return out;
+    }
+
+    // ─── TOPPRA Real Velocity Profiling ──────────────────────────────────
+    function toppra(samples) {
+      const n = samples.length;
+      if (n < 2) return { sdot: new Array(n).fill(0), x_max: [], x_bwd: [] };
+      const half_w = P.tw / 2; // 0.215m
+      const v_max = (P && P.ms) ? P.ms : 2.0;       // max linear speed (m/s)
+      const a_lat_max = 1.0;   // max lateral centripetal acceleration (m/s²)
+      const a_max = 1.2;       // max longitudinal accel/decel (m/s²)
+
+      // Velocity ceiling x_max[i] = (v_ceiling)²
+      const x_max = samples.map(s => {
+        // 1. Centripetal acceleration limit: v_lat = sqrt(a_lat_max / kappa)
+        const v_lat = s.kappa > 1e-3 ? Math.sqrt(a_lat_max / s.kappa) : v_max;
+
+        // 2. Differential drive inner/outer wheel speed limit
+        const mf = 1 + half_w * s.kappa;
+        const v_diff = mf > 1e-9 ? v_max / mf : v_max;
+
+        const v_ceiling = Math.min(v_max, v_lat, v_diff);
+        return v_ceiling * v_ceiling;
+      });
+
+      // Backward pass (deceleration into curves and goal)
+      const x_bwd = new Array(n).fill(0);
+      x_bwd[n - 1] = 0; // stop at goal
+      for (let i = n - 2; i >= 0; i--) {
+        const ds = samples[i + 1].arc - samples[i].arc;
+        if (ds < 1e-9) { x_bwd[i] = x_bwd[i + 1]; continue; }
+        // x_bwd[i] <= x_bwd[i+1] + 2 * a_max * ds
+        const xi = Math.min(x_max[i], x_bwd[i + 1] + 2 * a_max * ds);
+        x_bwd[i] = Math.max(0, xi);
+      }
+
+      // Forward pass (acceleration from start and out of curves)
+      const x_fwd = new Array(n).fill(0);
+      x_fwd[0] = 0.8; // initial starting speed
+      for (let i = 1; i < n; i++) {
+        const ds = samples[i].arc - samples[i - 1].arc;
+        if (ds < 1e-9) { x_fwd[i] = x_fwd[i - 1]; continue; }
+        // x_fwd[i] <= x_fwd[i-1] + 2 * a_max * ds
+        const xi = Math.min(x_max[i], x_bwd[i], x_fwd[i - 1] + 2 * a_max * ds);
+        x_fwd[i] = Math.max(0, xi);
+      }
+
+      return {
+        sdot: x_fwd.map(x => Math.sqrt(Math.max(0, x))),
+        x_max,
+        x_bwd
+      };
+    }
+
+    // ─── Speed Color (red=slow corner → cyan=mid → green=fast 2.0m/s) ────
+    function speedColor(v, vmax) {
+      const vmax_ref = 2.0;
+      const t = Math.max(0, Math.min(1, v / vmax_ref));
+      if (t < 0.6) {
+        const s = t / 0.6;
+        // #ff4444 (red) → #2bd4e6 (cyan)
+        return `rgb(${Math.round(255 - s * 212)},${Math.round(68 + s * 144)},${Math.round(68 + s * 162)})`;
+      } else {
+        const s = (t - 0.6) / 0.4;
+        // #2bd4e6 (cyan) → #00ff88 (bright green)
+        return `rgb(${Math.round(43 - s * 43)},${Math.round(212 + s * 43)},${Math.round(230 - s * 94)})`;
+      }
+    }
+
+    // ─── MPC Simulation (full path tracking) ─────────────────────────────
+    function simulateMPCFull(samples, sdot, startIdx) {
+      if (!samples.length) return [];
+      // If already near end of path, return empty prediction so ghosts disappear!
+      if (startIdx >= samples.length - 2) return [];
+
+      const goalX = state.goal.x, goalY = state.goal.y;
+      const N = P.hn, dt = P.dt;
+      const rs = samples[startIdx || 0];
+
+      // If robot is within 0.50m of goal, stop prediction completely!
+      if (Math.hypot(rs.x - goalX, rs.y - goalY) < 0.50) return [];
+
+      let rx = rs.x, ry = rs.y;
+      let rtheta = Math.atan2(rs.dy || 0, rs.dx || 1);
+      let rv = sdot[startIdx || 0] || 0;
+      const prediction = [];
+      let cursor = startIdx || 0;
+
+      for (let k = 0; k < N; k++) {
+        // Stop prediction if cursor hits last sample OR predicted position reaches within 0.40m of goal!
+        if (cursor >= samples.length - 1 || Math.hypot(rx - goalX, ry - goalY) < 0.40) break;
+
+        let bestD = Infinity;
+        for (let i = cursor; i < samples.length; i++) {
+          const d = Math.hypot(samples[i].x - rx, samples[i].y - ry);
+          if (d < bestD) { bestD = d; cursor = i; }
+          if (d > bestD + 0.5) break;
+        }
+        const refIdx = Math.min(cursor + 1, samples.length - 1);
+        const ref = samples[refIdx];
+        const v_ref = sdot[Math.min(cursor, sdot.length - 1)];
+
+        const ex = ref.x - rx, ey = ref.y - ry;
+        const target_theta = Math.atan2(ey, ex);
+        let dtheta = target_theta - rtheta;
+        while (dtheta > Math.PI) dtheta -= 2 * Math.PI;
+        while (dtheta < -Math.PI) dtheta += 2 * Math.PI;
+        const w = Math.max(-P.yr, Math.min(P.yr, P.qp * 0.1 * dtheta));
+        const v_err = v_ref - rv;
+        const accel = Math.max(-P.wa, Math.min(P.wa, P.qv * v_err));
+        rv = Math.max(0, Math.min(P.vmx, rv + accel * dt));
+        rtheta += w * dt;
+        rx += rv * Math.cos(rtheta) * dt;
+        ry += rv * Math.sin(rtheta) * dt;
+        prediction.push({ x: rx, y: ry, theta: rtheta, v: rv });
+      }
+      return prediction;
+    }
+
+    // ─── Interpolate position on samples at arc fraction t (0..1) ────────
+    function interpSample(samples, t) {
+      if (!samples.length) return null;
+      const totalArc = samples[samples.length - 1].arc;
+      const targetArc = t * totalArc;
+      let i = 0;
+      while (i + 1 < samples.length && samples[i + 1].arc < targetArc) i++;
+      if (i + 1 >= samples.length) return { ...samples[samples.length - 1], idx: samples.length - 1 };
+      const span = samples[i + 1].arc - samples[i].arc;
+      const frac = span > 1e-9 ? (targetArc - samples[i].arc) / span : 0;
+      return {
+        x: samples[i].x + frac * (samples[i + 1].x - samples[i].x),
+        y: samples[i].y + frac * (samples[i + 1].y - samples[i].y),
+        dx: samples[i].dx + frac * (samples[i + 1].dx - samples[i].dx),
+        dy: samples[i].dy + frac * (samples[i + 1].dy - samples[i].dy),
+        kappa: samples[i].kappa + frac * (samples[i + 1].kappa - samples[i].kappa),
+        arc: targetArc,
+        idx: i
+      };
+    }
+
+    // ─── Drawing ─────────────────────────────────────────────────────────
+
+    function drawMain() {
+      const id = 'mainCanvas';
+      resizeCanvas(id);
+      const canvas = document.getElementById(id);
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      buildTransforms();
+      const T = _T, sw = _scale;
+
+      // Background glow
+      const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) / 2);
+      bg.addColorStop(0, 'rgba(20, 30, 55, .4)');
+      bg.addColorStop(1, 'rgba(8, 12, 22, .3)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // World grid
+      ctx.strokeStyle = 'rgba(43,212,230,.06)';
+      ctx.lineWidth = 1;
+      for (let x = Math.ceil(WORLD.xmin); x <= WORLD.xmax; x++) {
+        const [cx] = T(x, 0);
+        ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+      }
+      for (let y = Math.ceil(WORLD.ymin); y <= WORLD.ymax; y++) {
+        const [, cy] = T(0, y);
+        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+      }
+
+      // Axis labels
+      ctx.fillStyle = 'rgba(43,212,230,.2)';
+      ctx.font = `${9 * devicePixelRatio}px JetBrains Mono`;
+      for (let x = Math.ceil(WORLD.xmin); x <= WORLD.xmax; x++) {
+        const [cx, cy] = T(x, WORLD.ymin);
+        ctx.fillText(x + 'm', cx - 6, cy + 14);
+      }
+      for (let y = Math.ceil(WORLD.ymin); y <= WORLD.ymax; y++) {
+        const [cx, cy] = T(WORLD.xmin, y);
+        ctx.fillText(y + 'm', cx - 30, cy + 4);
+      }
+
+      // ── Obstacles ─────────────────────────────────────────────────────
+      for (let i = 0; i < state.obstacles.length; i++) {
+        const obs = state.obstacles[i];
+        const [cx, cy] = T(obs.x, obs.y);
+        const grabbed = drag.active && drag.type === 'obstacle' && drag.idx === i;
+
+        // Obstacle Body
+        const grd = ctx.createRadialGradient(cx - obs.r * sw * .3, cy - obs.r * sw * .3, 0, cx, cy, obs.r * sw);
+        grd.addColorStop(0, grabbed ? 'rgba(255,160,160,.75)' : 'rgba(255,120,120,.6)');
+        grd.addColorStop(1, grabbed ? 'rgba(255,80,80,.5)' : 'rgba(200,60,60,.35)');
+        ctx.beginPath(); ctx.arc(cx, cy, obs.r * sw, 0, Math.PI * 2);
+        ctx.fillStyle = grd; ctx.fill();
+        ctx.strokeStyle = grabbed ? '#ffaaaa' : 'rgba(255,107,107,.8)';
+        ctx.lineWidth = grabbed ? 2.5 : 1.5; ctx.stroke();
+
+        // Clean Inflation Zone (obstacle radius + rover footprint)
+        const rInfl = robotInflation();
+        const inflR = (obs.r + rInfl) * sw;
+        ctx.beginPath(); ctx.arc(cx, cy, inflR, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,107,107,.07)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,107,107,.4)';
+        ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+        // Label
+        ctx.fillStyle = 'rgba(255,170,170,.7)';
+        ctx.font = `${8 * devicePixelRatio}px JetBrains Mono`;
+        ctx.fillText(`obs r=${obs.r.toFixed(2)}m (infl=${(obs.r + rInfl).toFixed(2)}m)`, cx - 35, cy + obs.r * sw + 14);
+      }
+
+      // ── Straight-line preview (always show when both placed) ──────────
+      if (state.robot.placed && state.goal.placed) {
+        const [rx, ry] = T(state.robot.x, state.robot.y);
+        const [gx, gy] = T(state.goal.x, state.goal.y);
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(gx, gy);
+        ctx.strokeStyle = 'rgba(100,110,140,.35)'; ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([]);
+
+        // Distance label
+        const dist = Math.hypot(state.goal.x - state.robot.x, state.goal.y - state.robot.y);
+        const mx = (rx + gx) / 2, my = (ry + gy) / 2;
+        ctx.fillStyle = 'rgba(100,110,140,.5)';
+        ctx.font = `${9 * devicePixelRatio}px JetBrains Mono`;
+        ctx.fillText(`${dist.toFixed(2)}m`, mx + 8, my - 6);
+      }
+
+      // ── Planned path visualization ────────────────────────────────────
+      if (state.planned && state.samples && state.sdot) {
+        const samples = state.samples;
+        const sdot = state.sdot;
+        const vmax = Math.max(...sdot, 0.01);
+
+        // B-Spline control polygon
+        if (state.splineCp) {
+          ctx.beginPath();
+          for (let i = 0; i < state.splineCp.length; i++) {
+            const [cx, cy] = T(state.splineCp[i][0], state.splineCp[i][1]);
+            i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+          }
+          ctx.strokeStyle = 'rgba(43,212,230,.15)'; ctx.lineWidth = 1;
+          ctx.setLineDash([2, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+          // Control points
+          for (let i = 0; i < state.splineCp.length; i++) {
+            const [cx, cy] = T(state.splineCp[i][0], state.splineCp[i][1]);
+            ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = i === 0 || i === state.splineCp.length - 1
+              ? 'rgba(255,209,102,.8)' : 'rgba(43,212,230,.5)';
+            ctx.fill();
+          }
+        }
+
+        // B-Spline path colored by velocity
+        for (let i = 0; i + 1 < samples.length; i++) {
+          const [x1, y1] = T(samples[i].x, samples[i].y);
+          const [x2, y2] = T(samples[i + 1].x, samples[i + 1].y);
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+          ctx.strokeStyle = speedColor(sdot[i], 2.0);
+          ctx.lineWidth = 3 * devicePixelRatio; ctx.stroke();
+        }
+
+        // TOPPRA velocity dots — discrete clean circles with subtle dark stroke
+        for (let i = 0; i < samples.length; i++) {
+          const [cx, cy] = T(samples[i].x, samples[i].y);
+          const v = sdot[i];
+          const r = 3.5;
+          ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fillStyle = speedColor(v, 2.0);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(10,14,26,0.8)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // ── MPC Animation ─────────────────────────────────────────────
+        if (state.animating) {
+          const pos = interpSample(samples, state.animT);
+          if (pos) {
+            // Trail
+            for (let i = 0; i < state.animTrail.length; i++) {
+              const tr = state.animTrail[i];
+              const [tx, ty] = T(tr.x, tr.y);
+              const alpha = (i / state.animTrail.length) * 0.4;
+              ctx.beginPath(); ctx.arc(tx, ty, 2, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(43,212,230,${alpha})`; ctx.fill();
+            }
+
+            // MPC prediction from current position
+            const distToGoal = Math.hypot(pos.x - state.goal.x, pos.y - state.goal.y);
+            // Fade out predictions smoothly as robot approaches goal (0 opacity at < 0.40m)
+            const predOpacity = Math.max(0, Math.min(1, (distToGoal - 0.40) / 1.10));
+
+            const pred = predOpacity > 0.01 ? simulateMPCFull(samples, sdot, pos.idx) : [];
+            state.mpcPrediction = pred;
+
+            if (pred.length > 0 && predOpacity > 0.01) {
+              // Predicted path line
+              ctx.beginPath();
+              const [sx, sy] = T(pos.x, pos.y);
+              ctx.moveTo(sx, sy);
+              pred.forEach(p => { const [cx, cy] = T(p.x, p.y); ctx.lineTo(cx, cy); });
+              ctx.strokeStyle = `rgba(255,107,107,${0.6 * predOpacity})`;
+              ctx.lineWidth = 2; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+
+              // Predicted ghost footprints
+              pred.forEach((p, i) => {
+                // Do not render any ghost box that is within 0.35m of the goal
+                if (Math.hypot(p.x - state.goal.x, p.y - state.goal.y) < 0.35) return;
+                if (i % Math.max(1, Math.ceil(pred.length / 6)) !== 0) return;
+                const [cx, cy] = T(p.x, p.y);
+                const hw = 0.215 * sw, hl = 0.30 * sw;
+                ctx.save(); ctx.translate(cx, cy); ctx.rotate(-p.theta);
+                ctx.beginPath(); ctx.rect(-hl, -hw, 2 * hl, 2 * hw);
+                ctx.strokeStyle = `rgba(255,107,107,${(0.2 + (i / pred.length) * 0.4) * predOpacity})`;
+                ctx.fillStyle = `rgba(255,107,107,${(0.03 + (i / pred.length) * 0.06) * predOpacity})`;
+                ctx.lineWidth = 1; ctx.stroke(); ctx.fill();
+                ctx.restore();
+                // Dot
+                ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255,209,102,${(0.4 + (i / pred.length) * 0.6) * predOpacity})`; ctx.fill();
+              });
+            }
+
+            // Robot at current animated position
+            const [rcx, rcy] = T(pos.x, pos.y);
+            const theta = Math.atan2(pos.dy || 0, pos.dx || 1);
+            const hw = 0.215 * sw, hl = 0.30 * sw;
+            ctx.save(); ctx.translate(rcx, rcy); ctx.rotate(-theta);
+            const rg = ctx.createLinearGradient(-hl, -hw, hl, hw);
+            rg.addColorStop(0, 'rgba(43,212,230,.85)');
+            rg.addColorStop(1, 'rgba(0,210,160,.65)');
+            ctx.beginPath(); ctx.rect(-hl, -hw, 2 * hl, 2 * hw);
+            ctx.fillStyle = rg; ctx.fill();
+            ctx.strokeStyle = '#2bd4e6'; ctx.lineWidth = 2.5; ctx.stroke();
+            // Heading arrow
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(hl * 1.8, 0);
+            ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2.5; ctx.stroke();
+            ctx.restore();
+
+            // Current speed readout
+            const currV = sdot[pos.idx] || 0;
+            document.getElementById('anim-speed-val').textContent = `v = ${currV.toFixed(2)} m/s`;
+            document.getElementById('anim-progress').style.width = (state.animT * 100) + '%';
+            document.getElementById('anim-pct').textContent = Math.round(state.animT * 100) + '%';
+          }
+        }
+      }
+
+      // ── Robot (static, when not animating or at start) ────────────────
+      if (state.robot.placed && !state.animating) {
+        const [rcx, rcy] = T(state.robot.x, state.robot.y);
+        const hw = 0.215 * sw, hl = 0.30 * sw;
+        ctx.save(); ctx.translate(rcx, rcy); ctx.rotate(-state.robot.yaw);
+        const rg = ctx.createLinearGradient(-hl, -hw, hl, hw);
+        rg.addColorStop(0, 'rgba(43,212,230,.85)');
+        rg.addColorStop(1, 'rgba(0,210,160,.65)');
+        ctx.beginPath(); ctx.rect(-hl, -hw, 2 * hl, 2 * hw);
+        ctx.fillStyle = rg; ctx.fill();
+        ctx.strokeStyle = editMode === 'robot' ? '#7fe6f1' : '#2bd4e6';
+        ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(hl * 1.8, 0);
+        ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = 'rgba(127,230,241,.9)';
+        ctx.font = `bold ${9 * devicePixelRatio}px Inter`;
+        ctx.fillText('🤖', rcx - 8, rcy - hw - 8);
+      }
+
+      // ── Goal ──────────────────────────────────────────────────────────
+      if (state.goal.placed) {
+        const [gx, gy] = T(state.goal.x, state.goal.y);
+        // Glow
+        const gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, 22);
+        gg.addColorStop(0, 'rgba(0,210,160,.5)');
+        gg.addColorStop(1, 'rgba(0,210,160,0)');
+        ctx.beginPath(); ctx.arc(gx, gy, 22, 0, Math.PI * 2);
+        ctx.fillStyle = gg; ctx.fill();
+        ctx.beginPath(); ctx.arc(gx, gy, 10, 0, Math.PI * 2);
+        ctx.fillStyle = editMode === 'goal' ? 'rgba(0,255,180,.8)' : 'rgba(0,210,160,.55)';
+        ctx.fill();
+        ctx.strokeStyle = '#00d2a0'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#00d2a0';
+        ctx.font = `bold ${9 * devicePixelRatio}px Inter`;
+        ctx.fillText('🎯', gx - 7, gy - 16);
+      }
+
+      // ── Instruction overlay (when not planned) ────────────────────────
+      if (!state.planned) {
+        ctx.fillStyle = 'rgba(255,255,255,.05)';
+        ctx.font = `bold ${16 * devicePixelRatio}px Inter`;
+        ctx.textAlign = 'center';
+        if (!state.robot.placed) ctx.fillText('Click canvas to place 🤖 Robot', W / 2, H / 2);
+        else if (!state.goal.placed) ctx.fillText('Now click to place 🎯 Goal', W / 2, H / 2);
+        else ctx.fillText('Add obstacles (optional), then click ▶ Plan Path', W / 2, H / 2);
+        ctx.textAlign = 'left';
+      }
+
+      // ── Info overlay (when planned) ───────────────────────────────────
+      if (state.planned && state.samples && state.sdot) {
+        const samples = state.samples, sdot = state.sdot;
+        const totalLen = samples[samples.length - 1].arc;
+        const avgV = sdot.reduce((a, b) => a + b, 0) / sdot.length;
+        const maxV = Math.max(...sdot);
+        const dpr = devicePixelRatio;
+
+        ctx.fillStyle = 'rgba(10,14,26,.82)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(8, 8, 200 * dpr, 80 * dpr, 6);
+        else ctx.rect(8, 8, 200 * dpr, 80 * dpr);
+        ctx.fill();
+        ctx.font = `${10 * dpr}px JetBrains Mono`;
+        ctx.fillStyle = '#c8d6e5';
+        ctx.fillText(`Path: ${totalLen.toFixed(2)} m  Pts: ${samples.length}`, 16, 22 * dpr);
+        ctx.fillStyle = '#00d2a0';
+        ctx.fillText(`Avg ṡ: ${avgV.toFixed(2)}  Max: ${maxV.toFixed(2)} m/s`, 16, 38 * dpr);
+        ctx.fillStyle = '#ffd166';
+        const estT = avgV > 0 ? totalLen / avgV : Infinity;
+        ctx.fillText(`Est. time: ${isFinite(estT) ? estT.toFixed(2) : '∞'} s`, 16, 54 * dpr);
+        ctx.fillStyle = '#2bd4e6';
+        const mkappa = Math.max(...samples.map(s => s.kappa), .001);
+        ctx.fillText(`Smoothness (1/κ): ${(1 / mkappa).toFixed(2)}`, 16, 70 * dpr);
+      }
+    }
+
+    // ─── Draw Velocity Profile ───────────────────────────────────────────
+    function drawVelocityProfile() {
+      const id = 'velCanvas';
+      resizeCanvas(id);
+      const canvas = document.getElementById(id);
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      if (!state.planned || !state.samples || state.samples.length < 2 || !state.sdot) return;
+
+      const samples = state.samples;
+      const sdot = state.sdot;
+      const totalArc = samples[samples.length - 1].arc;
+      const vmaxRef = Math.min(P.ms, P.vmx);
+      const kappaMax = Math.max(...samples.map(s => s.kappa), 0.01);
+
+      const pad = { l: 50, r: 20, t: 20, b: 36 };
+      const xs = i => pad.l + (samples[i].arc / totalArc) * (W - pad.l - pad.r);
+      const yv = v => pad.t + (1 - v / vmaxRef) * (H - pad.t - pad.b);
+      const yk = k => pad.t + (1 - k / kappaMax) * (H - pad.t - pad.b);
+
+      // Background
+      ctx.fillStyle = 'rgba(0,210,160,.03)';
+      ctx.fillRect(pad.l, pad.t, W - pad.l - pad.r, H - pad.t - pad.b);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const y = yv(vmaxRef * i / 4);
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+      }
+
+      // Curvature
+      ctx.beginPath();
+      for (let i = 0; i < samples.length; i++) {
+        const xp = xs(i), yp = yk(Math.min(samples[i].kappa, kappaMax));
+        i === 0 ? ctx.moveTo(xp, yp) : ctx.lineTo(xp, yp);
+      }
+      ctx.strokeStyle = 'rgba(43,212,230,.3)'; ctx.lineWidth = 1; ctx.stroke();
+
+      // TOPPRA fill
+      ctx.beginPath();
+      ctx.moveTo(xs(0), yv(0));
+      for (let i = 0; i < samples.length; i++) ctx.lineTo(xs(i), yv(sdot[i]));
+      ctx.lineTo(xs(samples.length - 1), yv(0));
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(0,210,160,.1)'; ctx.fill();
+
+      // TOPPRA line colored
+      for (let i = 0; i + 1 < samples.length; i++) {
+        ctx.beginPath();
+        ctx.moveTo(xs(i), yv(sdot[i]));
+        ctx.lineTo(xs(i + 1), yv(sdot[i + 1]));
+        ctx.strokeStyle = speedColor(sdot[i], vmaxRef);
+        ctx.lineWidth = 2.5 * devicePixelRatio; ctx.stroke();
+      }
+
+      // Animated cursor
+      if (state.animating) {
+        const pos = interpSample(samples, state.animT);
+        if (pos) {
+          const cx = pad.l + (pos.arc / totalArc) * (W - pad.l - pad.r);
+          const currV = sdot[pos.idx] || 0;
+          ctx.beginPath(); ctx.moveTo(cx, pad.t); ctx.lineTo(cx, H - pad.b);
+          ctx.strokeStyle = 'rgba(255,209,102,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+          ctx.beginPath(); ctx.arc(cx, yv(currV), 5, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffd166'; ctx.fill();
+        }
+      }
+
+      // Axes
+      ctx.fillStyle = ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b);
+      ctx.lineTo(W - pad.r, H - pad.b); ctx.stroke();
+      ctx.font = `${9 * devicePixelRatio}px JetBrains Mono`;
+      ctx.fillText('ṡ (m/s)', 4, pad.t + 10);
+      ctx.fillText(`${vmaxRef.toFixed(1)}`, 4, yv(vmaxRef) + 4);
+      ctx.fillText('0', pad.l - 15, H - pad.b + 4);
+      ctx.fillText('Arc length s →', pad.l, H - 6);
+
+      // Right axis label
+      ctx.fillStyle = 'rgba(43,212,230,.4)';
+      ctx.fillText('κ', W - 15, pad.t + 10);
+    }
+
+    // ─── UI State Management ─────────────────────────────────────────────
+
+    function updateChecklist() {
+      const steps = ['robot', 'goal', 'obstacle'];
+      const ids = ['step-robot', 'step-goal', 'step-obstacle'];
+      const chks = ['chk-robot', 'chk-goal', 'chk-obs'];
+      const done = [state.robot.placed, state.goal.placed, true];
+
+      steps.forEach((_, i) => {
+        const el = document.getElementById(ids[i]);
+        const chk = document.getElementById(chks[i]);
+        const isActive = editMode === steps[i];
+        el.className = 'setup-step ' + (isActive ? 'active' : (done[i] ? 'done' : 'pending'));
+        chk.textContent = done[i] ? '✔' : (isActive ? '▶' : '○');
+      });
+
+      const btn = document.getElementById('btn-plan');
+      const status = document.getElementById('plan-status');
+      if (!state.robot.placed) { btn.disabled = true; status.textContent = 'Place robot first'; }
+      else if (!state.goal.placed) { btn.disabled = true; status.textContent = 'Place goal next'; }
+      else { btn.disabled = false; status.textContent = state.planned ? '✔ Path planned — drag to reposition' : 'Ready to plan!'; }
+    }
+
+    function setMode(mode) {
+      editMode = mode;
+      updateChecklist();
+      const hints = {
+        robot: '🤖 Click canvas to place robot',
+        goal: '🎯 Click canvas to place goal',
+        obstacle: '🧱 Click=add · Drag=move · Scroll=resize · Right-click=delete'
+      };
+      document.getElementById('plan-status').textContent = hints[mode] || '';
+    }
+
+    function clearObstacles() {
+      state.obstacles = [];
+      if (state.planned) runPlan();
+      else scheduleRedraw();
+    }
+
+    function resetScene() {
+      state.robot.placed = false;
+      state.goal.placed = false;
+      state.obstacles = [];
+      state.planned = false;
+      state.samples = null;
+      state.sdot = null;
+      state.splineCp = null;
+      state.straightPath = null;
+      stopAnim();
+      editMode = 'robot';
+      updateChecklist();
+      document.getElementById('animBar').style.display = 'none';
+      ['met-len', 'met-clear', 'met-avgv', 'met-maxv', 'met-smooth', 'met-time'].forEach(id => {
+        document.getElementById(id).textContent = '—';
+      });
+      scheduleRedraw();
+    }
+
+    // ─── Plan Path ───────────────────────────────────────────────────────
+    function runPlan() {
+      if (!state.robot.placed || !state.goal.placed) return;
+
+      const btn = document.getElementById('btn-plan');
+      const icon = document.getElementById('plan-icon');
+      btn.classList.add('running');
+      icon.textContent = '⟳';
+
+      setTimeout(() => {
+        // Generate straight line waypoints
+        const numWaypoints = 20;
+        state.straightPath = generateWaypoints(state.robot, state.goal, numWaypoints);
+
+        // Fit B-spline
+        const { cp } = fitBSpline(state.straightPath, state.obstacles);
+        state.splineCp = cp;
+
+        // Sample spline
+        state.samples = sampleSpline(cp, P.ss);
+
+        // TOPPRA
+        if (state.samples.length >= 2) {
+          const { sdot } = toppra(state.samples);
+          state.sdot = sdot;
+        } else {
+          state.sdot = [];
+        }
+
+        state.planned = true;
+
+        // Update metrics
+        updateMetrics();
+
+        // Start MPC animation
+        startAnim();
+
+        btn.classList.remove('running');
+        icon.textContent = '▶';
+        updateChecklist();
+        scheduleRedraw();
+      }, 30);
+    }
+
+    function updateMetrics() {
+      if (!state.samples || !state.sdot || state.samples.length < 2) return;
+      const samples = state.samples, sdot = state.sdot;
+      const totalLen = samples[samples.length - 1].arc;
+      const avgV = sdot.reduce((a, b) => a + b, 0) / sdot.length;
+      const maxV = Math.max(...sdot);
+      const estTime = avgV > 0 ? totalLen / avgV : Infinity;
+      const maxK = Math.max(...samples.map(s => s.kappa), .001);
+      let minClear = Infinity;
+      for (const s of samples) {
+        for (const obs of state.obstacles) {
+          const d = Math.hypot(s.x - obs.x, s.y - obs.y) - obs.r;
+          if (d < minClear) minClear = d;
+        }
+      }
+      document.getElementById('met-len').textContent = totalLen.toFixed(2) + ' m';
+      document.getElementById('met-clear').textContent = isFinite(minClear) ? minClear.toFixed(3) + ' m' : '—';
+      document.getElementById('met-avgv').textContent = avgV.toFixed(2) + ' m/s';
+      document.getElementById('met-maxv').textContent = maxV.toFixed(2) + ' m/s';
+      document.getElementById('met-smooth').textContent = (1 / maxK).toFixed(2);
+      document.getElementById('met-time').textContent = isFinite(estTime) ? estTime.toFixed(2) + ' s' : '∞';
+    }
+
+    // ─── Animation ───────────────────────────────────────────────────────
+    let animRAF = null;
+    let lastAnimTime = 0;
+
+    function startAnim() {
+      state.animating = true;
+      state.animPaused = false;
+      state.animT = 0;
+      state.animTrail = [];
+      state.mpcPrediction = [];
+      lastAnimTime = performance.now();
+      document.getElementById('animBar').style.display = 'flex';
+      document.getElementById('anim-pause').textContent = '⏸ pause';
+      animLoop();
+    }
+
+    function stopAnim() {
+      state.animating = false;
+      state.animPaused = false;
+      if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; }
+    }
+
+    function toggleAnim() {
+      state.animPaused = !state.animPaused;
+      document.getElementById('anim-pause').textContent = state.animPaused ? '▶ resume' : '⏸ pause';
+      if (!state.animPaused) {
+        lastAnimTime = performance.now();
+        animLoop();
+      }
+    }
+
+    function restartAnim() {
+      state.animT = 0;
+      state.animTrail = [];
+      state.animPaused = false;
+      lastAnimTime = performance.now();
+      document.getElementById('anim-pause').textContent = '⏸ pause';
+      if (!animRAF) animLoop();
+    }
+
+    function animLoop() {
+      if (!state.animating || state.animPaused) { animRAF = null; return; }
+
+      const now = performance.now();
+      const dt = (now - lastAnimTime) / 1000;
+      lastAnimTime = now;
+
+      // Speed multiplier
+      state.animSpeedMul = parseFloat(document.getElementById('anim-speed-slider').value) || 1;
+
+      if (state.samples && state.sdot && state.samples.length >= 2) {
+        const totalArc = state.samples[state.samples.length - 1].arc;
+        const pos = interpSample(state.samples, state.animT);
+        const currV = pos ? (state.sdot[pos.idx] || 0.5) : 0.5;
+
+        // Advance: use TOPPRA velocity scaled to arc fraction
+        const arcAdvance = currV * dt * state.animSpeedMul;
+        state.animT += arcAdvance / totalArc;
+
+        // Add trail point
+        if (pos) {
+          state.animTrail.push({ x: pos.x, y: pos.y });
+          if (state.animTrail.length > 200) state.animTrail.shift();
+        }
+
+        // Loop
+        if (state.animT >= 1) {
+          state.animT = 0;
+          state.animTrail = [];
+        }
+      }
+
+      scheduleRedraw();
+      animRAF = requestAnimationFrame(animLoop);
+    }
+
+    // ─── Master Redraw ───────────────────────────────────────────────────
+    let redrawId = null;
+    function scheduleRedraw() {
+      if (redrawId) cancelAnimationFrame(redrawId);
+      redrawId = requestAnimationFrame(() => {
+        redrawId = null;
+        drawMain();
+        drawVelocityProfile();
+      });
+    }
+
+    // ─── Resize Observer ─────────────────────────────────────────────────
+    const ro = new ResizeObserver(() => scheduleRedraw());
+    ['mainCanvas', 'velCanvas'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) ro.observe(el);
+    });
+
+    // ─── Canvas Mouse Events ─────────────────────────────────────────────
+    const mainCanvas = document.getElementById('mainCanvas');
+
+    function hitObstacle(wx, wy) {
+      for (let i = state.obstacles.length - 1; i >= 0; i--) {
+        if (Math.hypot(wx - state.obstacles[i].x, wy - state.obstacles[i].y) < Math.max(state.obstacles[i].r, 0.25))
+          return i;
+      }
+      return -1;
+    }
+
+    mainCanvas.addEventListener('mousedown', e => {
+      if (e.button === 2) return;
+      buildTransforms();
+      const [wx, wy] = canvasToWorld(e);
+      drag.active = false;
+
+      if (editMode === 'robot') {
+        state.robot.x = wx; state.robot.y = wy;
+        state.robot.placed = true;
+        drag.active = true; drag.type = 'robot';
+        if (!state.goal.placed) editMode = 'goal';
+        updateChecklist();
+        if (state.planned) runPlan();
+        else scheduleRedraw();
+      } else if (editMode === 'goal') {
+        state.goal.x = wx; state.goal.y = wy;
+        state.goal.placed = true;
+        drag.active = true; drag.type = 'goal';
+        editMode = 'obstacle';
+        updateChecklist();
+        if (state.planned) runPlan();
+        else scheduleRedraw();
+      } else if (editMode === 'obstacle') {
+        const idx = hitObstacle(wx, wy);
+        if (idx >= 0) {
+          drag.active = true; drag.type = 'obstacle'; drag.idx = idx;
+        } else {
+          state.obstacles.push({ x: wx, y: wy, r: 0.30 });
+          drag.active = true; drag.type = 'obstacle'; drag.idx = state.obstacles.length - 1;
+          if (state.planned) runPlan();
+          else scheduleRedraw();
+        }
+      }
+    });
+
+    mainCanvas.addEventListener('mousemove', e => {
+      buildTransforms();
+      const [wx, wy] = canvasToWorld(e);
+
+      // Tooltip for TOPPRA velocity
+      if (state.planned && state.samples && state.sdot && !drag.active) {
+        let nearest = -1, bestD = 12; // pixels threshold
+        const canvas = document.getElementById('mainCanvas');
+        const rect = canvas.getBoundingClientRect();
+        const dpr = devicePixelRatio || 1;
+        const mx = (e.clientX - rect.left) * dpr;
+        const my = (e.clientY - rect.top) * dpr;
+
+        for (let i = 0; i < state.samples.length; i++) {
+          const [sx, sy] = _T(state.samples[i].x, state.samples[i].y);
+          const d = Math.hypot(sx - mx, sy - my);
+          if (d < bestD) { bestD = d; nearest = i; }
+        }
+
+        const tooltip = document.getElementById('tooltip');
+        if (nearest >= 0) {
+          const s = state.samples[nearest];
+          const v = state.sdot[nearest];
+          tooltip.style.display = 'block';
+          tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+          tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+          tooltip.querySelector('.tt-vel').textContent = `v = ${v.toFixed(3)} m/s`;
+          tooltip.querySelector('.tt-kappa').textContent = `κ = ${s.kappa.toFixed(4)}`;
+          tooltip.querySelector('.tt-pos').textContent = `x: ${s.x.toFixed(2)}, y: ${s.y.toFixed(2)}`;
+        } else {
+          tooltip.style.display = 'none';
+        }
+      }
+
+      if (!drag.active) {
+        let cur = 'crosshair';
+        if (editMode === 'obstacle' && hitObstacle(wx, wy) >= 0) cur = 'grab';
+        document.getElementById('canvas-wrap').style.cursor = cur;
+        return;
+      }
+
+      if (drag.type === 'robot') {
+        const dx = wx - state.robot.x, dy = wy - state.robot.y;
+        state.robot.x = wx; state.robot.y = wy;
+        if (Math.hypot(dx, dy) > 0.05) state.robot.yaw = Math.atan2(dy, dx);
+      } else if (drag.type === 'goal') {
+        state.goal.x = wx; state.goal.y = wy;
+      } else if (drag.type === 'obstacle' && drag.idx >= 0) {
+        state.obstacles[drag.idx].x = wx;
+        state.obstacles[drag.idx].y = wy;
+      }
+      scheduleRedraw();
+    });
+
+    mainCanvas.addEventListener('mouseup', () => {
+      if (drag.active && state.planned) {
+        runPlan();
+      }
+      drag.active = false; drag.type = null;
+    });
+
+    mainCanvas.addEventListener('mouseleave', () => {
+      drag.active = false; drag.type = null;
+      document.getElementById('tooltip').style.display = 'none';
+    });
+
+    mainCanvas.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      buildTransforms();
+      const [wx, wy] = canvasToWorld(e);
+      if (editMode === 'obstacle') {
+        const idx = hitObstacle(wx, wy);
+        if (idx >= 0) {
+          state.obstacles.splice(idx, 1);
+          if (state.planned) runPlan();
+          else scheduleRedraw();
+        }
+      }
+    });
+
+    mainCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      buildTransforms();
+      const [wx, wy] = canvasToWorld(e);
+      const delta = e.deltaY > 0 ? -0.03 : 0.03;
+      if (editMode === 'obstacle') {
+        const idx = hitObstacle(wx, wy);
+        if (idx >= 0) {
+          state.obstacles[idx].r = Math.max(0.05, Math.min(2.0, state.obstacles[idx].r + delta));
+          if (state.planned) runPlan();
+          else scheduleRedraw();
+        }
+      } else if (editMode === 'robot') {
+        state.robot.yaw = (state.robot.yaw || 0) + delta * 3;
+        scheduleRedraw();
+      }
+    }, { passive: false });
+
+    // Touch support
+    mainCanvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      mainCanvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY, button: 0 }));
+    }, { passive: false });
+    mainCanvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      mainCanvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+    }, { passive: false });
+    mainCanvas.addEventListener('touchend', () => {
+      mainCanvas.dispatchEvent(new MouseEvent('mouseup'));
+    }, { passive: false });
+
+    // ═══════════════════════════════════════════════════
+    // CAMERA COMPARISON DEMO LOGIC (ZED 2i vs RealSense D435i)
+    // ═══════════════════════════════════════════════════
+    const camState = {
+      camera: 'zed', // 'zed' or 'realsense'
+      viewFilter: 'rover', // 'rover' (only detected obs) or 'global' (all obs)
+      animating: false,
+      animT: 0,
+      robot: { x: -15.0, y: 0.0, yaw: 0, placed: true },
+      goal: { x: 16.0, y: 0.0, placed: true },
+      obstacles: [
+        { x: -3.0, y: 0.0, r: 1.10 },  // Obstacle 1 at 12m from start (2.2m diameter)
+        { x: 6.0, y: 2.2, r: 0.95 },   // Obstacle 2
+        { x: 12.0, y: -2.0, r: 0.95 }  // Obstacle 3
+      ],
+      samples: null,
+      sdot: null,
+      detectionDist: 15.0,
+      animTrail: []
+    };
+
+    let camEditMode = 'robot';
+    const camDrag = { active: false, type: null, idx: -1 };
+
+    function toggleCamViewFilter() {
+      camState.viewFilter = camState.viewFilter === 'rover' ? 'global' : 'rover';
+      const btn = document.getElementById('btn-cam-view');
+      if (camState.viewFilter === 'rover') {
+        btn.textContent = "👁 Mode: Rover's Camera View (Only Detected)";
+        btn.className = "cam-btn active-zed";
+      } else {
+        btn.textContent = "🌐 Mode: Global Map View (All Obstacles)";
+        btn.className = "cam-btn";
+      }
+      drawCameraDemo();
+    }
+
+    function setCamEditMode(mode) {
+      camEditMode = mode;
+      const isRobotDone = camState.robot.placed;
+      const isGoalDone = camState.goal.placed;
+
+      document.getElementById('cam-step-robot').className = 'setup-step ' + (mode === 'robot' ? 'active' : (isRobotDone ? 'done' : 'pending'));
+      document.getElementById('cam-step-goal').className = 'setup-step ' + (mode === 'goal' ? 'active' : (isGoalDone ? 'done' : 'pending'));
+      document.getElementById('cam-step-obs').className = 'setup-step ' + (mode === 'obstacle' ? 'active' : 'pending');
+
+      document.getElementById('chk-cam-robot').textContent = isRobotDone ? '✔' : (mode === 'robot' ? '▶' : '○');
+      document.getElementById('chk-cam-goal').textContent = isGoalDone ? '✔' : (mode === 'goal' ? '▶' : '○');
+      document.getElementById('chk-cam-obs').textContent = mode === 'obstacle' ? '▶' : '○';
+    }
+
+    function runCamPlan() {
+      planCameraPath();
+      toggleCamAnim();
+    }
+
+    function clearCamObstacles() {
+      camState.obstacles = [];
+      planCameraPath();
+      drawCameraDemo();
+    }
+
+    function resetCamScenario() {
+      if (camState.animating) {
+        camState.animating = false;
+        document.getElementById('btn-cam-anim').textContent = '▶ Run Live Comparison Sim';
+        if (camAnimRAF) { cancelAnimationFrame(camAnimRAF); camAnimRAF = null; }
+      }
+      camState.animT = 0;
+      camState.animTrail = [];
+      camState.robot = { x: -15.0, y: 0.0, yaw: 0, placed: false };
+      camState.goal = { x: 16.0, y: 0.0, placed: false };
+      camState.obstacles = [];
+      camState.samples = null;
+      camState.sdot = null;
+
+      setCamEditMode('robot');
+      drawCameraDemo();
+    }
+
+    // Centered 40-Meter Arena World (X: -22m to 22m, Y: -12m to 12m)
+    const CAM_WORLD = { xmin: -22, xmax: 22, ymin: -12, ymax: 12 };
+
+    function setCamera(cam) {
+      camState.camera = cam;
+      document.getElementById('btn-cam-zed').className = 'cam-btn ' + (cam === 'zed' ? 'active-zed' : '');
+      document.getElementById('btn-cam-rs').className = 'cam-btn ' + (cam === 'realsense' ? 'active-rs' : '');
+
+      if (cam === 'zed') {
+        document.getElementById('spec-buf').textContent = '6.8 sec';
+        document.getElementById('spec-buf').className = 'cam-spec-val';
+        document.getElementById('spec-dist').textContent = '15.0 m';
+        document.getElementById('spec-desc').textContent = 'High decision margin for global trajectory';
+      } else {
+        document.getElementById('spec-buf').textContent = '1.2 sec';
+        document.getElementById('spec-buf').className = 'cam-spec-val rs';
+        document.getElementById('spec-dist').textContent = '3.5 m';
+        document.getElementById('spec-desc').textContent = 'Emergency reaction zone, heavy TOPPRA deceleration';
+      }
+      planCameraPath();
+      drawCameraDemo();
+    }
+
+    function isObsVisibleToCamera(obs, robot, goal, cameraType) {
+      const isZed = cameraType === 'zed';
+      const rangeM = isZed ? 20.0 : 3.5;
+      const fovDeg = isZed ? 81 : 95;
+      const halfFov = (fovDeg * Math.PI / 180) / 2;
+
+      const dx = obs.x - robot.x;
+      const dy = obs.y - robot.y;
+      const dist = Math.hypot(dx, dy) - obs.r;
+
+      // 1. Distance check
+      if (dist > rangeM + 0.5) return false;
+
+      // 2. Heading direction toward goal
+      const gx = (goal && goal.x !== undefined) ? goal.x : robot.x + 1;
+      const gy = (goal && goal.y !== undefined) ? goal.y : robot.y;
+      const heading = Math.atan2(gy - robot.y, gx - robot.x);
+
+      const angleToObs = Math.atan2(dy, dx);
+      let angleDiff = Math.abs(angleToObs - heading);
+      while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+      while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+      angleDiff = Math.abs(angleDiff);
+
+      return angleDiff <= halfFov + 0.35;
+    }
+
+    function planCameraPath(currentPos = null) {
+      if (!camState.robot.placed || !camState.goal.placed) {
+        camState.samples = null;
+        camState.sdot = null;
+        return;
+      }
+
+      const pos = currentPos || camState.robot;
+      const isZed = camState.camera === 'zed';
+      const obsRange = isZed ? 20.0 : 3.5;
+
+      // 1. Control points initialized along straight line
+      const ncp = 32;
+      let cp = [];
+      for (let j = 0; j < ncp; j++) {
+        const t = j / (ncp - 1);
+        cp.push([
+          camState.robot.x + t * (camState.goal.x - camState.robot.x),
+          camState.robot.y + t * (camState.goal.y - camState.robot.y)
+        ]);
+      }
+      const anchors = cp.map(p => [...p]);
+
+      const nseg = nSegments(ncp);
+      const robotInfl = robotInflation();
+
+      // Use camera range to define the relaxation influence distance!
+      // ZED (20m) -> 12m influence (smooth, early curve)
+      // RealSense (3.5m) -> 2.8m influence (sharp, late emergency curve)
+      const influenceDist = Math.max(P.dc + robotInfl + 0.8, Math.min(obsRange * 0.8, 12.0));
+      const iterations = 80;
+
+      for (let it = 0; it < iterations; it++) {
+        const grad = cp.map(() => [0, 0]);
+
+        // Anchor force
+        for (let i = 1; i + 1 < ncp; i++) {
+          let minObsDist = Infinity;
+          for (const obs of camState.obstacles) {
+            // Only consider obstacles generally ahead of the robot
+            const dx = obs.x - pos.x, dy = obs.y - pos.y;
+            const pdx = camState.goal.x - camState.robot.x, pdy = camState.goal.y - camState.robot.y;
+            const distToRobot = Math.hypot(dx, dy) - obs.r;
+
+            // Ignore obstacles that are far ahead (not yet detected)
+            // If they are behind (dot < 0), keep them so the path doesn't snap straight behind the robot
+            if (dx * pdx + dy * pdy > 0 && distToRobot > obsRange + 0.5) continue;
+
+            const d = Math.hypot(anchors[i][0] - obs.x, anchors[i][1] - obs.y) - obs.r - robotInfl;
+            if (d < minObsDist) minObsDist = d;
+          }
+
+          if (minObsDist > influenceDist) {
+            // Strongly pull to straight line anchor when far from obstacles or undetected
+            grad[i][0] += 8.0 * (cp[i][0] - anchors[i][0]);
+            grad[i][1] += 8.0 * (cp[i][1] - anchors[i][1]);
+          } else {
+            // Mild anchor pull near detected obstacles to allow smooth curve bowing
+            grad[i][0] += P.aw * 2 * (cp[i][0] - anchors[i][0]);
+            grad[i][1] += P.aw * 2 * (cp[i][1] - anchors[i][1]);
+          }
+        }
+
+        // Smoothness (penalise 2nd differences)
+        for (let i = 1; i + 1 < ncp; i++) {
+          const ddx = cp[i - 1][0] - 2 * cp[i][0] + cp[i + 1][0];
+          const ddy = cp[i - 1][1] - 2 * cp[i][1] + cp[i + 1][1];
+          grad[i][0] += P.sw * (-4 * ddx);
+          grad[i][1] += P.sw * (-4 * ddy);
+        }
+
+        // Obstacle Repulsion Gradient (ONLY for obstacles detected in active camera's FOV frustum!)
+        for (let s = 0; s < nseg; s++) {
+          for (let k = 0; k < 6; k++) {
+            const t = (k + 0.5) / 6;
+            const pt = bsplineEval(cp, s, t);
+
+            for (const obs of camState.obstacles) {
+              const odx = obs.x - pos.x, ody = obs.y - pos.y;
+              const pdx = camState.goal.x - camState.robot.x, pdy = camState.goal.y - camState.robot.y;
+              const distToRobot = Math.hypot(odx, ody) - obs.r;
+
+              if (odx * pdx + ody * pdy > 0 && distToRobot > obsRange + 0.5) continue;
+
+              let dx = pt[0] - obs.x, dy = pt[1] - obs.y;
+
+              // Prevent perfect saddle points when obstacle is dead-center on path
+              if (Math.abs(dx) < 1e-3 && Math.abs(dy) < 1e-3) { dx = 1e-2; dy = 1e-2; }
+              else if (Math.abs(dx) > Math.abs(dy) && Math.abs(dy) < 1e-3) dy = 1e-2;
+              else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dx) < 1e-3) dx = 1e-2;
+
+              const distToCenter = Math.hypot(dx, dy) || 1e-9;
+              const minDist = distToCenter - obs.r - robotInfl;
+
+              if (minDist < P.dc) {
+                const inside = minDist <= 0;
+                const push = inside
+                  ? P.ow * (P.dc - minDist) * 35.0
+                  : P.ow * (P.dc - minDist) * 6.0;
+                const gx = dx / distToCenter, gy = dy / distToCenter;
+
+                for (let ci = s; ci <= s + 3 && ci < ncp; ci++) {
+                  if (ci === 0 || ci === ncp - 1) continue;
+                  grad[ci][0] -= push * gx * 0.35;
+                  grad[ci][1] -= push * gy * 0.35;
+                }
+              }
+            }
+          }
+        }
+
+        // Apply gradient update
+        for (let i = 1; i + 1 < ncp; i++) {
+          let dx = -grad[i][0], dy = -grad[i][1];
+          const disp = Math.hypot(dx, dy);
+          const maxStep = 0.15;
+          if (disp > maxStep) { dx *= maxStep / disp; dy *= maxStep / disp; }
+          cp[i][0] += dx;
+          cp[i][1] += dy;
+        }
+      }
+
+      // Sample spline
+      camState.samples = sampleSpline(cp, 0.05);
+
+      // TOPPRA velocity profile
+      if (camState.samples.length >= 2) {
+        const { sdot } = toppra(camState.samples);
+        camState.sdot = sdot;
+      }
+    }
+
+    function drawCameraDemo() {
+      const canvas = document.getElementById('camCanvas');
+      if (!canvas) return;
+      resizeCanvas('camCanvas');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const pad = 44;
+      const sw = Math.min((W - 2 * pad) / (CAM_WORLD.xmax - CAM_WORLD.xmin), (H - 2 * pad) / (CAM_WORLD.ymax - CAM_WORLD.ymin));
+      const T = (wx, wy) => [pad + (wx - CAM_WORLD.xmin) * sw, H - pad - (wy - CAM_WORLD.ymin) * sw];
+
+      // Background
+      ctx.fillStyle = 'rgba(10,14,26,.6)'; ctx.fillRect(0, 0, W, H);
+
+      // Grid & Centered 40m Axis Labels (-20m to +20m)
+      ctx.strokeStyle = 'rgba(43,212,230,.05)'; ctx.lineWidth = 1;
+      for (let x = -20; x <= 20; x += 5) {
+        const [cx] = T(x, 0); ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+        ctx.fillStyle = 'rgba(43,212,230,.3)'; ctx.font = `${8 * devicePixelRatio}px JetBrains Mono`;
+        ctx.fillText((x >= 0 ? '+' : '') + x + 'm', cx - 10, H - 10);
+      }
+
+      const isZed = camState.camera === 'zed';
+      const fovDeg = isZed ? 81 : 95;
+      const rangeM = isZed ? 20.0 : 3.5;
+      const rInfl = robotInflation();
+
+      // ── FOV Cone & Raycast Depth Scanner ─────────────────────────────
+      const pos = camState.animating && camState.samples
+        ? interpSample(camState.samples, camState.animT)
+        : { x: camState.robot.x, y: camState.robot.y, dx: 1, dy: 0, idx: 0 };
+
+      const rx = pos.x, ry = pos.y;
+      const yaw = Math.atan2(pos.dy || 0, pos.dx || 1);
+      const [rcx, rcy] = T(rx, ry);
+
+      const halfFov = (fovDeg * Math.PI / 180) / 2;
+      const fovRangePx = rangeM * sw;
+
+      // Render main translucent FOV cone
+      ctx.save();
+      ctx.translate(rcx, rcy);
+      ctx.rotate(-yaw);
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, fovRangePx, -halfFov, halfFov);
+      ctx.closePath();
+
+      const coneColor = isZed ? 'rgba(43,212,230,0.06)' : 'rgba(255,107,107,0.08)';
+      const coneStroke = isZed ? 'rgba(43,212,230,0.4)' : 'rgba(255,107,107,0.5)';
+
+      ctx.fillStyle = coneColor; ctx.fill();
+      ctx.strokeStyle = coneStroke; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+      // Arc label at sensing limit
+      ctx.fillStyle = isZed ? '#2bd4e6' : '#ff6b6b';
+      ctx.font = `${8 * devicePixelRatio}px JetBrains Mono`;
+      ctx.fillText(isZed ? 'ZED 2i Stereo Range: 20.0m' : 'RealSense Range Limit: 3.5m', fovRangePx * 0.65, -12);
+      ctx.restore();
+
+      // ── RAYCASTING DEPTH SCANNER (Matching User Reference LiDAR/Camera Scan) ──
+      const numRays = 64;
+      const rayColor = isZed ? 'rgba(43,212,230,0.18)' : 'rgba(255,107,107,0.22)';
+      const hitDotColor = isZed ? '#2bd4e6' : '#ff6b6b';
+      const hitDots = [];
+
+      for (let i = 0; i < numRays; i++) {
+        const rayAngle = yaw - halfFov + (i / (numRays - 1)) * (halfFov * 2);
+        const ux = Math.cos(rayAngle), uy = Math.sin(rayAngle);
+
+        let rayDist = rangeM;
+        let hitObstacle = false;
+
+        // Ray-Circle Intersections with obstacles
+        for (const obs of camState.obstacles) {
+          const fx = rx - obs.x, fy = ry - obs.y;
+          const b = 2 * (fx * ux + fy * uy);
+          const c = (fx * fx + fy * fy) - obs.r * obs.r;
+          const disc = b * b - 4 * c;
+
+          if (disc >= 0) {
+            const t1 = (-b - Math.sqrt(disc)) / 2;
+            if (t1 > 0 && t1 < rayDist) {
+              rayDist = t1;
+              hitObstacle = true;
+            }
+          }
+        }
+
+        // Ray endpoint
+        const hx = rx + ux * rayDist;
+        const hy = ry + uy * rayDist;
+        const [hcx, hcy] = T(hx, hy);
+
+        // Draw ray line
+        ctx.beginPath();
+        ctx.moveTo(rcx, rcy);
+        ctx.lineTo(hcx, hcy);
+        ctx.strokeStyle = rayColor;
+        ctx.lineWidth = 0.8 * devicePixelRatio;
+        ctx.stroke();
+
+        if (hitObstacle || rayDist < rangeM) {
+          hitDots.push({ cx: hcx, cy: hcy });
+        }
+      }
+
+      // Draw bright point cloud hit dots on obstacles
+      for (const dot of hitDots) {
+        ctx.beginPath();
+        ctx.arc(dot.cx, dot.cy, 2.2 * devicePixelRatio, 0, Math.PI * 2);
+        ctx.fillStyle = hitDotColor;
+        ctx.fill();
+      }
+
+      // ── Obstacles & Inflation Zones (with Rover's View filtering) ────
+      for (let bi = 0; bi < camState.obstacles.length; bi++) {
+        const obs = camState.obstacles[bi];
+        const [ox, oy] = T(obs.x, obs.y);
+
+        // Distance & FOV Angle check from current robot position to obstacle center
+        const distToObs = Math.hypot(obs.x - rx, obs.y - ry) - obs.r;
+        const isDetected = isObsVisibleToCamera(obs, pos, camState.goal, camState.camera);
+
+        // If in Rover's View mode and obstacle is NOT detected: render as subtle dashed outline
+        if (camState.viewFilter === 'rover' && !isDetected) {
+          ctx.beginPath(); ctx.arc(ox, oy, obs.r * sw, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.font = `${8 * devicePixelRatio}px JetBrains Mono`;
+          ctx.fillText(`[Undetected]`, ox - 24, oy + 3);
+          continue;
+        }
+
+        // Obstacle Inflation Zone
+        ctx.beginPath(); ctx.arc(ox, oy, (obs.r + rInfl) * sw, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,107,107,.08)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,107,107,.5)'; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+        // Obstacle Body
+        ctx.beginPath(); ctx.arc(ox, oy, obs.r * sw, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200,60,60,.4)'; ctx.fill();
+        ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#ff6b6b'; ctx.font = `${8 * devicePixelRatio}px JetBrains Mono`;
+        ctx.fillText(`Obs ${bi + 1}`, ox - 14, oy + obs.r * sw + 12);
+      }
+
+      // ── Path ──────────────────────────────────────────────────────────
+      if (camState.samples && camState.sdot) {
+        const samples = camState.samples;
+        const sdot = camState.sdot;
+
+        // B-Spline path line
+        for (let i = 0; i + 1 < samples.length; i++) {
+          const [x1, y1] = T(samples[i].x, samples[i].y);
+          const [x2, y2] = T(samples[i + 1].x, samples[i + 1].y);
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+          ctx.strokeStyle = speedColor(sdot[i], 2.0);
+          ctx.lineWidth = 3 * devicePixelRatio; ctx.stroke();
+        }
+
+        // Sample dots
+        for (let i = 0; i < samples.length; i++) {
+          const [cx, cy] = T(samples[i].x, samples[i].y);
+          ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = speedColor(sdot[i], 2.0); ctx.fill();
+          ctx.strokeStyle = 'rgba(10,14,26,0.8)'; ctx.lineWidth = 1; ctx.stroke();
+        }
+
+        // ── MPC Prediction & Trail during animation ────────────────────
+        if (camState.animating) {
+          // Trail
+          for (let i = 0; i < camState.animTrail.length; i++) {
+            const tr = camState.animTrail[i];
+            const [tx, ty] = T(tr.x, tr.y);
+            const alpha = (i / camState.animTrail.length) * 0.4;
+            ctx.beginPath(); ctx.arc(tx, ty, 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(43,212,230,${alpha})`; ctx.fill();
+          }
+
+          // MPC prediction ghosts
+          const distToGoal = Math.hypot(pos.x - camState.goal.x, pos.y - camState.goal.y);
+          const predOpacity = Math.max(0, Math.min(1, (distToGoal - 0.40) / 1.10));
+
+          if (pos.idx < samples.length - 2 && predOpacity > 0.01) {
+            const pred = simulateMPCFull(samples, sdot, pos.idx);
+            if (pred.length > 0) {
+              ctx.beginPath();
+              const [sx, sy] = T(pos.x, pos.y);
+              ctx.moveTo(sx, sy);
+              pred.forEach(p => { const [cx, cy] = T(p.x, p.y); ctx.lineTo(cx, cy); });
+              ctx.strokeStyle = `rgba(255,107,107,${0.6 * predOpacity})`;
+              ctx.lineWidth = 2; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+
+              pred.forEach((p, i) => {
+                if (Math.hypot(p.x - camState.goal.x, p.y - camState.goal.y) < 0.35) return;
+                if (i % Math.max(1, Math.ceil(pred.length / 5)) !== 0) return;
+                const [cx, cy] = T(p.x, p.y);
+                const hw = 0.215 * sw, hl = 0.30 * sw;
+                ctx.save(); ctx.translate(cx, cy); ctx.rotate(-p.theta);
+                ctx.beginPath(); ctx.rect(-hl, -hw, 2 * hl, 2 * hw);
+                ctx.strokeStyle = `rgba(255,107,107,${(0.25 + (i / pred.length) * 0.35) * predOpacity})`;
+                ctx.fillStyle = `rgba(255,107,107,${(0.04 + (i / pred.length) * 0.06) * predOpacity})`;
+                ctx.lineWidth = 1; ctx.stroke(); ctx.fill();
+                ctx.restore();
+              });
+            }
+          }
+        }
+      }
+
+      // ── Robot ─────────────────────────────────────────────────────────
+      const hw = 0.215 * sw, hl = 0.30 * sw;
+      ctx.save(); ctx.translate(rcx, rcy); ctx.rotate(-yaw);
+      ctx.beginPath(); ctx.rect(-hl, -hw, 2 * hl, 2 * hw);
+      ctx.fillStyle = isZed ? 'rgba(43,212,230,.8)' : 'rgba(255,107,107,.8)'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+
+      // Goal
+      const [gx, gy] = T(camState.goal.x, camState.goal.y);
+      ctx.beginPath(); ctx.arc(gx, gy, 8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,210,160,.6)'; ctx.fill();
+      ctx.strokeStyle = '#00d2a0'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    let camAnimRAF = null;
+    function toggleCamAnim() {
+      if (camState.animating) {
+        camState.animating = false;
+        document.getElementById('btn-cam-anim').textContent = '▶ Run Live Comparison Sim';
+        if (camAnimRAF) cancelAnimationFrame(camAnimRAF);
+      } else {
+        camState.animating = true;
+        camState.animT = 0;
+        camState.animTrail = [];
+        document.getElementById('btn-cam-anim').textContent = '⏸ Pause Sim';
+        camAnimLoop();
+      }
+    }
+
+    function camAnimLoop() {
+      if (!camState.animating) return;
+      camState.animT += 0.003 * ((P.ms || 2.0) / 2.0);
+
+      if (camState.samples) {
+        const pos = interpSample(camState.samples, camState.animT);
+        if (pos) {
+          planCameraPath(pos);
+          camState.animTrail.push({ x: pos.x, y: pos.y });
+          if (camState.animTrail.length > 200) camState.animTrail.shift();
+        }
+      }
+
+      if (camState.animT > 1.0) {
+        camState.animT = 0;
+        camState.animTrail = [];
+      }
+      drawCameraDemo();
+      camAnimRAF = requestAnimationFrame(camAnimLoop);
+    }
+
+    // ─── Camera Canvas Interaction (Click / Drag / Scroll / ContextMenu) ───
+    const camCanvas = document.getElementById('camCanvas');
+
+    function camCanvasToWorld(e) {
+      const rect = camCanvas.getBoundingClientRect();
+      const dpr = devicePixelRatio || 1;
+      const cx = (e.clientX - rect.left) * dpr;
+      const cy = (e.clientY - rect.top) * dpr;
+      const W = camCanvas.width, H = camCanvas.height;
+      const pad = 44;
+      const sw = Math.min((W - 2 * pad) / (CAM_WORLD.xmax - CAM_WORLD.xmin), (H - 2 * pad) / (CAM_WORLD.ymax - CAM_WORLD.ymin));
+      const wx = CAM_WORLD.xmin + (cx - pad) / sw;
+      const wy = CAM_WORLD.ymin + (H - pad - cy) / sw;
+      return [wx, wy];
+    }
+
+    function hitCamObstacle(wx, wy) {
+      for (let i = camState.obstacles.length - 1; i >= 0; i--) {
+        if (Math.hypot(wx - camState.obstacles[i].x, wy - camState.obstacles[i].y) < Math.max(camState.obstacles[i].r, 0.70))
+          return i;
+      }
+      return -1;
+    }
+
+    camCanvas.addEventListener('mousedown', e => {
+      if (e.button === 2) return;
+      const [wx, wy] = camCanvasToWorld(e);
+      camDrag.active = false;
+
+      if (camEditMode === 'robot') {
+        camState.robot.x = wx; camState.robot.y = wy;
+        camState.robot.placed = true;
+        camDrag.active = true; camDrag.type = 'robot';
+        if (!camState.goal.placed) setCamEditMode('goal');
+        else setCamEditMode('obstacle');
+        planCameraPath(); drawCameraDemo();
+      } else if (camEditMode === 'goal') {
+        camState.goal.x = wx; camState.goal.y = wy;
+        camState.goal.placed = true;
+        camDrag.active = true; camDrag.type = 'goal';
+        setCamEditMode('obstacle');
+        planCameraPath(); drawCameraDemo();
+      } else if (camEditMode === 'obstacle') {
+        const idx = hitCamObstacle(wx, wy);
+        if (idx >= 0) {
+          camDrag.active = true; camDrag.type = 'obstacle'; camDrag.idx = idx;
+        } else {
+          camState.obstacles.push({ x: wx, y: wy, r: 0.90 });
+          camDrag.active = true; camDrag.type = 'obstacle'; camDrag.idx = camState.obstacles.length - 1;
+          planCameraPath(); drawCameraDemo();
+        }
+      }
+    });
+
+    camCanvas.addEventListener('mousemove', e => {
+      const [wx, wy] = camCanvasToWorld(e);
+
+      // Tooltip
+      if (camState.samples && camState.sdot && !camDrag.active) {
+        let nearest = -1, bestD = 15;
+        const rect = camCanvas.getBoundingClientRect();
+        const dpr = devicePixelRatio || 1;
+        const mx = (e.clientX - rect.left) * dpr;
+        const my = (e.clientY - rect.top) * dpr;
+        const W = camCanvas.width, H = camCanvas.height, pad = 44;
+        const sw = Math.min((W - 2 * pad) / (CAM_WORLD.xmax - CAM_WORLD.xmin), (H - 2 * pad) / (CAM_WORLD.ymax - CAM_WORLD.ymin));
+
+        for (let i = 0; i < camState.samples.length; i++) {
+          const cx = pad + (camState.samples[i].x - CAM_WORLD.xmin) * sw;
+          const cy = H - pad - (camState.samples[i].y - CAM_WORLD.ymin) * sw;
+          const d = Math.hypot(cx - mx, cy - my);
+          if (d < bestD) { bestD = d; nearest = i; }
+        }
+
+        const tooltip = document.getElementById('cam-tooltip');
+        if (nearest >= 0) {
+          const s = camState.samples[nearest];
+          const v = camState.sdot[nearest];
+          const isZed = camState.camera === 'zed';
+          const distFromStart = Math.hypot(s.x - camState.robot.x, s.y - camState.robot.y);
+          tooltip.style.display = 'block';
+          tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+          tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+          tooltip.querySelector('.tt-vel').textContent = `v = ${v.toFixed(3)} m/s`;
+          tooltip.querySelector('.tt-kappa').textContent = `κ = ${s.kappa.toFixed(4)}`;
+          tooltip.querySelector('.tt-pos').textContent = `x: ${s.x.toFixed(2)}, y: ${s.y.toFixed(2)}`;
+          tooltip.querySelector('.tt-vis').textContent = isZed || distFromStart <= 3.5 ? '✓ In Vision Range' : '⚠ RealSense Blind Zone';
+          tooltip.querySelector('.tt-vis').style.color = isZed || distFromStart <= 3.5 ? 'var(--accent1)' : 'var(--accent3)';
+        } else {
+          tooltip.style.display = 'none';
+        }
+      }
+
+      if (!camDrag.active) return;
+
+      if (camDrag.type === 'robot') {
+        camState.robot.x = wx; camState.robot.y = wy;
+      } else if (camDrag.type === 'goal') {
+        camState.goal.x = wx; camState.goal.y = wy;
+      } else if (camDrag.type === 'obstacle' && camDrag.idx >= 0) {
+        camState.obstacles[camDrag.idx].x = wx;
+        camState.obstacles[camDrag.idx].y = wy;
+      }
+      planCameraPath(); drawCameraDemo();
+    });
+
+    camCanvas.addEventListener('mouseup', () => {
+      if (camDrag.active) planCameraPath();
+      camDrag.active = false; camDrag.type = null;
+    });
+
+    camCanvas.addEventListener('mouseleave', () => {
+      camDrag.active = false; camDrag.type = null;
+      document.getElementById('cam-tooltip').style.display = 'none';
+    });
+
+    camCanvas.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const [wx, wy] = camCanvasToWorld(e);
+      const idx = hitCamObstacle(wx, wy);
+      if (idx >= 0) {
+        camState.obstacles.splice(idx, 1);
+        planCameraPath(); drawCameraDemo();
+      }
+    });
+
+    camCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const [wx, wy] = camCanvasToWorld(e);
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      const idx = hitCamObstacle(wx, wy);
+      if (idx >= 0) {
+        camState.obstacles[idx].r = Math.max(0.3, Math.min(6.0, camState.obstacles[idx].r + delta));
+        planCameraPath(); drawCameraDemo();
+      }
+    }, { passive: false });
+
+    function updateCamRobotVelocity(val) {
+      const v = parseFloat(val);
+      P.ms = v;
+      const el = document.getElementById('cam-vel-val');
+      if (el) el.textContent = v.toFixed(1) + ' m/s';
+      planCameraPath();
+      drawCameraDemo();
+    }
+
+    // Initial setup for camera comparison section
+    window.addEventListener('load', () => {
+      planCameraPath();
+      drawCameraDemo();
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,15 @@
+=== tuning batch: world 194, tag "bspline_test" ===
+trials 5   success 5 (100%)   collision 0   timeout 0
+OT 5.45 s   2*OT clip 10.90 s
+AT  min 13.4  median 13.7  max 14.2  sd 0.3
+AT/OT median 2.52   trials above the 2*OT clip: 5/5
+MEAN SCORE 0.3998   (ceiling for this success rate: 0.5000)
+per-trial: 14 14 14 13 13
+
+log events per trial (recovery is the quantity being tuned):
+  trial         no_progress      recovery       reverse   replan_fail  mpc_deadline
+  trial_1.log             0             0             0             0             0
+  trial_2.log             0             0             0             0             0
+  trial_3.log             0             0             0             0             0
+  trial_4.log             0             0             0             0             0
+  trial_5.log             0             0             0             0             0

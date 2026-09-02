@@ -91,7 +91,7 @@ timeout --signal=INT --kill-after=45 "$TRIAL_TIMEOUT_S" \
     world_idx:="$WORLD_IDX" \
     out_file:="$OUT_FILE" \
     gui:="${BARN_GUI:-false}" \
-    rviz:="${BARN_RVIZ:-true}" \
+    rviz:="${BARN_RVIZ:-false}" \
     planner_rviz:="${BARN_PLANNER_RVIZ:-false}"
 launch_status=$?
 set -e

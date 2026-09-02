@@ -83,9 +83,26 @@ barn_core::VelocityCommand Recovery::reverse_command(const RecoveryContext & ctx
   const double bearing = std::atan2(goal.y - ctx.pose.y, goal.x - ctx.pose.x);
   const double alpha = barn_core::wrap_angle(bearing - virtual_heading);
   const double lookahead = std::max(0.2, std::hypot(goal.x - ctx.pose.x, goal.y - ctx.pose.y));
-  double w = 2.0 * params_.reverse_speed * std::sin(alpha) / lookahead;
-  w = std::clamp(w, -params_.rotate_speed, params_.rotate_speed);
-  return {-params_.reverse_speed, w};
+
+  // Pivot-First Alignment:
+  // If the robot's rear is misaligned with the target breadcrumb (|alpha| > 0.45 rad ≈ 26°),
+  // prioritize in-place pivoting of the rear toward the breadcrumb before translating backward.
+  // This prevents the rear bumper from swinging diagonally into obstacles behind or beside the robot.
+  double v_cmd = -params_.reverse_speed;
+  double w_cmd = 0.0;
+
+  if (std::abs(alpha) > 0.45) {
+    // Pure in-place pivot to align rear with trail
+    v_cmd = 0.0;
+    w_cmd = std::clamp(2.0 * std::sin(alpha), -params_.rotate_speed, params_.rotate_speed);
+  } else {
+    // Smooth blended reverse pure pursuit with cosine scaling
+    v_cmd = -params_.reverse_speed * std::cos(alpha);
+    w_cmd = 2.0 * params_.reverse_speed * std::sin(alpha) / lookahead;
+    w_cmd = std::clamp(w_cmd, -params_.rotate_speed, params_.rotate_speed);
+  }
+
+  return {v_cmd, w_cmd};
 }
 
 bool Recovery::breadcrumb_exhausted(const RecoveryContext & ctx) const
@@ -109,11 +126,11 @@ void Recovery::begin_episode(const RecoveryContext & ctx)
   rotate_after_reverse_ = attempts_ >= 2;
   boost_after_ = attempts_ >= 3;
 
-  if (ctx.clearance < ctx.rotation_radius) {
-    // Too tight to rotate here — back out along the known-clear breadcrumb.
+  // Always back out along the known-clear breadcrumb trail first to escape obstacle pockets.
+  if (!breadcrumb_exhausted(ctx)) {
     reverse_start_pose_ = ctx.pose;
     state_ = RecoveryState::kReverseToClearance;
-  } else if (rotate_after_reverse_) {
+  } else if (ctx.clearance >= ctx.rotation_radius && rotate_after_reverse_) {
     target_yaw_ = barn_core::wrap_angle(ctx.pose.yaw + widest_gap_heading(ctx.scan));
     state_ = RecoveryState::kRotateToGap;
   } else {
@@ -147,12 +164,10 @@ barn_core::VelocityCommand Recovery::step(double dt, const RecoveryContext & ctx
 {
   state_elapsed_ += std::max(0.0, dt);
 
-  // Veto-escape episodes exist only to clear the safety shield. The moment it
-  // stops vetoing (after a minimal maneuver so we do not exit on a flicker), the
-  // escape has succeeded: replan from the new pose rather than running on.
+  // Veto-escape episodes only exit early for rotation states once veto clears.
+  // Reverse states must continue reversing to open clearance (kReverseToClearance).
   if (veto_escape_ && !ctx.veto_active && state_elapsed_ >= params_.veto_clear_min_rotate &&
-    state_ != RecoveryState::kInactive && state_ != RecoveryState::kFailed &&
-    state_ != RecoveryState::kRequestReplan && state_ != RecoveryState::kRequestReplanClearance)
+    state_ == RecoveryState::kRotateToGap)
   {
     state_ = RecoveryState::kRequestReplan;
     state_elapsed_ = 0.0;
@@ -160,11 +175,10 @@ barn_core::VelocityCommand Recovery::step(double dt, const RecoveryContext & ctx
     return {0.0, 0.0};
   }
 
-  // Shield-blocked bail-out: a motion state whose command the shield is fully
-  // (emergency) vetoing is making zero progress. Past blocked_timeout, replan
-  // instead of burning the whole maneuver timeout frozen in place.
-  const bool motion_state = state_ == RecoveryState::kReverseToClearance ||
-    state_ == RecoveryState::kRotateToGap;
+  // Shield-blocked bail-out: for rotation states, if the shield is vetoing the spin,
+  // bail out to replan instead of burning the whole timeout.
+  // (Do NOT abort kReverseToClearance, which is the primary escape motion backing away from front vetoes).
+  const bool motion_state = state_ == RecoveryState::kRotateToGap;
   if (motion_state && ctx.veto_active) {
     blocked_elapsed_ += std::max(0.0, dt);
     if (blocked_elapsed_ >= params_.blocked_timeout) {
@@ -194,8 +208,14 @@ barn_core::VelocityCommand Recovery::step(double dt, const RecoveryContext & ctx
 
     // Reverse along the breadcrumb until there is room to turn.
     case RecoveryState::kReverseToClearance: {
-        if (ctx.clearance >= ctx.rotation_radius) {
-          if (rotate_after_reverse_) {
+        const double reversed = std::hypot(
+          ctx.pose.x - reverse_start_pose_.x, ctx.pose.y - reverse_start_pose_.y);
+        // Bounded Reverse Exit:
+        // Enforce at least 0.40m reverse to avoid 5cm twitch loops, but allow exiting
+        // to replan once the front is clear (!ctx.veto_active) to avoid exhausting
+        // long tunnels. Only rotate if full open clearance is achieved.
+        if (reversed >= 0.40 && (ctx.clearance >= ctx.rotation_radius || !ctx.veto_active)) {
+          if (rotate_after_reverse_ && ctx.clearance >= ctx.rotation_radius) {
             target_yaw_ = barn_core::wrap_angle(ctx.pose.yaw + widest_gap_heading(ctx.scan));
             state_ = RecoveryState::kRotateToGap;
           } else {
@@ -205,8 +225,6 @@ barn_core::VelocityCommand Recovery::step(double dt, const RecoveryContext & ctx
           state_elapsed_ = 0.0;
           return {0.0, 0.0};
         }
-        const double reversed = std::hypot(
-          ctx.pose.x - reverse_start_pose_.x, ctx.pose.y - reverse_start_pose_.y);
         if (reversed >= params_.max_reverse_distance ||
           state_elapsed_ >= params_.reverse_timeout || breadcrumb_exhausted(ctx))
         {
@@ -221,6 +239,17 @@ barn_core::VelocityCommand Recovery::step(double dt, const RecoveryContext & ctx
 
     // Rotate toward the widest gap; clearance already permits a full sweep.
     case RecoveryState::kRotateToGap: {
+        // Strict physical clearance gating: never rotate in-place if clearance is below rotation_radius.
+        if (ctx.clearance < ctx.rotation_radius) {
+          if (!breadcrumb_exhausted(ctx)) {
+            reverse_start_pose_ = ctx.pose;
+            state_ = RecoveryState::kReverseToClearance;
+          } else {
+            state_ = boost_after_ ? RecoveryState::kRequestReplanClearance : RecoveryState::kRequestReplan;
+          }
+          state_elapsed_ = 0.0;
+          return {0.0, 0.0};
+        }
         const double error = barn_core::wrap_angle(target_yaw_ - ctx.pose.yaw);
         if (std::abs(error) <= params_.heading_tolerance ||
           state_elapsed_ >= params_.rotate_timeout)

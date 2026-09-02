@@ -145,14 +145,50 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   LocalPlannerParams local;
   local.max_speed = declare_parameter<double>("max_speed", 3.5);
   local.unknown_speed = declare_parameter<double>("unknown_speed", 0.4);
-  local.horizon_m = declare_parameter<double>("local_horizon_m", 8.0); // Increased horizon to support high speeds
+  local.horizon_m = declare_parameter<double>("local_horizon_m", 8.0);
   local.max_yaw_rate = declare_parameter<double>("max_yaw_rate", 2.5);
+
+  // Elastic band parameters.
+  local.elastic_iterations = declare_parameter<int>("elastic_iterations", 8);
+  local.smooth_weight = declare_parameter<double>("smooth_weight", 0.35);
+  local.anchor_weight = declare_parameter<double>("anchor_weight", 0.20);
+  local.obstacle_weight = declare_parameter<double>("obstacle_weight", 0.25);
   local.max_lateral_accel = declare_parameter<double>("max_lateral_accel", 1.5);
   local.curvature_lookahead_m = declare_parameter<double>("curvature_lookahead_m", 3.0);
   local.open_clearance = declare_parameter<double>("open_clearance", 1.20);
   local.open_lateral_accel_gain = declare_parameter<double>("open_lateral_accel_gain", 3.0);
 
   local_planner_ = LocalPlanner(local);
+
+  // B-Spline + TOPP-RA planner (alternative, for A/B comparison).
+  use_bspline_planner_ = declare_parameter<bool>("use_bspline_planner", false);
+  LocalPlannerBsplineParams bspline;
+  bspline.max_speed = local.max_speed;
+  bspline.unknown_speed = local.unknown_speed;
+  bspline.horizon_m = local.horizon_m;
+  bspline.max_yaw_rate = local.max_yaw_rate;
+  bspline.max_lateral_accel = local.max_lateral_accel;
+  bspline.desired_clearance = local.desired_clearance;
+  bspline.heading_align_distance = local.heading_align_distance;
+  bspline.braking_decel = local.braking_decel;
+  bspline.footprint = local.footprint;
+  bspline.n_control_points = declare_parameter<int>("n_control_points", 20);
+  bspline.spline_opt_iterations = declare_parameter<int>("spline_opt_iterations", 30);
+  bspline.spline_smooth_weight = declare_parameter<double>("spline_smooth_weight", 0.40);
+  bspline.spline_anchor_weight = declare_parameter<double>("spline_anchor_weight", 0.15);
+  bspline.spline_obstacle_weight = declare_parameter<double>("spline_obstacle_weight", 0.30);
+  bspline.spline_curvature_weight = declare_parameter<double>("spline_curvature_weight", 0.50);
+  bspline.track_width = declare_parameter<double>("track_width", 0.4318);
+  bspline.wheel_v_max = declare_parameter<double>("wheel_v_max", 3.5);
+  bspline.wheel_a_max = declare_parameter<double>("wheel_a_max", 2.5);
+  bspline.topp_ra_samples = declare_parameter<int>("topp_ra_samples", 100);
+  local_planner_bspline_ = LocalPlannerBspline(bspline);
+
+  if (use_bspline_planner_) {
+    RCLCPP_INFO(get_logger(), "Local planner: B-Spline + TOPP-RA");
+  } else {
+    RCLCPP_INFO(get_logger(), "Local planner: Elastic Band (default)");
+  }
 
   MpcParams mpc;
   mpc.horizon = declare_parameter<int>("mpc_horizon", 20);
@@ -597,12 +633,17 @@ void ClassicalMpcNode::planner_loop()
       if (!force_accept && last_path_swap_time_.nanoseconds() > 0) {
         const double since_swap = (now() - last_path_swap_time_).seconds();
         if (since_swap < path_cooldown_s_) {
-          // Still in cooldown — check if path ahead is truly blocked
-          // (skip first 5 points near robot to avoid false positives)
           bool ahead_blocked = false;
-          if (global_path_.size() > 5 && grid_) {
-            Path2D ahead(global_path_.begin() + 5, global_path_.end());
-            ahead_blocked = !path_validator_.is_path_clear(ahead, *grid_, false);
+          if (global_path_.size() > 3 && grid_) {
+            for (std::size_t i = 3; i < global_path_.size(); ++i) {
+              const auto cell = grid_->world_to_cell(global_path_[i].x, global_path_[i].y);
+              if (grid_->in_bounds(cell) &&
+                grid_->classify(cell) == barn_core::CellState::kOccupied)
+              {
+                ahead_blocked = true;
+                break;
+              }
+            }
           }
           // Improvement escape: a materially better route is worth taking even
           // inside the cooldown. The cooldown exists to stop oscillation between
@@ -648,6 +689,29 @@ void ClassicalMpcNode::planner_loop()
         }
       }
       
+      // Dead-End & Anti-U-Turn Escape Guard:
+      // If the replanned candidate requires a sharp turn (>90 deg flip) and the robot is
+      // in a narrow space (clearance < rotation_clearance_m_), the robot cannot rotate on the spot
+      // without clipping chassis corners.
+      // Instead of rejecting the candidate path (which causes a planner rejection deadlock),
+      // we ACCEPT the candidate path as the new global plan, but trigger breadcrumb reverse recovery.
+      // The robot backs out into open space along its known-clear breadcrumbs, where it can then
+      // safely execute the turn toward the new path.
+      if (accepted && !global_path_.empty() && candidate.size() >= 2) {
+        const double cand_yaw = std::atan2(candidate[1].y - candidate[0].y, candidate[1].x - candidate[0].x);
+        const double heading_err = std::abs(barn_core::wrap_angle(cand_yaw - pose.yaw));
+        const double cur_clearance = distance_field_ ? distance_field_->distance_world(pose.x, pose.y) : 0.0;
+        if (heading_err > (M_PI / 2.0) && (!std::isfinite(cur_clearance) || cur_clearance < rotation_clearance_m_)) {
+          request_reverse_recovery_ = true;
+          planner_status_ = "escape_uturn_reversing";
+          global_path_ = std::move(candidate);
+          path_to_publish = global_path_;
+          replan_completed_ = true;
+          last_path_swap_time_ = now();
+          goto done;
+        }
+      }
+
       if (accepted) {
         global_path_ = std::move(candidate);
         path_to_publish = global_path_;
@@ -721,7 +785,9 @@ void ClassicalMpcNode::local_plan_step()
     grid = grid_;
     field = distance_field_;
   }
-  auto local = local_planner_.plan(global, pose, *grid, field.get());
+  auto local = use_bspline_planner_
+    ? local_planner_bspline_.plan(global, pose, *grid, field.get())
+    : local_planner_.plan(global, pose, *grid, field.get());
   {
     std::lock_guard<std::mutex> lock(mutex_);
     local_trajectory_ = local;
@@ -835,6 +901,16 @@ void ClassicalMpcNode::control_step()
     if (replan_completed_) {
       recovery_.finish_replan();
       replan_completed_ = false;
+    }
+    if (request_reverse_recovery_) {
+      if (!recovery_.active()) {
+        recovery_.trigger(recovery_context(state.pose, field, scan, veto_active));
+        RCLCPP_WARN(
+          get_logger(),
+          "[Anti-U-Turn] Replanned candidate required >90 deg turn with clearance < %.2fm. Triggered reverse recovery.",
+          rotation_clearance_m_);
+      }
+      request_reverse_recovery_ = false;
     }
   }
 
@@ -957,12 +1033,14 @@ void ClassicalMpcNode::control_step()
           params.clearance_weight = base_clearance_weight_;
           global_planner_.set_params(params);
         }
-        // Bug 3 fix: raise the speed guard to 0.25 m/s (matching startup_creep_speed_).
-        // A command near 0.10-0.20 m/s is legitimately slow near obstacles; firing
-        // recovery at that speed was causing spurious no-progress triggers.
-      } else if (
-        (command.v > 0.25 || (command.v < 0.08 && std::abs(command.w) < 0.15)) &&
-        (stamp - last_progress_time_).seconds() > no_progress_timeout_s_) {
+        // Stall Watchdog:
+        // Progress requires actual physical displacement (hypot > 0.08m handled above)
+        // or unvetoed forward movement (command.v >= 0.08 m/s without active veto and state.v > 0.04).
+        // If the safety shield is vetoing forward motion or the robot is physically stopped at a wall,
+        // the timer will not reset, triggering breadcrumb reverse within no_progress_timeout_s_.
+      } else if (command.v > 0.08 && !veto_active && std::abs(state.v) > 0.04) {
+        last_progress_time_ = stamp;
+      } else if ((stamp - last_progress_time_).seconds() > no_progress_timeout_s_) {
         recovery_.trigger(recovery_context(state.pose, field, scan, veto_active));
         status = "no_progress_recovery";
         RCLCPP_INFO(get_logger(), "[Recovery] Triggered due to: no_progress. Action taken: %s", to_string(recovery_.state()));
@@ -1136,7 +1214,9 @@ void ClassicalMpcNode::publish_debug(
   // MPC solved, planner success, shield clear -- with the command at zero. These
   // say WHICH term produced that zero.
   {
-    const auto & pd = local_planner_.profile_debug();
+    const auto & pd = use_bspline_planner_
+      ? local_planner_bspline_.profile_debug()
+      : local_planner_.profile_debug();
     status.values.push_back(key_value("vref", std::to_string(pd.v_ref)));
     status.values.push_back(key_value("vref_curv_speed", std::to_string(pd.curvature_speed)));
     status.values.push_back(key_value("vref_curvature", std::to_string(pd.curvature)));

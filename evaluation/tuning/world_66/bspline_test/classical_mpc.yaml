@@ -12,12 +12,13 @@ goal_adapter_node:
     # Aim past the believed goal: the evaluator finishes on ground-truth
     # distance <= 1 m, and residual odometry drift can otherwise strand the
     # robot just outside the real circle while it thinks it has arrived.
-    goal_overshoot_m: 1.00
-    # Fast finish sweep: if still alive after reaching believed goal, sweep
-    # briskly across the finish zone (2s timeout per leg instead of 15s).
-    finish_sweep_max_m: 1.5
-    finish_sweep_step_m: 0.5
-    finish_sweep_leg_timeout_s: 2.0
+    goal_overshoot_m: 0.75
+    # If this node is still alive after reaching the believed goal, the trial
+    # has not ended (the evaluator kills us on ground-truth success) — sweep
+    # laterally across the believed finish line to cross the real circle
+    # wherever frame drift actually put it.
+    finish_sweep_max_m: 2.0
+    finish_sweep_step_m: 1.0
 
 robot_adapter_node:
   ros__parameters:
@@ -226,7 +227,7 @@ classical_mpc_node:
     # UNTESTED and the obvious next move: 0.10 TOGETHER WITH shield_escape_enable.
     # The escape was rejected alone because at 0.20 traps are rare so it only cost
     # time; at 0.10 there are 12 traps in 10 trials for it to work on.
-    obstacle_margin: 0.10
+    obstacle_margin: 0.20
     # Freeze escape: relax obstacle_margin ONLY while the freeze detector reports
     # the robot stopped with nothing blocking it, then restore slowly. Costs
     # nothing on worlds that never freeze, which is the point -- lowering the
@@ -283,7 +284,7 @@ classical_mpc_node:
     # not freezing. Static obstacle_margin 0.10 scores 0.2901 with ZERO recovery
     # episodes -- it PREVENTS the state rather than reacting to it, and at 2.4
     # freezes per trial prevention is worth far more than any reaction can be.
-    freeze_recovery_enable: true
+    freeze_recovery_enable: false
     max_obstacle_slack: 2.0
     # Dynamic (moving) obstacles from barn_dynamic_tracking on /barn/tracks.
     # Family-1 spatiotemporal soft keep-out: predicted per-horizon-step.
@@ -342,23 +343,6 @@ classical_mpc_node:
     # (open_clearance ~2.0+) rather than 1.2 m corridors.
     open_clearance: 1.20
     open_lateral_accel_gain: 1.0
-
-    # Local Planner Selection (A/B comparison):
-    # false = Original Elastic Band planner (default)
-    # true  = B-Spline + TOPP-RA planner (local_plannerBspline)
-    use_bspline_planner: false
-    # B-Spline + TOPP-RA parameters (used when use_bspline_planner: true):
-    n_control_points: 20
-    spline_opt_iterations: 30
-    spline_smooth_weight: 0.40
-    spline_anchor_weight: 0.15
-    spline_obstacle_weight: 0.30
-    spline_curvature_weight: 0.50
-    track_width: 0.4318
-    wheel_v_max: 3.5
-    wheel_a_max: 2.5
-    topp_ra_samples: 100
-
     # Window the speed profile scans for the worst curvature ahead (see the
     # comment in barn_classical/include/barn_classical/local_planner.hpp).
     #
@@ -381,7 +365,7 @@ classical_mpc_node:
     mpc_deadline_ms: 35.0
     startup_creep_delay_s: 1.0
     startup_creep_speed: 0.25
-    no_progress_timeout_s: 1.0
+    no_progress_timeout_s: 3.0
     # Backtracking recovery: when pinched too tight to rotate (clearance below
     # rotation_clearance_m), reverse along the known-clear breadcrumb until there
     # is room to turn, then replan from the open pose.

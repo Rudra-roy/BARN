@@ -18,7 +18,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(osqp_vendor REQUIRED)
+find_package(osqp_vendor QUIET)
 find_package(osqp REQUIRED CONFIG)
 find_package(barn_core REQUIRED)
 find_package(barn_msgs REQUIRED)
@@ -29,6 +29,7 @@ add_library(barn_classical_algos
   src/global_planner_astar.cpp
   src/path_validator.cpp
   src/local_planner.cpp
+  src/local_plannerBspline.cpp
   src/controller.cpp
   src/recovery.cpp)
 target_include_directories(barn_classical_algos PUBLIC
