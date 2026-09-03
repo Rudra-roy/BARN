@@ -54,6 +54,15 @@ bool SweptFootprintShield::safe_at_scale(
       const double clearance = std::hypot(outside_x, outside_y);
       minimum_clearance = std::min(minimum_clearance, clearance);
       if (std::abs(local_x) <= hx && std::abs(local_y) <= hy) {
+        // If an obstacle point was already intruding at step 0, and the commanded motion
+        // is strictly moving away from this obstacle (distance is not decreasing compared
+        // to step 0), do not veto the escape motion.
+        const bool intruded_at_start = std::abs(point.x) <= hx && std::abs(point.y) <= hy;
+        const double d0 = std::hypot(point.x, point.y);
+        const double dk = std::hypot(dx, dy);
+        if (intruded_at_start && dk >= d0 - 1e-4) {
+          continue;
+        }
         return false;
       }
     }

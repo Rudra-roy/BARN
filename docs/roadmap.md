@@ -1,4 +1,4 @@
-# barn-2027-prep Programme Roadmap (M0–M21)
+Breadcrumb # barn-2027-prep Programme Roadmap (M0–M21)
 
 > Purpose: the ordered milestone plan across the classical, RL, and hybrid tracks, with the
 > current repo state marked and the development-priority and static-regression rules that

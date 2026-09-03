@@ -24,6 +24,7 @@
 #include "barn_classical/controller.hpp"
 #include "barn_classical/global_planner_astar.hpp"
 #include "barn_classical/local_planner.hpp"
+#include "barn_classical/local_plannerBspline.hpp"
 #include "barn_classical/path_validator.hpp"
 #include "barn_classical/freeze_detector.hpp"
 #include "barn_classical/margin_escalator.hpp"
@@ -103,6 +104,9 @@ private:
 
   GlobalPlannerAStar global_planner_;
   LocalPlanner local_planner_;
+  LocalPlannerBspline local_planner_bspline_;
+  bool use_bspline_planner_{false};
+  bool request_reverse_recovery_{false};
   Controller controller_;
   PathValidator path_validator_;
   Recovery recovery_;

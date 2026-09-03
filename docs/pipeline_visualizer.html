@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BARN 2027 — B-Spline · TOPP-RA · MPC Pipeline Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- MathJax for LaTeX formulas -->
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['$','$']], displayMath: [['$$','$$']] },
+    options: { skipHtmlTags: ['script','noscript','style','textarea','pre'] }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" defer></script>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f1a;
+    --surface: #12152a;
+    --surface2: #181c32;
+    --border: #252a4a;
+    --accent1: #6c63ff; /* B-Spline purple */
+    --accent2: #00d2a0; /* TOPP-RA teal */
+    --accent3: #ff6b6b; /* MPC coral */
+    --accent4: #ffd166; /* Combined gold */
+    --text: #e8eaf6;
+    --text-dim: #8892b0;
+    --text-bright: #ffffff;
+    --code-bg: #090b14;
+    --slider-track: #252a4a;
+    --header-h: 70px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    height: var(--header-h);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem;
+    background: rgba(13,15,26,.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { font-size: 1.1rem; font-weight: 700; letter-spacing: .02em; }
+  .logo span { color: var(--accent1); }
+  nav { display: flex; gap: 1.5rem; }
+  nav a {
+    font-size: .82rem; font-weight: 500; color: var(--text-dim);
+    text-decoration: none; transition: color .2s;
+  }
+  nav a:hover { color: var(--text-bright); }
+
+  /* ── Hero ── */
+  .hero {
+    text-align: center; padding: 4rem 1rem 3rem;
+    background: radial-gradient(ellipse at 50% 0%, #1a1040 0%, transparent 70%);
+  }
+  .hero h1 {
+    font-size: clamp(2rem,5vw,3.2rem); font-weight: 800;
+    background: linear-gradient(135deg,#6c63ff,#00d2a0,#ffd166);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: .6rem;
+  }
+  .hero p { color: var(--text-dim); max-width: 640px; margin: 0 auto 2rem; font-size: .95rem; }
+  .pipeline-flow {
+    display: flex; align-items: center; justify-content: center; gap: .8rem;
+    flex-wrap: wrap; font-size: .85rem; font-weight: 600;
+  }
+  .pipe-tag {
+    padding: .4rem 1rem; border-radius: 999px; font-size: .8rem;
+    border: 1px solid transparent;
+  }
+  .pipe-tag.s1 { background: rgba(108,99,255,.15); border-color: var(--accent1); color: var(--accent1); }
+  .pipe-tag.s2 { background: rgba(0,210,160,.15); border-color: var(--accent2); color: var(--accent2); }
+  .pipe-tag.s3 { background: rgba(255,107,107,.15); border-color: var(--accent3); color: var(--accent3); }
+  .pipe-tag.s4 { background: rgba(255,209,102,.15); border-color: var(--accent4); color: var(--accent4); }
+  .arrow { color: var(--text-dim); font-size: 1.1rem; }
+
+  /* ── Sections ── */
+  .section {
+    max-width: 1400px; margin: 0 auto;
+    padding: 3rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-header {
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .section-badge {
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 12px;
+    font-weight: 800; font-size: 1.1rem; flex-shrink: 0;
+  }
+  .badge1 { background: rgba(108,99,255,.2); color: var(--accent1); border: 1px solid var(--accent1); }
+  .badge2 { background: rgba(0,210,160,.2); color: var(--accent2); border: 1px solid var(--accent2); }
+  .badge3 { background: rgba(255,107,107,.2); color: var(--accent3); border: 1px solid var(--accent3); }
+  .badge4 { background: rgba(255,209,102,.2); color: var(--accent4); border: 1px solid var(--accent4); }
+
+  .section-title { font-size: 1.5rem; font-weight: 700; }
+  .section-sub { font-size: .85rem; color: var(--text-dim); margin-top: .1rem; }
+
+  /* ── 3-col grid per section ── */
+  .section-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.2rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.4rem;
+    display: flex; flex-direction: column; gap: 1rem;
+  }
+  .card-title {
+    font-size: .78rem; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-dim);
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Math card ── */
+  .math-block {
+    background: var(--surface2); border-radius: 8px;
+    padding: .9rem 1rem; font-size: .88rem; line-height: 1.8;
+    border-left: 3px solid var(--accent1);
+  }
+  .math-block.t2 { border-left-color: var(--accent2); }
+  .math-block.t3 { border-left-color: var(--accent3); }
+
+  /* ── Slider controls ── */
+  .controls { display: flex; flex-direction: column; gap: .85rem; }
+  .control-row { display: flex; flex-direction: column; gap: .3rem; }
+  .control-label {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: .82rem; font-weight: 500;
+  }
+  .control-label .val {
+    font-family: 'JetBrains Mono', monospace; font-size: .8rem;
+    color: var(--accent1); font-weight: 600;
+  }
+  .val.t2 { color: var(--accent2); }
+  .val.t3 { color: var(--accent3); }
+  .val.t4 { color: var(--accent4); }
+
+  input[type=range] {
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 5px; border-radius: 999px;
+    background: var(--slider-track); cursor: pointer; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--accent1);
+    border: 2px solid var(--bg); cursor: pointer;
+    transition: transform .1s;
+  }
+  input[type=range]::-webkit-slider-thumb:active { transform: scale(1.3); }
+  input[type=range].t2::-webkit-slider-thumb { background: var(--accent2); }
+  input[type=range].t3::-webkit-slider-thumb { background: var(--accent3); }
+  input[type=range].t4::-webkit-slider-thumb { background: var(--accent4); }
+
+  /* ── Canvas card ── */
+  .canvas-wrap {
+    position: relative; width: 100%;
+    border-radius: 10px; overflow: hidden;
+    background: var(--code-bg); border: 1px solid var(--border);
+  }
+  canvas { display: block; width: 100%; height: 260px; }
+
+  /* ── Code card ── */
+  .code-block {
+    background: var(--code-bg);
+    border-radius: 8px; padding: .9rem 1rem;
+    overflow-x: auto; font-family: 'JetBrains Mono', monospace;
+    font-size: .75rem; line-height: 1.6;
+    border: 1px solid var(--border);
+    max-height: 260px; overflow-y: auto;
+  }
+  .code-block pre { margin: 0; }
+  /* syntax highlight */
+  .kw { color: #c678dd; }
+  .fn { color: #61afef; }
+  .cm { color: #5c6370; font-style: italic; }
+  .lit { color: #d19a66; }
+  .hl { background: rgba(255,209,102,.08); display: block; }
+  .ty { color: #e5c07b; }
+  .op { color: #56b6c2; }
+
+  /* ── Final Combined ── */
+  #combined { padding-bottom: 4rem; }
+  .combined-canvas-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px; overflow: hidden;
+    position: relative;
+  }
+  #combined-canvas { display: block; width: 100%; height: 500px; }
+  .combined-legend {
+    display: flex; gap: 1.5rem; flex-wrap: wrap;
+    padding: 1rem 1.2rem;
+    border-top: 1px solid var(--border);
+    font-size: .78rem;
+  }
+  .leg-item { display: flex; align-items: center; gap: .4rem; }
+  .leg-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .speed-bar-label {
+    font-size: .72rem; color: var(--text-dim);
+    margin-top: .3rem; padding: 0 .2rem;
+  }
+
+  /* ── Metrics bar ── */
+  .metrics {
+    display: flex; gap: .8rem; flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+  }
+  .metric-card {
+    flex: 1; min-width: 120px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: .8rem 1rem;
+    display: flex; flex-direction: column; gap: .2rem;
+  }
+  .metric-label { font-size: .68rem; font-weight: 600; text-transform: uppercase;
+                  letter-spacing: .08em; color: var(--text-dim); }
+  .metric-value { font-size: 1.3rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+  .mv1 { color: var(--accent1); }
+  .mv2 { color: var(--accent2); }
+  .mv3 { color: var(--accent3); }
+  .mv4 { color: var(--accent4); }
+
+  /* ── Obstacle toggle ── */
+  .obstacle-controls {
+    display: flex; gap: .7rem; flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .obs-btn {
+    padding: .35rem .9rem; border-radius: 8px; font-size: .78rem; font-weight: 600;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text-dim); cursor: pointer; transition: all .15s;
+  }
+  .obs-btn.active {
+    border-color: var(--accent3); background: rgba(255,107,107,.12);
+    color: var(--accent3);
+  }
+
+  /* ── Plan button ── */
+  .plan-btn {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .6rem 1.6rem; border-radius: 10px; font-size: .88rem; font-weight: 700;
+    background: linear-gradient(135deg, #6c63ff 0%, #00d2a0 100%);
+    color: #fff; border: none; cursor: pointer;
+    box-shadow: 0 0 24px rgba(108,99,255,.35);
+    transition: transform .12s, box-shadow .12s;
+    letter-spacing: .03em;
+  }
+  .plan-btn:hover { transform: translateY(-1px); box-shadow: 0 0 34px rgba(108,99,255,.55); }
+  .plan-btn:active { transform: scale(.97); }
+  .plan-btn:disabled { background: #252a4a; color: #555; box-shadow: none; cursor: not-allowed; }
+  .plan-btn.replanning { animation: pulse-plan .8s ease infinite; }
+  @keyframes pulse-plan { 0%,100%{box-shadow:0 0 20px rgba(108,99,255,.4)} 50%{box-shadow:0 0 40px rgba(0,210,160,.7)} }
+
+  /* ── Setup checklist ── */
+  .setup-checklist {
+    display: flex; gap: .7rem; flex-wrap: wrap; align-items: center;
+    padding: .6rem 1rem; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: .8rem; font-size: .8rem;
+  }
+  .setup-step {
+    display: flex; align-items: center; gap: .4rem;
+    padding: .3rem .8rem; border-radius: 8px; cursor: pointer;
+    border: 1px solid transparent; transition: all .15s; font-weight: 500;
+    user-select: none;
+  }
+  .setup-step.active  { border-color: var(--accent4); background: rgba(255,209,102,.1); color: var(--accent4); }
+  .setup-step.done    { color: var(--accent2); }
+  .setup-step.pending { color: var(--text-dim); }
+  .step-check { font-size: 1rem; }
+  .step-sep { color: var(--border); font-size: 1.1rem; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center; padding: 2rem; font-size: .75rem; color: var(--text-dim);
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<header>
+  <div class="logo">BARN<span>·</span>2027 Pipeline <span style="color:var(--text-dim);font-weight:400">Visualizer</span></div>
+  <nav>
+    <a href="#bspline">B-Spline</a>
+    <a href="#toppra">TOPP-RA</a>
+    <a href="#mpc">MPC</a>
+    <a href="#combined">Combined</a>
+  </nav>
+</header>
+
+<!-- ═══════════════════════ HERO ═══════════════════════ -->
+<div class="hero">
+  <h1>Navigation Pipeline Visualizer</h1>
+  <p>Interactively tune every parameter of the B-Spline → TOPP-RA → MPC stack and observe the effect on path smoothness and robot velocity in real time.</p>
+  <div class="pipeline-flow">
+    <span class="pipe-tag s1">① B-Spline</span>
+    <span class="arrow">→</span>
+    <span class="pipe-tag s2">② TOPP-RA</span>
+    <span class="arrow">→</span>
+    <span class="pipe-tag s3">③ MPC</span>
+    <span class="arrow">→</span>
+    <span class="pipe-tag s4">④ Motor Commands</span>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 1: B-SPLINE ══════════════════ -->
+<section class="section" id="bspline">
+  <div class="section-header">
+    <div class="section-badge badge1">①</div>
+    <div>
+      <div class="section-title">B-Spline Path Smoothing</div>
+      <div class="section-sub">Converts jagged A* waypoints into a C²-continuous curve away from obstacles</div>
+    </div>
+  </div>
+
+  <div class="section-grid">
+
+    <!-- Math -->
+    <div class="card">
+      <div class="card-title">Mathematical Model</div>
+      <div class="math-block">
+        <strong>Uniform Cubic B-Spline (C² continuous)</strong><br>
+        Segment $j$, parameter $t \in [0,1)$:
+        $$C(t) = \frac{1}{6}\begin{bmatrix}1\!-\!3t\!+\!3t^2\!-\!t^3\\4\!-\!6t^2\!+\!3t^3\\1\!+\!3t\!+\!3t^2\!-\!3t^3\\t^3\end{bmatrix}^{\!\top}\!\!\begin{bmatrix}P_j\\P_{j+1}\\P_{j+2}\\P_{j+3}\end{bmatrix}$$
+        <br>
+        <strong>Curvature</strong>:&nbsp;$\kappa = \dfrac{|\dot{x}\ddot{y}-\dot{y}\ddot{x}|}{(\dot{x}^2+\dot{y}^2)^{3/2}} \;\le\; \kappa_{\max}=\dfrac{2}{W}$
+        <br><br>
+        <strong>Gradient descent cost</strong>:
+        $$J = \underbrace{w_s\|P_{i-1}\!-2P_i\!+P_{i+1}\|^2}_{\text{smooth}} + \underbrace{w_a\|P_i-P_i^0\|^2}_{\text{anchor}} + \underbrace{w_o(d_{\text{clear}}-d)^2}_{\text{obstacle}} + \underbrace{w_c(\kappa-\kappa_{\max})^2}_{\text{curvature}}$$
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card">
+      <div class="card-title">Tunable Parameters</div>
+      <div class="controls">
+        <div class="control-row">
+          <div class="control-label">
+            <span>Control Points (n_control_points)</span>
+            <span class="val" id="lbl_ncp">12</span>
+          </div>
+          <input type="range" id="s_ncp" min="4" max="30" step="1" value="12">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Smooth Weight (w_s)</span>
+            <span class="val" id="lbl_sw">0.40</span>
+          </div>
+          <input type="range" id="s_sw" min="0.0" max="2.0" step="0.01" value="0.40">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Obstacle Weight (w_o)</span>
+            <span class="val" id="lbl_ow">0.30</span>
+          </div>
+          <input type="range" id="s_ow" min="0.0" max="2.0" step="0.01" value="0.30">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Anchor Weight (w_a)</span>
+            <span class="val" id="lbl_aw">0.15</span>
+          </div>
+          <input type="range" id="s_aw" min="0.0" max="1.0" step="0.01" value="0.15">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Curvature Weight (w_c)</span>
+            <span class="val" id="lbl_cw">0.50</span>
+          </div>
+          <input type="range" id="s_cw" min="0.0" max="2.0" step="0.01" value="0.50">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Opt. Iterations</span>
+            <span class="val" id="lbl_iter">30</span>
+          </div>
+          <input type="range" id="s_iter" min="1" max="80" step="1" value="30">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Desired Clearance (m)</span>
+            <span class="val" id="lbl_dc">0.25</span>
+          </div>
+          <input type="range" id="s_dc" min="0.05" max="0.80" step="0.01" value="0.25">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Track Width W (m)</span>
+            <span class="val" id="lbl_tw">0.43</span>
+          </div>
+          <input type="range" id="s_tw" min="0.20" max="0.80" step="0.01" value="0.43">
+        </div>
+      </div>
+    </div>
+
+    <!-- Visualization -->
+    <div class="card">
+      <div class="card-title">Live Visualization</div>
+      <div class="canvas-wrap">
+        <canvas id="canvas_bspline" width="500" height="260"></canvas>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-dim)">
+        <span style="color:var(--accent1)">━━</span> B-Spline &nbsp;
+        <span style="color:#444">━━</span> Raw Waypoints &nbsp;
+        <span style="color:#ff6b6b55;font-size:.9rem">■</span> Obstacles &nbsp;
+        <span style="color:var(--accent4)">─·─</span> κ_max limit
+      </div>
+
+      <!-- Code snippet -->
+      <div class="card-title" style="margin-top:.5rem">Code Reference (local_planner.cpp)</div>
+      <div class="code-block"><pre
+><span class="cm">// Step 3: Fit B-Spline control points</span>
+<span class="kw">const</span> <span class="ty">int</span> n_cp <span class="op">=</span> std::max(<span class="lit">4</span>, params_.n_control_points);
+std::vector&lt;Vec2&gt; control_points(n_cp);
+
+<span class="cm">// Step 4: Gradient descent optimisation</span>
+<span class="kw">for</span> (<span class="ty">int</span> iter <span class="op">=</span> <span class="lit">0</span>; iter <span class="op">&lt;</span> params_.spline_opt_iterations; <span class="op">++</span>iter) {
+  <span class="cm">// Smoothness: penalise 2nd differences</span>
+<span class="hl">  grad[i].x <span class="op">+=</span> params_.spline_smooth_weight <span class="op">*</span> (<span class="op">-</span><span class="lit">4.0</span> <span class="op">*</span> ddx);</span>
+<span class="hl">  grad[i].x <span class="op">+=</span> params_.spline_anchor_weight <span class="op">*</span> <span class="lit">2.0</span> <span class="op">*</span> (cp[i].x <span class="op">-</span> anchor[i].x);</span>
+  <span class="cm">// Obstacle push via distance field gradient</span>
+<span class="hl">  <span class="kw">const</span> <span class="ty">double</span> push <span class="op">=</span> params_.spline_obstacle_weight</span>
+<span class="hl">    <span class="op">*</span> (params_.desired_clearance <span class="op">-</span> clearance);</span>
+  <span class="cm">// Curvature: flatten if κ > κ_max = 2/W</span>
+<span class="hl">  <span class="kw">const</span> <span class="ty">double</span> kappa_max <span class="op">=</span> <span class="lit">2.0</span> <span class="op">/</span> params_.track_width;</span>
+}</pre></div>
+    </div>
+
+  </div><!-- end section-grid -->
+</section>
+
+<!-- ══════════════════ SECTION 2: TOPP-RA ══════════════════ -->
+<section class="section" id="toppra">
+  <div class="section-header">
+    <div class="section-badge badge2">②</div>
+    <div>
+      <div class="section-title">TOPP-RA Velocity Profiling</div>
+      <div class="section-sub">Time-optimal speed profile from wheel motor limits and curvature</div>
+    </div>
+  </div>
+
+  <div class="section-grid">
+
+    <!-- Math -->
+    <div class="card">
+      <div class="card-title">Mathematical Model</div>
+      <div class="math-block t2">
+        <strong>Let</strong> $x(s) = \dot{s}^2$ (squared path velocity).<br><br>
+        <strong>Wheel velocities</strong> (diff-drive, track width $W$):
+        $$v_L = \dot{s}\!\left(1 - \tfrac{W}{2}\kappa\right),\quad v_R = \dot{s}\!\left(1 + \tfrac{W}{2}\kappa\right) \;\le\; v_{\text{wheel}}$$
+        <br>
+        <strong>Velocity ceiling</strong> at each $s$:
+        $$x_{\max}(s) = \left(\frac{v_{\text{wheel}}}{\max(|1\!\pm\!\tfrac{W}{2}\kappa|)}\right)^{\!2},\quad x_{\max} \le v_{\text{max}}^2$$
+        <br>
+        <strong>Wheel accel</strong>:
+        $$a_L = \frac{dx/ds\cdot(1\!-\!\tfrac{W}{2}\kappa)}{2} - x\tfrac{W}{2}\tfrac{d\kappa}{ds} \;\in\; [-a_{\text{max}}, a_{\text{max}}]$$
+        <br>
+        <strong>Reachability passes</strong>:<br>
+        &nbsp;• Backward: $x^b[i] = \min(x_{\max}[i],\;x^b[i\!+\!1] - u_{\min}\!\cdot\!ds)$<br>
+        &nbsp;• Forward: $x^f[i] = \min(x_{\max}[i],\;x^b[i],\;x^f[i\!-\!1] + u_{\max}\!\cdot\!ds)$<br>
+        &nbsp;• Output: $\dot{s}(s) = \sqrt{x^f(s)}$
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card">
+      <div class="card-title">Tunable Parameters</div>
+      <div class="controls">
+        <div class="control-row">
+          <div class="control-label">
+            <span>Wheel Velocity Max (m/s)</span>
+            <span class="val t2" id="lbl_wv">3.50</span>
+          </div>
+          <input type="range" class="t2" id="s_wv" min="0.5" max="6.0" step="0.05" value="3.50">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Wheel Accel Max (m/s²)</span>
+            <span class="val t2" id="lbl_wa">2.50</span>
+          </div>
+          <input type="range" class="t2" id="s_wa" min="0.2" max="8.0" step="0.05" value="2.50">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Max Linear Speed (m/s)</span>
+            <span class="val t2" id="lbl_ms">2.00</span>
+          </div>
+          <input type="range" class="t2" id="s_ms" min="0.2" max="4.0" step="0.05" value="2.00">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Path Sample Step (m)</span>
+            <span class="val t2" id="lbl_ss">0.05</span>
+          </div>
+          <input type="range" class="t2" id="s_ss" min="0.01" max="0.30" step="0.005" value="0.05">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Track Width W (m) [shared]</span>
+            <span class="val t2" id="lbl_tw2">0.43</span>
+          </div>
+          <input type="range" class="t2" id="s_tw2" min="0.20" max="0.80" step="0.01" value="0.43">
+        </div>
+      </div>
+      <div style="margin-top:.5rem;padding:.6rem;background:var(--surface2);border-radius:8px;font-size:.78rem;color:var(--text-dim);">
+        <strong style="color:var(--accent2)">Tip:</strong> Increase <em>wheel_v_max</em> and <em>wheel_a_max</em> for faster speeds. Lower <em>track_width W</em> allows tighter turns at higher speed.
+      </div>
+    </div>
+
+    <!-- Visualization -->
+    <div class="card">
+      <div class="card-title">Live Visualization — Velocity Profile ṡ(s)</div>
+      <div class="canvas-wrap">
+        <canvas id="canvas_toppra" width="500" height="260"></canvas>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-dim)">
+        <span style="color:var(--accent2)">━━</span> ṡ(s) profile &nbsp;
+        <span style="color:#ffd16688">━━</span> x_max ceiling &nbsp;
+        <span style="color:#c678dd88">━━</span> Backward pass &nbsp;
+        <span style="color:#e06c7588">━━</span> Curvature κ(s)
+      </div>
+
+      <div class="card-title" style="margin-top:.5rem">Code Reference (local_planner.cpp)</div>
+      <div class="code-block"><pre
+><span class="cm">// Step 1: velocity ceiling x_max(s) = ṡ_max²</span>
+<span class="hl"><span class="ty">double</span> sdot_max <span class="op">=</span> max_factor <span class="op">&gt;</span> <span class="lit">1e-9</span></span>
+<span class="hl">  <span class="op">?</span> params_.wheel_v_max <span class="op">/</span> max_factor</span>
+<span class="hl">  <span class="op">:</span> params_.max_speed;</span>
+sdot_max <span class="op">=</span> std::min(sdot_max, params_.max_speed);
+
+<span class="cm">// Step 2: Backward pass</span>
+<span class="kw">for</span> (<span class="ty">int</span> i <span class="op">=</span> n<span class="op">-</span><span class="lit">2</span>; i <span class="op">&gt;=</span> <span class="lit">0</span>; <span class="op">--</span>i) {
+<span class="hl">  xi <span class="op">=</span> x_bwd[i<span class="op">+</span><span class="lit">1</span>] <span class="op">-</span> u_min <span class="op">*</span> ds;</span>
+  x_bwd[i] <span class="op">=</span> std::clamp(xi, <span class="lit">0.0</span>, x_max[i]);
+}
+<span class="cm">// Step 3: Forward pass</span>
+<span class="kw">for</span> (<span class="ty">int</span> i <span class="op">=</span> <span class="lit">1</span>; i <span class="op">&lt;</span> n; <span class="op">++</span>i) {
+<span class="hl">  xi <span class="op">=</span> x_fwd[i<span class="op">-</span><span class="lit">1</span>] <span class="op">+</span> u_max <span class="op">*</span> ds;</span>
+  x_fwd[i] <span class="op">=</span> std::min({xi, x_max[i], x_bwd[i]});
+}
+<span class="cm">// Convert ṡ = √x</span>
+<span class="hl">sdot[i] <span class="op">=</span> std::sqrt(std::max(<span class="lit">0.0</span>, x_fwd[i]));</span></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════ SECTION 3: MPC ══════════════════ -->
+<section class="section" id="mpc">
+  <div class="section-header">
+    <div class="section-badge badge3">③</div>
+    <div>
+      <div class="section-title">Model Predictive Control (MPC)</div>
+      <div class="section-sub">Tracks the TOPP-RA trajectory over a prediction horizon, outputs cmd_vel</div>
+    </div>
+  </div>
+
+  <div class="section-grid">
+
+    <!-- Math -->
+    <div class="card">
+      <div class="card-title">Mathematical Model</div>
+      <div class="math-block t3">
+        <strong>State</strong>: $\mathbf{x}_k = [x,\;y,\;\theta,\;v,\;\omega]^\top$ &nbsp; <strong>Input</strong>: $\mathbf{u}_k = [a,\;\dot\omega]^\top$<br><br>
+        <strong>QP Cost</strong> over horizon $N$:
+        $$\min_{\mathbf{x},\mathbf{u}} \sum_{k=0}^{N} \Bigl[Q_p\|e_{xy}\|^2 + Q_\theta e_\theta^2 + Q_v(v_k-v_{\text{ref},k})^2\Bigr] + \sum_{k=0}^{N-1}\Bigl[R_a a_k^2 + R_\omega \dot\omega_k^2 + S\|\Delta\mathbf{u}_k\|^2\Bigr]$$
+        <br>
+        <strong>Constraints</strong>:
+        $$0 \le v_k \le v_{\max},\quad |\omega_k| \le \omega_{\max}$$
+        $$|a_k| \le a_{\max},\quad |\Delta v_k| \le \dot{v}_{\max}\cdot\Delta t$$
+        <br>
+        <strong>Obstacle avoidance</strong> (linearized half-plane):
+        $$\nabla D(\mathbf{p})^\top (\mathbf{p}_k - \mathbf{p}_0) \ge d_{\text{obs}} - D(\mathbf{p}_0)$$
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card">
+      <div class="card-title">Tunable Parameters</div>
+      <div class="controls">
+        <div class="control-row">
+          <div class="control-label">
+            <span>Horizon Steps N</span>
+            <span class="val t3" id="lbl_hn">10</span>
+          </div>
+          <input type="range" class="t3" id="s_hn" min="3" max="25" step="1" value="10">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>dt (s)</span>
+            <span class="val t3" id="lbl_dt">0.10</span>
+          </div>
+          <input type="range" class="t3" id="s_dt" min="0.02" max="0.30" step="0.01" value="0.10">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Position Weight Q_p</span>
+            <span class="val t3" id="lbl_qp">14.0</span>
+          </div>
+          <input type="range" class="t3" id="s_qp" min="1.0" max="50.0" step="0.5" value="14.0">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Velocity Weight Q_v</span>
+            <span class="val t3" id="lbl_qv">1.5</span>
+          </div>
+          <input type="range" class="t3" id="s_qv" min="0.1" max="10.0" step="0.1" value="1.5">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Accel Input Weight R_a</span>
+            <span class="val t3" id="lbl_ra">0.10</span>
+          </div>
+          <input type="range" class="t3" id="s_ra" min="0.01" max="2.0" step="0.01" value="0.10">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Slew Weight S</span>
+            <span class="val t3" id="lbl_sl">0.20</span>
+          </div>
+          <input type="range" class="t3" id="s_sl" min="0.0" max="1.0" step="0.01" value="0.20">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Max Speed (m/s)</span>
+            <span class="val t3" id="lbl_vmx">2.00</span>
+          </div>
+          <input type="range" class="t3" id="s_vmx" min="0.2" max="4.0" step="0.05" value="2.00">
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Max Yaw Rate (rad/s)</span>
+            <span class="val t3" id="lbl_yr">1.5</span>
+          </div>
+          <input type="range" class="t3" id="s_yr" min="0.2" max="4.0" step="0.05" value="1.5">
+        </div>
+      </div>
+    </div>
+
+    <!-- Visualization -->
+    <div class="card">
+      <div class="card-title">Live Visualization — MPC Prediction Horizon</div>
+      <div class="canvas-wrap">
+        <canvas id="canvas_mpc" width="500" height="260"></canvas>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-dim)">
+        <span style="color:var(--accent1)">━━</span> Reference trajectory &nbsp;
+        <span style="color:var(--accent3)">━━</span> MPC prediction &nbsp;
+        <span style="color:var(--accent4)">●</span> Horizon steps &nbsp;
+        <span style="color:#ffffff55">▩</span> Footprint
+      </div>
+
+      <div class="card-title" style="margin-top:.5rem">Code Reference (controller.cpp)</div>
+      <div class="code-block"><pre
+><span class="cm">// Cost: position tracking (weight 14.0)</span>
+<span class="hl">add_square(sx(k,<span class="lit">0</span>), <span class="lit">14.0</span><span class="op">*</span>terminal, reference[k].pose.x);</span>
+<span class="hl">add_square(sx(k,<span class="lit">2</span>), <span class="lit">14.0</span><span class="op">*</span>terminal, reference[k].pose.yaw);</span>
+<span class="cm">// Cost: velocity tracking (weight 1.5)</span>
+<span class="hl">add_square(sx(k,<span class="lit">3</span>), <span class="lit">1.5</span>,</span>
+<span class="hl">  std::clamp(reference[k].v_ref, <span class="lit">0.0</span>, params_.max_speed));</span>
+<span class="cm">// Hard velocity bounds</span>
+<span class="kw">if</span> (c <span class="op">==</span> <span class="lit">3</span>) {lo <span class="op">=</span> <span class="lit">0.0</span>; hi <span class="op">=</span> params_.max_speed;}
+<span class="cm">// Slew rate (control smoothness)</span>
+<span class="hl">p_triplets.emplace_back(ui(k<span class="op">-</span><span class="lit">1</span>,c), ui(k,c),</span>
+<span class="hl">  <span class="kw">static_cast</span>&lt;c_float&gt;(<span class="op">-</span><span class="lit">2.0</span><span class="op">*</span>slew_weight));</span></pre></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════ SECTION 4: COMBINED ══════════════════ -->
+<section class="section" id="combined">
+  <div class="section-header">
+    <div class="section-badge badge4">④</div>
+    <div>
+      <div class="section-title">Combined Pipeline Visualization <span style="font-size:.75rem;color:var(--accent4);font-weight:500">(Interactive)</span></div>
+      <div class="section-sub">Set your scene — place the robot, goal, and obstacles — then click <strong style="color:var(--accent4)">Plan Path</strong> to run A* → B-Spline → TOPP-RA → MPC.</div>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Path Smoothness (1/κ_max)</div>
+      <div class="metric-value mv1" id="met_smooth">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Min Clearance (m)</div>
+      <div class="metric-value mv2" id="met_clear">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Avg Speed (m/s)</div>
+      <div class="metric-value mv2" id="met_avg_v">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Max Speed (m/s)</div>
+      <div class="metric-value mv3" id="met_max_v">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Est. Travel Time (s)</div>
+      <div class="metric-value mv4" id="met_time">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">A* Path Length (m)</div>
+      <div class="metric-value mv1" id="met_len">—</div>
+    </div>
+  </div>
+
+  <!-- Setup Checklist -->
+  <div class="setup-checklist" id="setup-checklist">
+    <span style="font-size:.78rem;font-weight:700;color:var(--text-dim)">SETUP:</span>
+    <div class="setup-step active" id="step-robot" onclick="setMode('robot',null)" title="Click to enter Robot placement mode">
+      <span class="step-check" id="chk-robot">○</span> 🤖 Robot
+    </div>
+    <span class="step-sep">›</span>
+    <div class="setup-step pending" id="step-goal" onclick="setMode('goal',null)" title="Click to enter Goal placement mode">
+      <span class="step-check" id="chk-goal">○</span> 🎯 Goal
+    </div>
+    <span class="step-sep">›</span>
+    <div class="setup-step pending" id="step-obstacle" onclick="setMode('obstacle',null)" title="Click to enter Obstacle placement mode">
+      <span class="step-check" id="chk-obs">○</span> 🧱 Obstacles
+    </div>
+    <span class="step-sep">›</span>
+    <button class="plan-btn" id="btn-plan" onclick="planPath()">
+      <span id="plan-icon">▶</span> Plan Path
+    </button>
+    <span style="font-size:.72rem;color:var(--text-dim);margin-left:.5rem" id="plan-status">Place robot first</span>
+    <div style="margin-left:auto;display:flex;gap:.5rem;align-items:center">
+      <button class="obs-btn" id="btn-distfield" onclick="toggleDistField(this)" title="Distance field heatmap">🌡️ Dist Field</button>
+      <button class="obs-btn" id="btn-clearobs"  onclick="clearObstacles()"      title="Remove all obstacles">🗑️ Clear Obs</button>
+      <button class="obs-btn" id="btn-resetscene" onclick="resetScene()"         title="Reset everything to preset">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- Preset scenarios row -->
+  <div class="obstacle-controls" style="margin-bottom:.8rem">
+    <span style="font-size:.78rem;font-weight:600;color:var(--text-dim)">Load Preset:</span>
+    <button class="obs-btn active" data-scene="barn"      onclick="setScene('barn',this)">BARN Corridor</button>
+    <button class="obs-btn" data-scene="slalom"          onclick="setScene('slalom',this)">Slalom</button>
+    <button class="obs-btn" data-scene="openfield"       onclick="setScene('openfield',this)">Open Field</button>
+    <button class="obs-btn" data-scene="tight"           onclick="setScene('tight',this)">Tight S-Curve</button>
+    <button class="obs-btn" data-scene="empty"           onclick="setScene('empty',this)">Empty (Custom)</button>
+    <span style="margin-left:.5rem;font-size:.72rem;color:var(--text-dim)" id="canvas-hint">Click canvas to place robot</span>
+  </div>
+
+  <!-- Distance field slider -->
+  <div id="df-controls" style="display:none;margin-bottom:.8rem;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;">
+    <div style="font-size:.78rem;font-weight:600;color:var(--text-dim);margin-bottom:.5rem">Distance Field Controls</div>
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center">
+      <div class="control-row" style="flex:1;min-width:180px">
+        <div class="control-label"><span>Max Display Dist (m)</span><span class="val t4" id="lbl_dfmax">2.0</span></div>
+        <input type="range" class="t4" id="s_dfmax" min="0.3" max="5.0" step="0.1" value="2.0" oninput="document.getElementById('lbl_dfmax').textContent=parseFloat(this.value).toFixed(1);scheduleRedraw()">
+      </div>
+      <div class="control-row" style="flex:1;min-width:180px">
+        <div class="control-label"><span>Opacity</span><span class="val t4" id="lbl_dfop">0.45</span></div>
+        <input type="range" class="t4" id="s_dfop" min="0.05" max="1.0" step="0.01" value="0.45" oninput="document.getElementById('lbl_dfop').textContent=parseFloat(this.value).toFixed(2);scheduleRedraw()">
+      </div>
+      <div style="font-size:.72rem;color:var(--text-dim)">
+        <span style="background:linear-gradient(90deg,#ff2244,#ff6b00,#ffd166,#00d2a0,#1a237e);display:inline-block;width:80px;height:8px;border-radius:4px;vertical-align:middle;margin-right:.4rem"></span>
+        obstacle → safe
+      </div>
+    </div>
+  </div>
+
+  <div class="combined-canvas-wrap" id="combined-wrap" style="cursor:crosshair">
+    <canvas id="combined-canvas" width="1200" height="500"></canvas>
+    <div class="combined-legend">
+      <div class="leg-item"><div class="leg-dot" style="background:#555"></div> A* Raw Path</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--accent1)"></div> B-Spline</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--accent2);width:4px;height:12px;border-radius:2px"></div> TOPP-RA Speed</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--accent3)"></div> MPC Pred.</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#ff6b6b55;border-radius:2px;width:14px;height:14px"></div> Obstacles</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#6c63ff;border-radius:2px;width:10px;height:10px"></div> 🤖 Robot</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#00d2a0;border-radius:2px;width:10px;height:10px"></div> 🎯 Goal</div>
+      <div style="margin-left:auto;font-size:.72rem;color:var(--text-dim)">
+        <span style="background:linear-gradient(90deg,#0d47a1,#00d2a0,#ffd166,#ff6b6b);display:inline-block;width:60px;height:8px;border-radius:4px;vertical-align:middle;margin-right:.3rem"></span>
+        Speed: slow → fast
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Built for BARN 2027-prep · B-Spline + TOPP-RA + MPC Optimization Tool · All parameters reflect <code>local_planner.cpp</code> &amp; <code>controller.cpp</code>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT — All visualization logic
+═══════════════════════════════════════════════════ -->
+<script>
+"use strict";
+
+// ─── Global parameter state ────────────────────────────────────────────
+const P = {
+  // B-Spline
+  ncp: 12, sw: 0.40, ow: 0.30, aw: 0.15, cw: 0.50, iter: 30, dc: 0.25, tw: 0.43,
+  // TOPP-RA
+  wv: 3.50, wa: 2.50, ms: 2.00, ss: 0.05, tw2: 0.43,
+  // MPC
+  hn: 10, dt: 0.10, qp: 14.0, qv: 1.5, ra: 0.10, sl: 0.20, vmx: 2.00, yr: 1.5
+};
+
+// Map slider id → param key and display element
+const sliders = [
+  ['s_ncp','ncp','lbl_ncp',0], ['s_sw','sw','lbl_sw',2], ['s_ow','ow','lbl_ow',2],
+  ['s_aw','aw','lbl_aw',2], ['s_cw','cw','lbl_cw',2], ['s_iter','iter','lbl_iter',0],
+  ['s_dc','dc','lbl_dc',2], ['s_tw','tw','lbl_tw',2],
+  ['s_wv','wv','lbl_wv',2], ['s_wa','wa','lbl_wa',2], ['s_ms','ms','lbl_ms',2],
+  ['s_ss','ss','lbl_ss',3], ['s_tw2','tw2','lbl_tw2',2],
+  ['s_hn','hn','lbl_hn',0], ['s_dt','dt','lbl_dt',2], ['s_qp','qp','lbl_qp',1],
+  ['s_qv','qv','lbl_qv',1], ['s_ra','ra','lbl_ra',2], ['s_sl','sl','lbl_sl',2],
+  ['s_vmx','vmx','lbl_vmx',2], ['s_yr','yr','lbl_yr',1]
+];
+
+sliders.forEach(([sid, key, lid, dec]) => {
+  const el = document.getElementById(sid);
+  const lbl = document.getElementById(lid);
+  el.addEventListener('input', () => {
+    P[key] = parseFloat(el.value);
+    // sync tw/tw2
+    if (key === 'tw') { P.tw2 = P.tw; document.getElementById('s_tw2').value = P.tw; document.getElementById('lbl_tw2').textContent = P.tw.toFixed(2); }
+    if (key === 'tw2') { P.tw = P.tw2; document.getElementById('s_tw').value = P.tw; document.getElementById('lbl_tw').textContent = P.tw.toFixed(2); }
+    // sync ms / vmx
+    if (key === 'ms') { P.vmx = P.ms; document.getElementById('s_vmx').value = P.ms; document.getElementById('lbl_vmx').textContent = P.ms.toFixed(2); }
+    if (key === 'vmx') { P.ms = P.vmx; document.getElementById('s_ms').value = P.vmx; document.getElementById('lbl_ms').textContent = P.vmx.toFixed(2); }
+    lbl.textContent = parseFloat(el.value).toFixed(dec);
+    scheduleRedraw();
+  });
+});
+
+// ─── Scene / obstacle definitions ─────────────────────────────────────
+let currentScene = 'barn';
+const scenes = {
+  barn: {
+    waypoints: [[0.5,2],[1,2],[1.5,2],[2,2.5],[2.5,3],[3,3],[3.5,2.8],[4,2.5],[4.5,2],[5,2],[5.5,2.5],[6,3],[6.5,3],[7,3],[7.5,2.5],[8,2],[8.5,2],[9,2],[9.5,2]],
+    obstacles: [{x:2,y:1,r:0.35},{x:2.3,y:3.5,r:0.3},{x:4,y:3.5,r:0.35},{x:5,y:0.8,r:0.3},{x:6,y:3.7,r:0.35},{x:7.5,y:1.2,r:0.3},{x:8.5,y:3.5,r:0.28}],
+    xrange:[0,10], yrange:[0,4]
+  },
+  slalom: {
+    waypoints: [[0.3,2],[1,2],[2,3.5],[3,0.7],[4,3.5],[5,0.7],[6,3.5],[7,0.7],[8,2],[9,2]],
+    obstacles: [{x:1.5,y:3.5,r:0.3},{x:2.5,y:0.5,r:0.3},{x:3.5,y:3.5,r:0.3},{x:4.5,y:0.5,r:0.3},{x:5.5,y:3.5,r:0.3},{x:6.5,y:0.5,r:0.3},{x:7.5,y:3.5,r:0.3}],
+    xrange:[0,10], yrange:[0,4.5]
+  },
+  openfield: {
+    waypoints: [[0.5,2],[2,2],[4,2.5],[6,2],[8,2],[9.5,2]],
+    obstacles: [{x:3,y:2.8,r:0.2},{x:5,y:1.5,r:0.2},{x:7,y:2.5,r:0.2}],
+    xrange:[0,10], yrange:[0,4]
+  },
+  tight: {
+    waypoints: [[0.5,1.5],[1.5,1.5],[2,2],[2.5,3],[3,3.5],[3.5,3],[4,2],[4.5,1.5],[5,1.5],[5.5,2],[6,3],[6.5,3.5],[7,3],[7.5,2],[8,1.5],[8.5,1.5],[9.5,1.5]],
+    obstacles: [{x:2,y:1,r:0.25},{x:3,y:4,r:0.25},{x:4.5,y:1,r:0.25},{x:6,y:4,r:0.25},{x:7.5,y:1,r:0.25}],
+    xrange:[0,10], yrange:[0.5,4.5]
+  }
+};
+
+function setScene(name, btn) {
+  currentScene = name;
+  document.querySelectorAll('.obs-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  scheduleRedraw();
+}
+
+// ─── B-Spline math ────────────────────────────────────────────────────
+function bsplineEval(cp, seg, t) {
+  const t2=t*t, t3=t2*t;
+  const b0=(1-3*t+3*t2-t3)/6, b1=(4-6*t2+3*t3)/6;
+  const b2=(1+3*t+3*t2-3*t3)/6, b3=t3/6;
+  return [
+    b0*cp[seg][0]+b1*cp[seg+1][0]+b2*cp[seg+2][0]+b3*cp[seg+3][0],
+    b0*cp[seg][1]+b1*cp[seg+1][1]+b2*cp[seg+2][1]+b3*cp[seg+3][1]
+  ];
+}
+
+function bsplineDeriv1(cp, seg, t) {
+  const t2=t*t;
+  const d0=(-3+6*t-3*t2)/6, d1=(-12*t+9*t2)/6;
+  const d2=(3+6*t-9*t2)/6,  d3=(3*t2)/6;
+  return [
+    d0*cp[seg][0]+d1*cp[seg+1][0]+d2*cp[seg+2][0]+d3*cp[seg+3][0],
+    d0*cp[seg][1]+d1*cp[seg+1][1]+d2*cp[seg+2][1]+d3*cp[seg+3][1]
+  ];
+}
+
+function bsplineDeriv2(cp, seg, t) {
+  const dd0=(6-6*t)/6, dd1=(-12+18*t)/6;
+  const dd2=(6-18*t)/6, dd3=(6*t)/6;
+  return [
+    dd0*cp[seg][0]+dd1*cp[seg+1][0]+dd2*cp[seg+2][0]+dd3*cp[seg+3][0],
+    dd0*cp[seg][1]+dd1*cp[seg+1][1]+dd2*cp[seg+2][1]+dd3*cp[seg+3][1]
+  ];
+}
+
+function bsplineCurvature(cp, seg, t) {
+  const d1=bsplineDeriv1(cp,seg,t), d2=bsplineDeriv2(cp,seg,t);
+  const spd2=d1[0]*d1[0]+d1[1]*d1[1];
+  if (spd2<1e-12) return 0;
+  const cross=d1[0]*d2[1]-d1[1]*d2[0];
+  return Math.abs(cross)/Math.pow(spd2,1.5);
+}
+
+function nSegments(n) { return Math.max(0, n-3); }
+
+function fitBSpline(waypoints, obstaclesOverride) {
+  const ncp = Math.max(4, P.ncp);
+  let cp = [];
+  // initialise along waypoints
+  const arcs = [0];
+  for (let i=1;i<waypoints.length;i++) {
+    const dx=waypoints[i][0]-waypoints[i-1][0];
+    const dy=waypoints[i][1]-waypoints[i-1][1];
+    arcs.push(arcs[arcs.length-1]+Math.hypot(dx,dy));
+  }
+  const totalLen = arcs[arcs.length-1];
+  for (let j=0;j<ncp;j++) {
+    const tgt = j/(ncp-1)*totalLen;
+    let seg=0;
+    while (seg+1<waypoints.length && arcs[seg+1]<tgt) seg++;
+    if (seg+1>=waypoints.length) { cp.push([...waypoints[waypoints.length-1]]); continue; }
+    const span=arcs[seg+1]-arcs[seg];
+    const frac=span>1e-9?(tgt-arcs[seg])/span:0;
+    cp.push([
+      waypoints[seg][0]+frac*(waypoints[seg+1][0]-waypoints[seg][0]),
+      waypoints[seg][1]+frac*(waypoints[seg+1][1]-waypoints[seg][1])
+    ]);
+  }
+  const anchors = cp.map(p=>[...p]);
+
+  // gradient descent
+  const nseg = nSegments(ncp);
+  const kappa_max = P.tw > 0 ? 2.0/P.tw : 4.0;
+  // Use override obstacles if provided (interactive state), else fall back to scene
+  const obsToUse = (obstaclesOverride && obstaclesOverride.length !== undefined)
+    ? obstaclesOverride
+    : scenes[currentScene].obstacles;
+
+  for (let it=0;it<P.iter;it++) {
+    const grad = cp.map(()=>[0,0]);
+    // smoothness
+    for (let i=1;i+1<ncp;i++) {
+      const ddx=cp[i-1][0]-2*cp[i][0]+cp[i+1][0];
+      const ddy=cp[i-1][1]-2*cp[i][1]+cp[i+1][1];
+      grad[i][0] += P.sw*(-4*ddx);
+      grad[i][1] += P.sw*(-4*ddy);
+    }
+    // anchor
+    for (let i=1;i+1<ncp;i++) {
+      grad[i][0] += P.aw*2*(cp[i][0]-anchors[i][0]);
+      grad[i][1] += P.aw*2*(cp[i][1]-anchors[i][1]);
+    }
+    // obstacle
+    for (let s=0;s<nseg;s++) {
+      for (let k=0;k<4;k++) {
+        const t=(k+0.5)/4;
+        const pt=bsplineEval(cp,s,t);
+        // find nearest obstacle
+        let minDist=Infinity, gx=0, gy=0;
+        for (const obs of obsToUse) {
+          const dx=pt[0]-obs.x, dy=pt[1]-obs.y;
+          const distToCenter=Math.hypot(dx,dy)||1e-9;
+          const d=distToCenter-obs.r;
+          if (d<minDist) { minDist=d; gx=dx/distToCenter; gy=dy/distToCenter; }
+        }
+        // fire gradient if inside obstacle (minDist<=0) OR within clearance
+        if (minDist<P.dc) {
+          // Much stronger push when actually inside obstacle
+          const inside = minDist <= 0;
+          const push = inside
+            ? P.ow * (P.dc - minDist) * 12.0  // hard push out
+            : P.ow * (P.dc - minDist);         // normal clearance gradient
+          for (let ci=s;ci<=s+3&&ci<ncp;ci++) {
+            if (ci===0||ci===ncp-1) continue;
+            grad[ci][0]-=push*gx*0.25;
+            grad[ci][1]-=push*gy*0.25;
+          }
+        }
+      }
+    }
+    // curvature
+    for (let s=0;s<nseg;s++) {
+      for (let k=0;k<=4;k++) {
+        const t=k/4;
+        const kappa=bsplineCurvature(cp,s,t);
+        if (kappa<=kappa_max) continue;
+        const penalty=P.cw*(kappa-kappa_max);
+        const mx=0.5*(cp[s][0]+cp[s+3][0]);
+        const my=0.5*(cp[s][1]+cp[s+3][1]);
+        for (let ci=s+1;ci<=s+2;ci++) {
+          if (ci<=0||ci>=ncp-1) continue;
+          const dx=mx-cp[ci][0], dy=my-cp[ci][1];
+          const d=Math.hypot(dx,dy)||1e-9;
+          grad[ci][0]-=penalty*dx/d;
+          grad[ci][1]-=penalty*dy/d;
+        }
+      }
+    }
+    // apply
+    for (let i=1;i+1<ncp;i++) {
+      let dx=-grad[i][0], dy=-grad[i][1];
+      const disp=Math.hypot(dx,dy);
+      // Allow larger steps when near/inside obstacles to escape them
+      const maxStep = 0.20;
+      if (disp>maxStep) { dx*=maxStep/disp; dy*=maxStep/disp; }
+      cp[i][0]+=dx; cp[i][1]+=dy;
+    }
+  }
+  return {cp, anchors, nseg};
+}
+
+function sampleSpline(cp, step) {
+  const nseg = nSegments(cp.length);
+  if (nseg<=0) return [];
+  const fine=[];
+  let arc=0;
+  const fineSteps=10;
+  for (let s=0;s<nseg;s++) {
+    for (let k=0;k<fineSteps;k++) {
+      const t=k/fineSteps;
+      const p=bsplineEval(cp,s,t);
+      const d=bsplineDeriv1(cp,s,t);
+      const kappa=bsplineCurvature(cp,s,t);
+      if (fine.length>0) arc+=Math.hypot(p[0]-fine[fine.length-1].x, p[1]-fine[fine.length-1].y);
+      fine.push({x:p[0],y:p[1],dx:d[0],dy:d[1],kappa,arc});
+    }
+  }
+  const lp=bsplineEval(cp,nseg-1,1.0);
+  const ld=bsplineDeriv1(cp,nseg-1,1.0);
+  arc+=Math.hypot(lp[0]-fine[fine.length-1].x, lp[1]-fine[fine.length-1].y);
+  fine.push({x:lp[0],y:lp[1],dx:ld[0],dy:ld[1],kappa:0,arc});
+  const total=fine[fine.length-1].arc;
+  if (total<1e-4) return fine;
+  const nOut=Math.max(2,Math.ceil(total/step)+1);
+  const out=[];
+  let cursor=0;
+  for (let i=0;i<nOut;i++) {
+    const target=i/(nOut-1)*total;
+    while (cursor+1<fine.length && fine[cursor+1].arc<target) cursor++;
+    if (cursor+1>=fine.length) { out.push({...fine[fine.length-1],arc:target}); continue; }
+    const span=fine[cursor+1].arc-fine[cursor].arc;
+    const frac=span>1e-9?(target-fine[cursor].arc)/span:0;
+    out.push({
+      x:fine[cursor].x+frac*(fine[cursor+1].x-fine[cursor].x),
+      y:fine[cursor].y+frac*(fine[cursor+1].y-fine[cursor].y),
+      dx:fine[cursor].dx+frac*(fine[cursor+1].dx-fine[cursor].dx),
+      dy:fine[cursor].dy+frac*(fine[cursor+1].dy-fine[cursor].dy),
+      kappa:fine[cursor].kappa+frac*(fine[cursor+1].kappa-fine[cursor].kappa),
+      arc:target
+    });
+  }
+  return out;
+}
+
+// ─── TOPP-RA ──────────────────────────────────────────────────────────
+function toppra(samples) {
+  const n=samples.length;
+  if (n<2) return new Array(n).fill(0);
+  const half_w=P.tw/2;
+  const v_wheel=P.wv, a_wheel=P.wa, v_max=Math.min(P.ms, P.vmx);
+
+  // x_max
+  const x_max=samples.map(s=>{
+    const fl=Math.abs(1-half_w*s.kappa), fr=Math.abs(1+half_w*s.kappa);
+    const mf=Math.max(fl,fr);
+    let sdot_max=mf>1e-9?v_wheel/mf:v_max;
+    sdot_max=Math.min(sdot_max,v_max);
+    return sdot_max*sdot_max;
+  });
+
+  // dkappa/ds
+  const dk=new Array(n).fill(0);
+  for (let i=1;i+1<n;i++) {
+    const ds=samples[i+1].arc-samples[i-1].arc;
+    if (ds>1e-9) dk[i]=(samples[i+1].kappa-samples[i-1].kappa)/ds;
+  }
+  if (n>1) { dk[0]=dk[1]; dk[n-1]=dk[n-2]; }
+
+  const accelBounds=(idx,x)=>{
+    const k=samples[idx].kappa, dk_=dk[idx];
+    const fl=(1-half_w*k)/2, fr=(1+half_w*k)/2;
+    const cl=-half_w*dk_, cr=+half_w*dk_;
+    let u_min=-1e12, u_max=1e12;
+    const applyWheel=(f,c)=>{
+      if (Math.abs(f)>1e-12) {
+        let lo=(-a_wheel-c*x)/f, hi=(a_wheel-c*x)/f;
+        if (f<0) [lo,hi]=[hi,lo];
+        u_min=Math.max(u_min,lo); u_max=Math.min(u_max,hi);
+      }
+    };
+    applyWheel(fl,cl); applyWheel(fr,cr);
+    return [u_min,u_max];
+  };
+
+  // backward pass
+  const x_bwd=new Array(n).fill(0);
+  x_bwd[n-1]=0;
+  for (let i=n-2;i>=0;i--) {
+    const ds=samples[i+1].arc-samples[i].arc;
+    if (ds<1e-9) { x_bwd[i]=x_bwd[i+1]; continue; }
+    let xi=Math.min(x_max[i], x_bwd[i+1]+2*a_wheel*ds);
+    xi=Math.max(xi,0);
+    const [u_min,]=accelBounds(i,xi);
+    const u_needed=(x_bwd[i+1]-xi)/ds;
+    if (u_needed<u_min) {
+      for (let it=0;it<5;it++) {
+        const [um,]=accelBounds(i,xi);
+        xi=x_bwd[i+1]-um*ds;
+        xi=Math.max(0,Math.min(xi,x_max[i]));
+      }
+    }
+    x_bwd[i]=Math.max(0,Math.min(xi,x_max[i]));
+  }
+
+  // forward pass
+  const x_fwd=new Array(n).fill(0);
+  x_fwd[0]=Math.min(x_max[0],x_bwd[0]);
+  for (let i=1;i<n;i++) {
+    const ds=samples[i].arc-samples[i-1].arc;
+    if (ds<1e-9) { x_fwd[i]=x_fwd[i-1]; continue; }
+    const [,u_max]=accelBounds(i-1,x_fwd[i-1]);
+    let xi=x_fwd[i-1]+u_max*ds;
+    xi=Math.min(xi,x_max[i],x_bwd[i]);
+    x_fwd[i]=Math.max(xi,0);
+  }
+
+  return {
+    sdot: x_fwd.map(x=>Math.sqrt(Math.max(0,x))),
+    x_max, x_bwd
+  };
+}
+
+// ─── MPC simulation ───────────────────────────────────────────────────
+function simulateMPC(samples, sdot) {
+  // simplified MPC tracking: simulate robot following reference with prediction
+  // returns prediction steps from current robot position (at arc=0)
+  if (!samples.length) return [];
+  const N=P.hn, dt=P.dt;
+  const prediction=[];
+  // Robot starts at samples[0]
+  let rx=samples[0].x, ry=samples[0].y, rtheta=Math.atan2(samples[0].dy,samples[0].dx);
+  let rv=0;
+  // find nearest on path each step
+  let cursor=0;
+  for (let k=0;k<N;k++) {
+    // find nearest path point ahead
+    let bestD=Infinity;
+    for (let i=cursor;i<samples.length;i++) {
+      const d=Math.hypot(samples[i].x-rx,samples[i].y-ry);
+      if (d<bestD) { bestD=d; cursor=i; }
+      if (d>bestD+0.5) break;
+    }
+    const ref=samples[Math.min(cursor+1,samples.length-1)];
+    const v_ref=sdot[Math.min(cursor,sdot.length-1)];
+    // simple P-controller as MPC approximation
+    const ex=ref.x-rx, ey=ref.y-ry;
+    const target_theta=Math.atan2(ey,ex);
+    const dtheta=target_theta-rtheta;
+    const w=Math.max(-P.yr, Math.min(P.yr, P.qp*0.1*dtheta));
+    const v_err=v_ref-rv;
+    const accel=Math.max(-P.wa,Math.min(P.wa, P.qv*v_err));
+    rv=Math.max(0,Math.min(P.vmx, rv+accel*dt));
+    rtheta+=w*dt;
+    rx+=rv*Math.cos(rtheta)*dt;
+    ry+=rv*Math.sin(rtheta)*dt;
+    prediction.push({x:rx,y:ry,theta:rtheta,v:rv});
+  }
+  return prediction;
+}
+
+// ─── Color utilities ──────────────────────────────────────────────────
+function speedColor(v, vmax) {
+  const t=Math.max(0,Math.min(1,v/Math.max(vmax,0.01)));
+  if (t<0.5) {
+    const s=t*2;
+    return `rgb(${Math.round(13+s*(0-13))},${Math.round(211*s)},${Math.round(160*s)})`;
+  } else {
+    const s=(t-0.5)*2;
+    return `rgb(${Math.round(s*255)},${Math.round(209-s*100)},${Math.round(102-s*102)})`;
+  }
+}
+
+// ─── World → canvas coordinate transform ─────────────────────────────
+function makeTransform(canvas, xrange, yrange, pad=32) {
+  const W=canvas.width, H=canvas.height;
+  const xspan=xrange[1]-xrange[0], yspan=yrange[1]-yrange[0];
+  const scaleX=(W-2*pad)/xspan, scaleY=(H-2*pad)/yspan;
+  const scale=Math.min(scaleX,scaleY);
+  return (wx,wy)=>[pad+(wx-xrange[0])*scale, H-pad-(wy-yrange[0])*scale];
+}
+
+function makeTransformR(canvas, xrange, yrange, pad=32) {
+  const W=canvas.width, H=canvas.height;
+  const xspan=xrange[1]-xrange[0], yspan=yrange[1]-yrange[0];
+  const scaleX=(W-2*pad)/xspan, scaleY=(H-2*pad)/yspan;
+  return Math.min(scaleX,scaleY);
+}
+
+// ─── Resize all canvases to actual pixel size ─────────────────────────
+function resizeCanvas(id) {
+  const el=document.getElementById(id);
+  const rect=el.getBoundingClientRect();
+  el.width=Math.round(rect.width*devicePixelRatio)||500;
+  el.height=Math.round(rect.height*devicePixelRatio)||260;
+}
+
+// ─── Draw B-Spline canvas ─────────────────────────────────────────────
+function drawBSpline() {
+  const id='canvas_bspline';
+  resizeCanvas(id);
+  const canvas=document.getElementById(id);
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const scene=scenes[currentScene];
+  const W=canvas.width, H=canvas.height;
+  const xr=scene.xrange, yr=scene.yrange;
+  const T=makeTransform(canvas,xr,yr);
+  const scale=makeTransformR(canvas,xr,yr);
+
+  // Background grid
+  ctx.strokeStyle='rgba(255,255,255,0.04)';
+  ctx.lineWidth=1;
+  for (let x=Math.ceil(xr[0]);x<=xr[1];x++) {
+    const [cx,]=T(x,0); ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,H); ctx.stroke();
+  }
+  for (let y=Math.ceil(yr[0]);y<=yr[1];y++) {
+    const [,cy]=T(0,y); ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(W,cy); ctx.stroke();
+  }
+
+  // Obstacles
+  for (const obs of scene.obstacles) {
+    const [cx,cy]=T(obs.x,obs.y);
+    ctx.beginPath(); ctx.arc(cx,cy,obs.r*scale,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,107,107,0.25)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,107,107,0.6)'; ctx.lineWidth=1.5;
+    ctx.stroke();
+    // clearance ring
+    ctx.beginPath(); ctx.arc(cx,cy,(obs.r+P.dc)*scale,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,107,107,0.2)'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // Raw waypoints
+  const wp=scene.waypoints;
+  ctx.beginPath();
+  for (let i=0;i<wp.length;i++) {
+    const [cx,cy]=T(wp[i][0],wp[i][1]);
+    i===0?ctx.moveTo(cx,cy):ctx.lineTo(cx,cy);
+  }
+  ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=1.5; ctx.setLineDash([4,5]);
+  ctx.stroke(); ctx.setLineDash([]);
+  wp.forEach(p=>{ const [cx,cy]=T(p[0],p[1]); ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.fill(); });
+
+  // Fit B-Spline
+  const {cp, nseg} = fitBSpline(wp);
+
+  // κ_max indicator
+  const kappa_max = P.tw > 0 ? 2.0/P.tw : 4.0;
+  const rmin = 1.0/kappa_max;
+  const [lx,ly]=T(xr[0]+rmin+0.2, yr[0]+rmin+0.2);
+  ctx.beginPath(); ctx.arc(lx, ly, rmin*scale, 0, Math.PI*2);
+  ctx.strokeStyle='rgba(255,209,102,0.4)'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,209,102,0.6)'; ctx.font=`${11*devicePixelRatio}px Inter`;
+  ctx.fillText(`κ_max = ${kappa_max.toFixed(2)}`, lx-rmin*scale, ly-rmin*scale-4);
+
+  // B-Spline curve
+  const steps=8;
+  let first=true;
+  ctx.beginPath();
+  for (let s=0;s<nseg;s++) {
+    for (let k=0;k<=steps;k++) {
+      const t=k/steps;
+      const pt=bsplineEval(cp,s,t);
+      const [cx,cy]=T(pt[0],pt[1]);
+      first?(ctx.moveTo(cx,cy),first=false):ctx.lineTo(cx,cy);
+    }
+  }
+  ctx.strokeStyle='#6c63ff'; ctx.lineWidth=2.5*devicePixelRatio; ctx.stroke();
+
+  // Control points
+  for (let i=0;i<cp.length;i++) {
+    const [cx,cy]=T(cp[i][0],cp[i][1]);
+    ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2);
+    ctx.fillStyle=i===0||i===cp.length-1?'#ffd166':'rgba(108,99,255,0.7)'; ctx.fill();
+  }
+  // Control polygon
+  ctx.beginPath();
+  for (let i=0;i<cp.length;i++) {
+    const [cx,cy]=T(cp[i][0],cp[i][1]);
+    i===0?ctx.moveTo(cx,cy):ctx.lineTo(cx,cy);
+  }
+  ctx.strokeStyle='rgba(108,99,255,0.25)'; ctx.lineWidth=1; ctx.setLineDash([2,4]);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle='rgba(108,99,255,0.9)'; ctx.font=`bold ${10*devicePixelRatio}px Inter`;
+  ctx.fillText(`n_cp=${P.ncp}  iter=${P.iter}  κ_max=${kappa_max.toFixed(2)}`, 10, H-10);
+}
+
+// ─── Draw TOPP-RA canvas ──────────────────────────────────────────────
+function drawToppra(samples) {
+  const id='canvas_toppra';
+  resizeCanvas(id);
+  const canvas=document.getElementById(id);
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if (!samples || samples.length<2) return;
+
+  const W=canvas.width, H=canvas.height;
+  const pad={l:50,r:20,t:20,b:40};
+  const totalArc=samples[samples.length-1].arc;
+  const {sdot, x_max, x_bwd}=toppra(samples);
+  const vmax=Math.max(...sdot, 0.01);
+  const vmaxRef=Math.min(P.ms, P.vmx);
+  const kappaMax=Math.max(...samples.map(s=>s.kappa),0.01);
+
+  const xs=i=>(pad.l+(samples[i].arc/totalArc)*(W-pad.l-pad.r));
+  const yv=v=>(pad.t+(1-v/vmaxRef)*(H-pad.t-pad.b));
+  const yk=k=>(pad.t+(1-k/kappaMax)*(H-pad.t-pad.b));
+
+  // Background
+  ctx.fillStyle='rgba(0,210,160,0.03)';
+  ctx.fillRect(pad.l,pad.t,W-pad.l-pad.r,H-pad.t-pad.b);
+
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+  for (let i=1;i<4;i++) {
+    const y=yv(vmaxRef*i/4);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+  }
+
+  // x_max ceiling
+  ctx.beginPath();
+  for (let i=0;i<samples.length;i++) {
+    const xp=xs(i), yp=yv(Math.sqrt(Math.max(0,x_max[i])));
+    i===0?ctx.moveTo(xp,yp):ctx.lineTo(xp,yp);
+  }
+  ctx.strokeStyle='rgba(255,209,102,0.6)'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Backward pass ceiling
+  ctx.beginPath();
+  for (let i=0;i<samples.length;i++) {
+    const xp=xs(i), yp=yv(Math.sqrt(Math.max(0,x_bwd[i])));
+    i===0?ctx.moveTo(xp,yp):ctx.lineTo(xp,yp);
+  }
+  ctx.strokeStyle='rgba(198,120,221,0.5)'; ctx.lineWidth=1.5; ctx.setLineDash([2,4]);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Curvature (secondary axis)
+  ctx.beginPath();
+  for (let i=0;i<samples.length;i++) {
+    const xp=xs(i), yp=yk(Math.min(samples[i].kappa,kappaMax));
+    i===0?ctx.moveTo(xp,yp):ctx.lineTo(xp,yp);
+  }
+  ctx.strokeStyle='rgba(224,108,117,0.4)'; ctx.lineWidth=1; ctx.stroke();
+
+  // TOPP-RA profile filled
+  ctx.beginPath();
+  ctx.moveTo(xs(0),yv(0));
+  for (let i=0;i<samples.length;i++) {
+    ctx.lineTo(xs(i),yv(sdot[i]));
+  }
+  ctx.lineTo(xs(samples.length-1),yv(0));
+  ctx.closePath();
+  ctx.fillStyle='rgba(0,210,160,0.12)'; ctx.fill();
+
+  // TOPP-RA profile line (color-coded)
+  for (let i=0;i+1<samples.length;i++) {
+    ctx.beginPath();
+    ctx.moveTo(xs(i),yv(sdot[i]));
+    ctx.lineTo(xs(i+1),yv(sdot[i+1]));
+    ctx.strokeStyle=speedColor(sdot[i],vmaxRef);
+    ctx.lineWidth=2.5*devicePixelRatio; ctx.stroke();
+  }
+
+  // Axes
+  ctx.fillStyle=ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t); ctx.lineTo(pad.l,H-pad.b); ctx.lineTo(W-pad.r,H-pad.b); ctx.stroke();
+  ctx.font=`${9.5*devicePixelRatio}px Inter`;
+  ctx.fillText('ṡ (m/s)',4,pad.t+10);
+  ctx.fillText(`${vmaxRef.toFixed(1)}`,4,yv(vmaxRef)+4);
+  ctx.fillText('0',pad.l-15,H-pad.b+4);
+  ctx.fillText('Arc length s →', pad.l, H-8);
+
+  // Stats
+  const avgV=sdot.reduce((a,b)=>a+b,0)/sdot.length;
+  const maxV=Math.max(...sdot);
+  ctx.fillStyle='rgba(0,210,160,0.8)'; ctx.font=`bold ${10*devicePixelRatio}px Inter`;
+  ctx.fillText(`avg ṡ=${avgV.toFixed(2)} m/s  max=${maxV.toFixed(2)} m/s`, pad.l, H-pad.b+14);
+}
+
+// ─── Draw MPC canvas ──────────────────────────────────────────────────
+function drawMPC(samples, sdot) {
+  const id='canvas_mpc';
+  resizeCanvas(id);
+  const canvas=document.getElementById(id);
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if (!samples || samples.length<2) return;
+
+  const scene=scenes[currentScene];
+  const W=canvas.width, H=canvas.height;
+  const xr=scene.xrange, yr=scene.yrange;
+  const T=makeTransform(canvas,xr,yr);
+  const scale=makeTransformR(canvas,xr,yr);
+
+  // Background
+  ctx.fillStyle='rgba(255,107,107,0.03)';
+  ctx.fillRect(0,0,W,H);
+
+  // Reference spline
+  ctx.beginPath();
+  for (let i=0;i<samples.length;i++) {
+    const [cx,cy]=T(samples[i].x,samples[i].y);
+    i===0?ctx.moveTo(cx,cy):ctx.lineTo(cx,cy);
+  }
+  ctx.strokeStyle='rgba(108,99,255,0.6)'; ctx.lineWidth=1.5; ctx.setLineDash([3,4]);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Start position: midway through path
+  const startIdx=Math.floor(samples.length*0.2);
+  const rs=samples[startIdx];
+  const pred=simulateMPC(samples.slice(startIdx), sdot.slice(startIdx));
+
+  // MPC prediction path
+  if (pred.length>0) {
+    ctx.beginPath();
+    const [sx0,sy0]=T(rs.x,rs.y);
+    ctx.moveTo(sx0,sy0);
+    pred.forEach(p=>{ const [cx,cy]=T(p.x,p.y); ctx.lineTo(cx,cy); });
+    ctx.strokeStyle='rgba(255,107,107,0.8)'; ctx.lineWidth=2.5*devicePixelRatio; ctx.stroke();
+
+    // Prediction horizon dots + footprints
+    pred.forEach((p,i)=>{
+      if (i%2!==0) return;
+      const [cx,cy]=T(p.x,p.y);
+      // footprint
+      const hw=0.215*scale, hl=0.30*scale;
+      ctx.save(); ctx.translate(cx,cy); ctx.rotate(-p.theta);
+      ctx.beginPath(); ctx.rect(-hl,-hw,2*hl,2*hw);
+      ctx.strokeStyle=`rgba(255,107,107,${0.3+i/pred.length*0.5})`;
+      ctx.fillStyle=`rgba(255,107,107,${0.04+i/pred.length*0.08})`;
+      ctx.lineWidth=1; ctx.stroke(); ctx.fill(); ctx.restore();
+      // dot
+      ctx.beginPath(); ctx.arc(cx,cy,3.5,0,Math.PI*2);
+      ctx.fillStyle='#ffd166'; ctx.fill();
+    });
+  }
+
+  // Robot at start
+  const [rcx,rcy]=T(rs.x,rs.y);
+  const hw=0.215*scale, hl=0.30*scale;
+  ctx.save(); ctx.translate(rcx,rcy); ctx.rotate(-Math.atan2(rs.dy,rs.dx));
+  ctx.beginPath(); ctx.rect(-hl,-hw,2*hl,2*hw);
+  ctx.fillStyle='rgba(255,107,107,0.5)';
+  ctx.strokeStyle='#ff6b6b'; ctx.lineWidth=2;
+  ctx.fill(); ctx.stroke(); ctx.restore();
+  // heading arrow
+  ctx.beginPath(); ctx.moveTo(rcx,rcy);
+  const hlen=0.4*scale;
+  ctx.lineTo(rcx+hlen*Math.cos(-Math.atan2(rs.dy,rs.dx)), rcy+hlen*Math.sin(-Math.atan2(rs.dy,rs.dx)));
+  ctx.strokeStyle='#ffd166'; ctx.lineWidth=2; ctx.stroke();
+
+  // Goal
+  const last=samples[samples.length-1];
+  const [gx,gy]=T(last.x,last.y);
+  ctx.beginPath(); ctx.arc(gx,gy,7,0,Math.PI*2);
+  ctx.strokeStyle='#00d2a0'; ctx.lineWidth=2; ctx.stroke();
+  ctx.fillStyle='rgba(0,210,160,0.2)'; ctx.fill();
+
+  // Labels
+  ctx.fillStyle='rgba(255,107,107,0.9)'; ctx.font=`bold ${10*devicePixelRatio}px Inter`;
+  ctx.fillText(`N=${P.hn}  dt=${P.dt}  Q_p=${P.qp}  Q_v=${P.qv}  v_max=${P.vmx.toFixed(2)}`, 10, H-10);
+}
+
+// ─── Draw Combined canvas ─────────────────────────────────────────────
+function drawCombined(samples, sdot, splineCp, splineNseg) {
+  const id='combined-canvas';
+  resizeCanvas(id);
+  const canvas=document.getElementById(id);
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const scene=scenes[currentScene];
+  const W=canvas.width, H=canvas.height;
+  const xr=scene.xrange, yr=scene.yrange;
+  const T=makeTransform(canvas,xr,yr,48);
+  const scale=makeTransformR(canvas,xr,yr,48);
+
+  // Subtle radial bg
+  const grad=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)/2);
+  grad.addColorStop(0,'rgba(24,28,50,0.5)');
+  grad.addColorStop(1,'rgba(9,11,20,0.5)');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+  for (let x=Math.ceil(xr[0]);x<=xr[1];x++) {
+    const [cx,]=T(x,0); ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,H); ctx.stroke();
+  }
+  for (let y=Math.ceil(yr[0]);y<=yr[1];y++) {
+    const [,cy]=T(0,y); ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(W,cy); ctx.stroke();
+  }
+
+  // Distance field visualization (colored rings)
+  for (const obs of scene.obstacles) {
+    const [cx,cy]=T(obs.x,obs.y);
+    for (let r=3;r>=1;r--) {
+      ctx.beginPath(); ctx.arc(cx,cy,(obs.r+r*0.3)*scale,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(255,107,107,${0.05*r})`; ctx.lineWidth=r*0.4*scale;
+      ctx.stroke();
+    }
+  }
+
+  // Obstacles
+  for (const obs of scene.obstacles) {
+    const [cx,cy]=T(obs.x,obs.y);
+    const grad2=ctx.createRadialGradient(cx-obs.r*scale*0.3,cy-obs.r*scale*0.3,0,cx,cy,obs.r*scale);
+    grad2.addColorStop(0,'rgba(255,120,120,0.6)');
+    grad2.addColorStop(1,'rgba(200,60,60,0.35)');
+    ctx.beginPath(); ctx.arc(cx,cy,obs.r*scale,0,Math.PI*2);
+    ctx.fillStyle=grad2; ctx.fill();
+    ctx.strokeStyle='rgba(255,107,107,0.8)'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+
+  // Raw A* path
+  const wp=scene.waypoints;
+  ctx.beginPath();
+  for (let i=0;i<wp.length;i++) {
+    const [cx,cy]=T(wp[i][0],wp[i][1]);
+    i===0?ctx.moveTo(cx,cy):ctx.lineTo(cx,cy);
+  }
+  ctx.strokeStyle='rgba(100,100,120,0.5)'; ctx.lineWidth=1.5; ctx.setLineDash([5,6]);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // B-Spline path (colored by speed)
+  if (samples.length>1 && sdot.length===samples.length) {
+    const vmax=Math.max(...sdot,0.01);
+    for (let i=0;i+1<samples.length;i++) {
+      const [cx1,cy1]=T(samples[i].x,samples[i].y);
+      const [cx2,cy2]=T(samples[i+1].x,samples[i+1].y);
+      ctx.beginPath(); ctx.moveTo(cx1,cy1); ctx.lineTo(cx2,cy2);
+      ctx.strokeStyle=speedColor(sdot[i],vmax);
+      ctx.lineWidth=4*devicePixelRatio; ctx.stroke();
+    }
+    // Speed heatmap dots
+    for (let i=0;i<samples.length;i+=3) {
+      const [cx,cy]=T(samples[i].x,samples[i].y);
+      const r=3+sdot[i]/Math.max(...sdot,0.01)*3;
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+      ctx.fillStyle=speedColor(sdot[i],vmax)+'99'; ctx.fill();
+    }
+  }
+
+  // MPC prediction
+  const pred=simulateMPC(samples, sdot);
+  if (pred.length>0) {
+    ctx.beginPath();
+    const [sx0,sy0]=T(samples[0].x,samples[0].y);
+    ctx.moveTo(sx0,sy0);
+    pred.forEach(p=>{ const [cx,cy]=T(p.x,p.y); ctx.lineTo(cx,cy); });
+    ctx.strokeStyle='rgba(255,107,107,0.7)'; ctx.lineWidth=2; ctx.setLineDash([2,3]);
+    ctx.stroke(); ctx.setLineDash([]);
+    pred.forEach((p,i)=>{
+      if (i%(Math.ceil(pred.length/5))!==0) return;
+      const [cx,cy]=T(p.x,p.y);
+      ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2);
+      ctx.fillStyle='#ffd166'; ctx.fill();
+    });
+  }
+
+  // Robot footprint at start
+  if (samples.length>0) {
+    const rs=samples[0];
+    const [rcx,rcy]=T(rs.x,rs.y);
+    const hw2=0.215*scale, hl2=0.30*scale;
+    ctx.save(); ctx.translate(rcx,rcy); ctx.rotate(-Math.atan2(rs.dy||1,rs.dx||0));
+    const rg=ctx.createLinearGradient(-hl2,-hw2,hl2,hw2);
+    rg.addColorStop(0,'rgba(108,99,255,0.6)'); rg.addColorStop(1,'rgba(0,210,160,0.4)');
+    ctx.beginPath(); ctx.rect(-hl2,-hw2,2*hl2,2*hw2);
+    ctx.fillStyle=rg; ctx.fill();
+    ctx.strokeStyle='#6c63ff'; ctx.lineWidth=2; ctx.stroke();
+    ctx.restore();
+    // heading arrow
+    ctx.beginPath(); ctx.moveTo(rcx,rcy);
+    const ha=0.5*scale;
+    ctx.lineTo(rcx+ha*Math.cos(-Math.atan2(rs.dy||1,rs.dx||0)),
+               rcy+ha*Math.sin(-Math.atan2(rs.dy||1,rs.dx||0)));
+    ctx.strokeStyle='#ffd166'; ctx.lineWidth=2.5; ctx.stroke();
+  }
+
+  // Goal marker
+  const last=samples.length>0?samples[samples.length-1]:null;
+  if (last) {
+    const [gx,gy]=T(last.x,last.y);
+    // Glowing goal
+    const gg=ctx.createRadialGradient(gx,gy,0,gx,gy,18);
+    gg.addColorStop(0,'rgba(0,210,160,0.4)');
+    gg.addColorStop(1,'rgba(0,210,160,0)');
+    ctx.beginPath(); ctx.arc(gx,gy,18,0,Math.PI*2);
+    ctx.fillStyle=gg; ctx.fill();
+    ctx.beginPath(); ctx.arc(gx,gy,8,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,210,160,0.5)'; ctx.fill();
+    ctx.strokeStyle='#00d2a0'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#00d2a0'; ctx.font=`bold ${10*devicePixelRatio}px Inter`;
+    ctx.fillText('GOAL',gx+10,gy+4);
+  }
+
+  // Metrics panel
+  if (samples.length>1 && sdot.length===samples.length) {
+    const totalLen=samples[samples.length-1].arc;
+    const avgV=sdot.reduce((a,b)=>a+b,0)/sdot.length;
+    const maxV=Math.max(...sdot);
+    const estTime=avgV>0?totalLen/avgV:Infinity;
+    const maxKappa=Math.max(...samples.map(s=>s.kappa),0.001);
+    const smoothness=(1/maxKappa).toFixed(2);
+    // Min clearance
+    let minClear=Infinity;
+    for (const s of samples) {
+      for (const obs of scene.obstacles) {
+        const d=Math.hypot(s.x-obs.x,s.y-obs.y)-obs.r;
+        if (d<minClear) minClear=d;
+      }
+    }
+    // Update metric cards
+    document.getElementById('met_smooth').textContent=smoothness;
+    document.getElementById('met_clear').textContent=minClear.toFixed(3);
+    document.getElementById('met_avg_v').textContent=avgV.toFixed(3);
+    document.getElementById('met_max_v').textContent=maxV.toFixed(3);
+    document.getElementById('met_time').textContent=isFinite(estTime)?estTime.toFixed(2):'∞';
+    document.getElementById('met_len').textContent=totalLen.toFixed(3);
+
+    // Info overlay
+    ctx.fillStyle='rgba(13,15,26,0.75)';
+    ctx.roundRect?ctx.roundRect(8,8,220*devicePixelRatio,80*devicePixelRatio,6):ctx.rect(8,8,220*devicePixelRatio,80*devicePixelRatio);
+    ctx.fill();
+    ctx.fillStyle='#e8eaf6'; ctx.font=`${10*devicePixelRatio}px Inter`;
+    ctx.fillText(`Path Length: ${totalLen.toFixed(2)} m`, 16, 22*devicePixelRatio);
+    ctx.fillStyle='#00d2a0';
+    ctx.fillText(`Avg Speed: ${avgV.toFixed(2)} m/s  Max: ${maxV.toFixed(2)} m/s`, 16, 38*devicePixelRatio);
+    ctx.fillStyle='#ffd166';
+    ctx.fillText(`Est. Time: ${isFinite(estTime)?estTime.toFixed(2):'∞'} s`, 16, 54*devicePixelRatio);
+    ctx.fillStyle='#6c63ff';
+    ctx.fillText(`Smoothness (1/κmax): ${smoothness}`, 16, 70*devicePixelRatio);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════
+// INTERACTIVE STATE — Two-Phase: Setup → Plan
+// ═══════════════════════════════════════════════════
+
+// Add empty scene
+scenes['empty'] = {
+  waypoints: [[0.5,2],[9.5,2]],
+  obstacles: [],
+  xrange: [0,10], yrange: [0,4]
+};
+
+// Per-scene mutable state
+const interactiveState = {};
+function getIS() {
+  if (!interactiveState[currentScene]) {
+    const s = scenes[currentScene];
+    interactiveState[currentScene] = {
+      robot:       { x: s.waypoints[0][0],                   y: s.waypoints[0][1],                   yaw: 0, placed: false },
+      goal:        { x: s.waypoints[s.waypoints.length-1][0], y: s.waypoints[s.waypoints.length-1][1], placed: false },
+      obstacles:   s.obstacles.map(o=>({...o})),
+      astarPath:   null,   // raw A* waypoints after planning
+      planned:     false   // has Plan been clicked?
+    };
+  }
+  return interactiveState[currentScene];
+}
+
+let editMode      = 'robot';
+let showDistField = false;
+
+// Drag state
+const drag = { active:false, type:null, idx:-1 };
+
+// World transform helpers for combined canvas
+let _T=null, _Tinv=null, _scaleW=1;
+function buildTransforms() {
+  const canvas = document.getElementById('combined-canvas');
+  const scene  = scenes[currentScene];
+  const xr = scene.xrange, yr = scene.yrange;
+  const pad=48, W=canvas.width, H=canvas.height;
+  const scaleX=(W-2*pad)/(xr[1]-xr[0]), scaleY=(H-2*pad)/(yr[1]-yr[0]);
+  _scaleW = Math.min(scaleX,scaleY);
+  _T    = (wx,wy) => [pad+(wx-xr[0])*_scaleW, H-pad-(wy-yr[0])*_scaleW];
+  _Tinv = (cx,cy) => [xr[0]+(cx-pad)/_scaleW, yr[0]+(H-pad-cy)/_scaleW];
+}
+
+function canvasToWorld(e) {
+  const canvas = document.getElementById('combined-canvas');
+  const rect   = canvas.getBoundingClientRect();
+  const dpr    = devicePixelRatio||1;
+  return _Tinv((e.clientX-rect.left)*dpr, (e.clientY-rect.top)*dpr);
+}
+
+// ═══════════════════════════════════════════════════
+// A* GRID PLANNER
+// Runs on a 2-D grid in world coords, avoids obstacles.
+// ═══════════════════════════════════════════════════
+function isSegmentClear(p1, p2, obstacles, clearBuf) {
+  const dist = Math.hypot(p2[0]-p1[0], p2[1]-p1[1]);
+  const steps = Math.max(5, Math.ceil(dist / 0.05));
+  for (let s=0; s<=steps; s++) {
+    const t = s / steps;
+    const x = p1[0] + t * (p2[0] - p1[0]);
+    const y = p1[1] + t * (p2[1] - p1[1]);
+    for (const obs of obstacles) {
+      if (Math.hypot(x - obs.x, y - obs.y) < obs.r + clearBuf) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function astarPlan(robot, goal, obstacles, xrange, yrange) {
+  const res = 0.12;         // 12cm grid resolution for precise navigation
+  const margin = P.tw * 0.5 + 0.08; // robot radius + 8cm inflation buffer
+  const cols = Math.ceil((xrange[1]-xrange[0])/res)+1;
+  const rows = Math.ceil((yrange[1]-yrange[0])/res)+1;
+
+  // Mark occupied cells
+  const blocked = new Uint8Array(cols*rows);
+  for (const obs of obstacles) {
+    const ci = Math.floor((obs.x-xrange[0])/res);
+    const ri = Math.floor((obs.y-yrange[0])/res);
+    const pr = Math.ceil((obs.r+margin)/res);
+    for (let dr=-pr;dr<=pr;dr++) for (let dc=-pr;dc<=pr;dc++) {
+      const wx=xrange[0]+(ci+dc)*res, wy=yrange[0]+(ri+dr)*res;
+      if (Math.hypot(wx-obs.x,wy-obs.y)<obs.r+margin) {
+        const nr=ri+dr, nc=ci+dc;
+        if (nr>=0&&nr<rows&&nc>=0&&nc<cols) blocked[nr*cols+nc]=1;
+      }
+    }
+  }
+
+  const toIdx=(c,r)=>r*cols+c;
+  const startC=Math.max(0,Math.min(cols-1,Math.round((robot.x-xrange[0])/res)));
+  const startR=Math.max(0,Math.min(rows-1,Math.round((robot.y-yrange[0])/res)));
+  const goalC =Math.max(0,Math.min(cols-1,Math.round((goal.x -xrange[0])/res)));
+  const goalR =Math.max(0,Math.min(rows-1,Math.round((goal.y -yrange[0])/res)));
+
+  // Ensure start and goal cells are unblocked
+  blocked[toIdx(startC, startR)] = 0;
+  blocked[toIdx(goalC, goalR)]   = 0;
+
+  const sc=startC, sr=startR, gc=goalC, gr=goalR;
+  const h=(c,r)=>Math.hypot(c-gc,r-gr);
+  const g=new Float32Array(cols*rows).fill(Infinity);
+  const f=new Float32Array(cols*rows).fill(Infinity);
+  const parent=new Int32Array(cols*rows).fill(-1);
+  const open=new Set();
+  const si=toIdx(sc,sr);
+  g[si]=0; f[si]=h(sc,sr); open.add(si);
+
+  const dirs=[[1,0],[0,1],[-1,0],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  const costs=[1,1,1,1,Math.SQRT2,Math.SQRT2,Math.SQRT2,Math.SQRT2];
+
+  let found=false;
+  const MAX_ITER=cols*rows*6;
+  for (let iter=0;iter<MAX_ITER&&open.size>0;iter++) {
+    // pick min-f from open
+    let cur=-1, bestF=Infinity;
+    for (const idx of open) { if (f[idx]<bestF) { bestF=f[idx]; cur=idx; } }
+    if (cur<0) break;
+    const cr=Math.floor(cur/cols), cc=cur%cols;
+    if (cc===gc&&cr===gr) { found=true; break; }
+    open.delete(cur);
+    for (let d=0;d<8;d++) {
+      const nc=cc+dirs[d][0], nr=cr+dirs[d][1];
+      if (nc<0||nc>=cols||nr<0||nr>=rows) continue;
+      const ni=toIdx(nc,nr);
+      if (blocked[ni] && ni!==toIdx(gc,gr)) continue;
+      const ng=g[cur]+costs[d];
+      if (ng<g[ni]) {
+        g[ni]=ng; f[ni]=ng+h(nc,nr); parent[ni]=cur; open.add(ni);
+      }
+    }
+  }
+
+  if (!found) {
+    // Return straight line as absolute last resort
+    return [[robot.x,robot.y],[goal.x,goal.y]];
+  }
+
+  // Reconstruct path
+  const raw=[];
+  let cur=toIdx(gc,gr);
+  while (cur>=0) {
+    const r=Math.floor(cur/cols), c=cur%cols;
+    raw.unshift([xrange[0]+c*res, yrange[0]+r*res]);
+    cur=parent[cur];
+  }
+
+  // Line-Of-Sight (LOS) path simplification:
+  // Shortcut waypoints ONLY if the straight line between them is completely obstacle-free!
+  const clearBuf = P.tw * 0.5 + 0.05;
+  const simplified = [raw[0]];
+  let currIdx = 0;
+  while (currIdx < raw.length - 1) {
+    let nextIdx = raw.length - 1;
+    while (nextIdx > currIdx + 1) {
+      if (isSegmentClear(raw[currIdx], raw[nextIdx], obstacles, clearBuf)) {
+        break;
+      }
+      nextIdx--;
+    }
+    simplified.push(raw[nextIdx]);
+    currIdx = nextIdx;
+  }
+
+  // Ensure at least 4 control points for cubic B-spline
+  while (simplified.length<4) {
+    const mid=Math.floor((simplified.length-1)/2);
+    const mx=(simplified[mid][0]+simplified[mid+1][0])/2;
+    const my=(simplified[mid][1]+simplified[mid+1][1])/2;
+    simplified.splice(mid+1,0,[mx,my]);
+  }
+  return simplified;
+}
+
+// ═══════════════════════════════════════════════════
+// SETUP CHECKLIST UI
+// ═══════════════════════════════════════════════════
+function updateChecklist() {
+  const is = getIS();
+  const steps = ['robot','goal','obstacle'];
+  const ids   = ['step-robot','step-goal','step-obstacle'];
+  const chks  = ['chk-robot','chk-goal','chk-obs'];
+  const done  = [is.robot.placed, is.goal.placed, true]; // obstacles optional
+
+  steps.forEach((_,i)=>{
+    const el  = document.getElementById(ids[i]);
+    const chk = document.getElementById(chks[i]);
+    const isActive = (editMode === steps[i] || (steps[i]==='obstacle'&&editMode==='obstacle'));
+    el.className  = 'setup-step ' + (isActive?'active':(done[i]?'done':'pending'));
+    chk.textContent = done[i] ? '✔' : (isActive?'▶':'○');
+  });
+
+  // plan button state
+  const btn = document.getElementById('btn-plan');
+  const status = document.getElementById('plan-status');
+  if (!is.robot.placed) { btn.disabled=true; status.textContent='Place robot first'; }
+  else if (!is.goal.placed) { btn.disabled=true; status.textContent='Place goal next'; }
+  else { btn.disabled=false; status.textContent=is.planned?'✔ Path planned — tweak and re-plan':'Ready to plan!'; }
+}
+
+function setMode(mode, btn) {
+  editMode = mode;
+  // update mode-btn active state (legacy)
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // update checklist
+  updateChecklist();
+  const hints = {
+    robot:    '🤖 Click canvas to place robot. Drag robot box to move.',
+    goal:     '🎯 Click canvas to place goal. Drag to reposition.',
+    obstacle: '🧱 Click = add obstacle • Drag = move • Scroll = resize • Right-click = delete.'
+  };
+  document.getElementById('canvas-hint').textContent = hints[mode]||'';
+}
+
+function toggleDistField(btn) {
+  showDistField = !showDistField;
+  btn.classList.toggle('active', showDistField);
+  document.getElementById('df-controls').style.display = showDistField ? 'block' : 'none';
+  scheduleRedraw();
+}
+
+function clearObstacles() {
+  getIS().obstacles = [];
+  updateChecklist();
+  scheduleRedraw();
+}
+
+function resetScene() {
+  delete interactiveState[currentScene];
+  updateChecklist();
+  scheduleRedraw();
+}
+
+// ═══════════════════════════════════════════════════
+// PLAN PATH — main entry point
+// ═══════════════════════════════════════════════════
+function planPath() {
+  const is = getIS();
+  if (!is.robot.placed || !is.goal.placed) return;
+  const scene = scenes[currentScene];
+  const btn = document.getElementById('btn-plan');
+  const icon = document.getElementById('plan-icon');
+  btn.classList.add('replanning');
+  icon.textContent = '⟳';
+  setTimeout(()=>{
+    is.astarPath = astarPlan(is.robot, is.goal, is.obstacles, scene.xrange, scene.yrange);
+    is.planned = true;
+    btn.classList.remove('replanning');
+    icon.textContent = '▶';
+    updateChecklist();
+    scheduleRedraw();
+  }, 20); // tiny delay so btn animates
+}
+
+// ─── Distance field computation ────────────────────────────────────────
+function computeDistFieldImage(canvas, obstacles, dfMax, dfOpacity) {
+  const W=canvas.width, H=canvas.height;
+  buildTransforms();
+  const imgData=new ImageData(W,H);
+  const data=imgData.data;
+  for (let py=0;py<H;py++) {
+    for (let px=0;px<W;px++) {
+      const [wx,wy]=_Tinv(px,py);
+      let minD=Infinity;
+      for (const obs of obstacles) {
+        const d=Math.hypot(wx-obs.x,wy-obs.y)-obs.r;
+        if (d<minD) minD=d;
+      }
+      if (minD>dfMax) continue;
+      const t=Math.max(0,Math.min(1,minD/dfMax));
+      let r,g,b;
+      if (t<0.25) { const s=t/0.25; r=255; g=Math.round(34+s*77); b=0; }
+      else if (t<0.5)  { const s=(t-0.25)/0.25; r=255; g=Math.round(111+s*100); b=0; }
+      else if (t<0.75) { const s=(t-0.5)/0.25;  r=Math.round(255-s*255); g=211; b=Math.round(s*160); }
+      else             { const s=(t-0.75)/0.25;  r=0; g=Math.round(210-s*175); b=Math.round(160+s*95); }
+      const i=(py*W+px)*4;
+      data[i]=r; data[i+1]=g; data[i+2]=b;
+      data[i+3]=Math.round(dfOpacity*255*(1-t*0.5));
+    }
+  }
+  return imgData;
+}
+
+// ─── Main combined draw ───────────────────────────────────────────────
+function drawCombinedInteractive() {
+  const is=getIS();
+  const id='combined-canvas';
+  resizeCanvas(id);
+  const canvas=document.getElementById(id);
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const scene=scenes[currentScene];
+  const W=canvas.width, H=canvas.height;
+  buildTransforms();
+  const T=_T, sw=_scaleW;
+
+  // Background
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)/2);
+  bg.addColorStop(0,'rgba(24,28,50,.5)'); bg.addColorStop(1,'rgba(9,11,20,.5)');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.04)'; ctx.lineWidth=1;
+  for (let x=Math.ceil(scene.xrange[0]);x<=scene.xrange[1];x++) { const [cx]=T(x,0); ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,H); ctx.stroke(); }
+  for (let y=Math.ceil(scene.yrange[0]);y<=scene.yrange[1];y++) { const [,cy]=T(0,y); ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(W,cy); ctx.stroke(); }
+
+  // Distance field
+  if (showDistField && is.obstacles.length>0) {
+    const dfMax=parseFloat(document.getElementById('s_dfmax')?.value||'2.0');
+    const dfOp =parseFloat(document.getElementById('s_dfop')?.value ||'0.45');
+    ctx.putImageData(computeDistFieldImage(canvas,is.obstacles,dfMax,dfOp),0,0);
+  }
+
+  // Obstacles clearance rings + body
+  for (let i=0;i<is.obstacles.length;i++) {
+    const obs=is.obstacles[i];
+    const [cx,cy]=T(obs.x,obs.y);
+    const isGrabbed=(drag.active&&drag.type==='obstacle'&&drag.idx===i);
+    // clearance ring
+    ctx.beginPath(); ctx.arc(cx,cy,(obs.r+P.dc)*sw,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,107,107,.2)'; ctx.lineWidth=1; ctx.setLineDash([3,4]); ctx.stroke(); ctx.setLineDash([]);
+    // body
+    const grd=ctx.createRadialGradient(cx-obs.r*sw*.3,cy-obs.r*sw*.3,0,cx,cy,obs.r*sw);
+    grd.addColorStop(0,isGrabbed?'rgba(255,160,160,.7)':'rgba(255,120,120,.6)');
+    grd.addColorStop(1,isGrabbed?'rgba(255,80,80,.5)':'rgba(200,60,60,.35)');
+    ctx.beginPath(); ctx.arc(cx,cy,obs.r*sw,0,Math.PI*2);
+    ctx.fillStyle=grd; ctx.fill();
+    ctx.strokeStyle=isGrabbed?'#ffaaaa':'rgba(255,107,107,.8)'; ctx.lineWidth=isGrabbed?2.5:1.5; ctx.stroke();
+    ctx.fillStyle='rgba(255,170,170,.8)'; ctx.font=`${9*devicePixelRatio}px Inter`;
+    ctx.fillText(`r=${obs.r.toFixed(2)}`,cx-14,cy+obs.r*sw+12);
+  }
+
+  // ── PLANNED PATH (only after Plan is clicked) ────────────────────────
+  if (is.planned && is.astarPath && is.astarPath.length>=2) {
+    const wp=is.astarPath;
+    // A* raw path
+    ctx.beginPath();
+    for (let i=0;i<wp.length;i++) { const [cx,cy]=T(wp[i][0],wp[i][1]); i===0?ctx.moveTo(cx,cy):ctx.lineTo(cx,cy); }
+    ctx.strokeStyle='rgba(100,100,140,.5)'; ctx.lineWidth=1.5; ctx.setLineDash([5,6]); ctx.stroke(); ctx.setLineDash([]);
+    // A* waypoint dots
+    wp.forEach(p=>{ const [cx,cy]=T(p[0],p[1]); ctx.beginPath(); ctx.arc(cx,cy,3.5,0,Math.PI*2); ctx.fillStyle='rgba(160,160,190,.6)'; ctx.fill(); });
+
+    // Fit B-Spline on A* path
+    const {cp}=fitBSplineFrom(wp);
+    const samples=sampleSpline(cp,P.ss);
+    const {sdot:sdotArr,x_max:xmax}=samples.length>=2?toppra(samples):{sdot:[],x_max:[]};
+    const sdotFull=sdotArr.length===samples.length?sdotArr:new Array(samples.length).fill(0);
+
+    // B-Spline coloured by speed
+    if (samples.length>1) {
+      const vmax=Math.max(...sdotFull,.01);
+      for (let i=0;i+1<samples.length;i++) {
+        const [x1,y1]=T(samples[i].x,samples[i].y);
+        const [x2,y2]=T(samples[i+1].x,samples[i+1].y);
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+        ctx.strokeStyle=speedColor(sdotFull[i],vmax);
+        ctx.lineWidth=4*devicePixelRatio; ctx.stroke();
+      }
+    }
+
+    // MPC prediction from robot
+    const pred=simulateMPCFrom(is.robot,samples,sdotFull);
+    if (pred.length>0) {
+      ctx.beginPath();
+      const [sx,sy]=T(is.robot.x,is.robot.y); ctx.moveTo(sx,sy);
+      pred.forEach(p=>{ const [cx,cy]=T(p.x,p.y); ctx.lineTo(cx,cy); });
+      ctx.strokeStyle='rgba(255,107,107,.7)'; ctx.lineWidth=2; ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
+      pred.forEach((p,i)=>{
+        if (i%Math.ceil(pred.length/5)!==0) return;
+        const [cx,cy]=T(p.x,p.y);
+        const hw=.215*sw,hl=.30*sw;
+        ctx.save(); ctx.translate(cx,cy); ctx.rotate(-p.theta);
+        ctx.beginPath(); ctx.rect(-hl,-hw,2*hl,2*hw);
+        ctx.strokeStyle=`rgba(255,107,107,${.25+i/pred.length*.5})`;
+        ctx.fillStyle='rgba(255,107,107,.05)'; ctx.lineWidth=1; ctx.stroke(); ctx.fill(); ctx.restore();
+        ctx.beginPath(); ctx.arc(cx,cy,3.5,0,Math.PI*2); ctx.fillStyle='#ffd166'; ctx.fill();
+      });
+    }
+
+    // Metrics
+    updateMetrics(samples,sdotFull,is.obstacles,scene);
+
+    // Info overlay
+    const totalLen=samples.length>0?samples[samples.length-1].arc:0;
+    const avgV=sdotFull.reduce((a,b)=>a+b,0)/Math.max(sdotFull.length,1);
+    const maxV=Math.max(...sdotFull,0);
+    const estT=avgV>0?totalLen/avgV:Infinity;
+    const mkappa=Math.max(...samples.map(s=>s.kappa),.001);
+    ctx.fillStyle='rgba(13,15,26,.82)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(8,8,200*devicePixelRatio,96*devicePixelRatio,6);
+    else ctx.rect(8,8,200*devicePixelRatio,96*devicePixelRatio);
+    ctx.fill();
+    const line=(txt,col,row)=>{ ctx.fillStyle=col; ctx.fillText(txt,16,row*devicePixelRatio); };
+    ctx.font=`${10*devicePixelRatio}px Inter`;
+    line(`A* nodes: ${wp.length}  Spline pts: ${samples.length}`,'#e8eaf6',22);
+    line(`Avg ṡ: ${avgV.toFixed(2)} m/s  Max: ${maxV.toFixed(2)} m/s`,'#00d2a0',38);
+    line(`Est. time: ${isFinite(estT)?estT.toFixed(2):'∞'} s`,'#ffd166',54);
+    line(`Smoothness (1/κ): ${(1/mkappa).toFixed(2)}`,'#6c63ff',70);
+    line(`Min clearance: ${document.getElementById('met_clear').textContent} m`,'#ff9090',86);
+
+  } else if (!is.planned) {
+    // Setup mode — draw guide arrows and instructions
+    const cx=W/2, cy=H/2;
+    ctx.fillStyle='rgba(255,255,255,.06)';
+    ctx.font=`bold ${18*devicePixelRatio}px Inter`;
+    ctx.textAlign='center';
+    if (!is.robot.placed) ctx.fillText('Click canvas to place 🤖 Robot',cx,cy);
+    else if (!is.goal.placed) ctx.fillText('Now click to place 🎯 Goal',cx,cy);
+    else ctx.fillText('Add obstacles, then click ▶ Plan Path',cx,cy);
+    ctx.textAlign='left';
+  }
+
+  // ── Robot ─────────────────────────────────────────────────────────────
+  if (is.robot.placed) {
+    const [rcx,rcy]=T(is.robot.x,is.robot.y);
+    const hw=.215*sw, hl=.30*sw;
+    ctx.save(); ctx.translate(rcx,rcy); ctx.rotate(-is.robot.yaw);
+    const rg=ctx.createLinearGradient(-hl,-hw,hl,hw);
+    rg.addColorStop(0,'rgba(108,99,255,.8)'); rg.addColorStop(1,'rgba(0,210,160,.6)');
+    ctx.beginPath(); ctx.rect(-hl,-hw,2*hl,2*hw);
+    ctx.fillStyle=rg; ctx.fill();
+    ctx.strokeStyle=(editMode==='robot'?'#ccccff':'#6c63ff'); ctx.lineWidth=2.5; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(hl*1.5,0);
+    ctx.strokeStyle='#ffd166'; ctx.lineWidth=2.5; ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle='rgba(170,170,255,.9)'; ctx.font=`bold ${9*devicePixelRatio}px Inter`;
+    ctx.fillText('🤖',rcx-8,rcy-hw-8);
+    // yaw indicator ring
+    if (editMode==='robot') {
+      ctx.beginPath(); ctx.arc(rcx,rcy,.5*sw,0,Math.PI*2);
+      ctx.strokeStyle='rgba(108,99,255,.3)'; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  // ── Goal ──────────────────────────────────────────────────────────────
+  if (is.goal.placed) {
+    const [gx,gy]=T(is.goal.x,is.goal.y);
+    const gg=ctx.createRadialGradient(gx,gy,0,gx,gy,18);
+    gg.addColorStop(0,'rgba(0,210,160,.55)'); gg.addColorStop(1,'rgba(0,210,160,0)');
+    ctx.beginPath(); ctx.arc(gx,gy,20,0,Math.PI*2); ctx.fillStyle=gg; ctx.fill();
+    ctx.beginPath(); ctx.arc(gx,gy,10,0,Math.PI*2);
+    ctx.fillStyle=(editMode==='goal'?'rgba(0,255,180,.8)':'rgba(0,210,160,.55)');
+    ctx.fill(); ctx.strokeStyle='#00d2a0'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#00d2a0'; ctx.font=`bold ${9*devicePixelRatio}px Inter`;
+    ctx.fillText('🎯',gx-7,gy-14);
+  }
+
+  // ── Straight-line preview before planning ─────────────────────────────
+  if (!is.planned && is.robot.placed && is.goal.placed) {
+    const [rx,ry]=T(is.robot.x,is.robot.y);
+    const [gx,gy]=T(is.goal.x,is.goal.y);
+    ctx.beginPath(); ctx.moveTo(rx,ry); ctx.lineTo(gx,gy);
+    ctx.strokeStyle='rgba(255,209,102,.25)'; ctx.lineWidth=1.5; ctx.setLineDash([6,6]); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+
+// Wrapper so fitBSpline uses correct waypoints AND obstacles from interactive state
+function fitBSplineFrom(waypoints) {
+  const saved=scenes[currentScene].waypoints;
+  scenes[currentScene].waypoints=waypoints;
+  // Pass interactive obstacles so the spline gradient avoids them
+  const is = interactiveState[currentScene];
+  const obsOverride = is ? is.obstacles : scenes[currentScene].obstacles;
+  const r=fitBSpline(waypoints, obsOverride);
+  scenes[currentScene].waypoints=saved;
+  return r;
+}
+
+// MPC sim from robot pose nearest path point
+function simulateMPCFrom(robot,samples,sdot) {
+  if (!samples.length) return [];
+  let nearest=0,bestD=Infinity;
+  for (let i=0;i<samples.length;i++) {
+    const d=Math.hypot(samples[i].x-robot.x,samples[i].y-robot.y);
+    if (d<bestD){bestD=d;nearest=i;}
+  }
+  return simulateMPC(samples.slice(nearest),sdot.slice(nearest));
+}
+
+function updateMetrics(samples,sdotFull,obstacles,scene) {
+  const totalLen=samples.length>0?samples[samples.length-1].arc:0;
+  const avgV=sdotFull.length>0?sdotFull.reduce((a,b)=>a+b,0)/sdotFull.length:0;
+  const maxV=sdotFull.length>0?Math.max(...sdotFull):0;
+  const estTime=avgV>0?totalLen/avgV:Infinity;
+  const maxK=samples.length>0?Math.max(...samples.map(s=>s.kappa),.001):.001;
+  let minClear=Infinity;
+  for (const s of samples) for (const obs of obstacles) {
+    const d=Math.hypot(s.x-obs.x,s.y-obs.y)-obs.r;
+    if (d<minClear) minClear=d;
+  }
+  document.getElementById('met_smooth').textContent=(1/maxK).toFixed(2);
+  document.getElementById('met_clear').textContent=isFinite(minClear)?minClear.toFixed(3):'—';
+  document.getElementById('met_avg_v').textContent=avgV.toFixed(3);
+  document.getElementById('met_max_v').textContent=maxV.toFixed(3);
+  document.getElementById('met_time').textContent=isFinite(estTime)?estTime.toFixed(2):'∞';
+  document.getElementById('met_len').textContent=totalLen.toFixed(3);
+}
+
+// ─── Master redraw ────────────────────────────────────────────────────
+let animId=null;
+function scheduleRedraw() {
+  if (animId) cancelAnimationFrame(animId);
+  animId=requestAnimationFrame(redrawAll);
+}
+
+function redrawAll() {
+  animId=null;
+  const scene=scenes[currentScene];
+  const {cp}=fitBSpline(scene.waypoints);
+  const samples=sampleSpline(cp,P.ss);
+  const {sdot}=samples.length>=2?toppra(samples):{sdot:[]};
+  const sdotFull=sdot.length===samples.length?sdot:new Array(samples.length).fill(0);
+  drawBSpline();
+  drawToppra(samples);
+  drawMPC(samples,sdotFull);
+  drawCombinedInteractive();
+}
+
+// ─── Resize observer ──────────────────────────────────────────────────
+const ro=new ResizeObserver(()=>scheduleRedraw());
+['canvas_bspline','canvas_toppra','canvas_mpc','combined-canvas'].forEach(id=>{
+  const el=document.getElementById(id);
+  if (el) ro.observe(el);
+});
+
+// Override setScene — clear IS so next getIS() re-reads from scenes[]
+function setScene(name, btn) {
+  currentScene = name;
+  delete interactiveState[name];
+  document.querySelectorAll('.obs-btn[data-scene]').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // Auto-enter robot placement mode
+  editMode='robot';
+  updateChecklist();
+  scheduleRedraw();
+}
+
+// ═══════════════════════════════════════════════════
+// CANVAS MOUSE / TOUCH EVENT HANDLERS
+// ═══════════════════════════════════════════════════
+const combinedCanvas=document.getElementById('combined-canvas');
+
+function hitObstacle(wx,wy,obstacles) {
+  for (let i=obstacles.length-1;i>=0;i--)
+    if (Math.hypot(wx-obstacles[i].x,wy-obstacles[i].y)<Math.max(obstacles[i].r,0.25)) return i;
+  return -1;
+}
+function hitRobot(wx,wy,robot) { return robot.placed&&Math.hypot(wx-robot.x,wy-robot.y)<0.5; }
+function hitGoal(wx,wy,goal)   { return goal.placed&&Math.hypot(wx-goal.x,wy-goal.y)<0.5; }
+
+combinedCanvas.addEventListener('mousedown', e=>{
+  if (e.button===2) return;
+  buildTransforms();
+  const [wx,wy]=canvasToWorld(e);
+  const is=getIS();
+  drag.active=false;
+
+  if (editMode==='robot') {
+    is.robot.x=wx; is.robot.y=wy;
+    is.robot.placed=true;
+    drag.active=true; drag.type='robot';
+    // auto-advance to goal mode if not placed yet
+    if (!is.goal.placed) { editMode='goal'; }
+    updateChecklist();
+    // if already planned, re-plan automatically
+    if (is.planned) planPath();
+    else scheduleRedraw();
+  } else if (editMode==='goal') {
+    is.goal.x=wx; is.goal.y=wy;
+    is.goal.placed=true;
+    drag.active=true; drag.type='goal';
+    updateChecklist();
+    if (is.planned) planPath();
+    else scheduleRedraw();
+  } else if (editMode==='obstacle') {
+    const idx=hitObstacle(wx,wy,is.obstacles);
+    if (idx>=0) { drag.active=true; drag.type='obstacle'; drag.idx=idx; }
+    else {
+      is.obstacles.push({x:wx,y:wy,r:0.30});
+      drag.active=true; drag.type='obstacle'; drag.idx=is.obstacles.length-1;
+      if (is.planned) planPath();
+      else scheduleRedraw();
+    }
+  }
+});
+
+combinedCanvas.addEventListener('mousemove', e=>{
+  buildTransforms();
+  if (!drag.active) {
+    const [wx,wy]=canvasToWorld(e);
+    const is=getIS();
+    let cur='crosshair';
+    if (editMode==='obstacle'&&hitObstacle(wx,wy,is.obstacles)>=0) cur='grab';
+    else if (hitRobot(wx,wy,is.robot)||editMode==='robot') cur='crosshair';
+    document.getElementById('combined-wrap').style.cursor=cur;
+    return;
+  }
+  const [wx,wy]=canvasToWorld(e);
+  const is=getIS();
+  if (drag.type==='robot') {
+    const dx=wx-is.robot.x,dy=wy-is.robot.y;
+    is.robot.x=wx; is.robot.y=wy;
+    if (Math.hypot(dx,dy)>0.05) is.robot.yaw=Math.atan2(dy,dx);
+  } else if (drag.type==='goal') {
+    is.goal.x=wx; is.goal.y=wy;
+  } else if (drag.type==='obstacle'&&drag.idx>=0) {
+    is.obstacles[drag.idx].x=wx;
+    is.obstacles[drag.idx].y=wy;
+  }
+  scheduleRedraw();
+});
+
+combinedCanvas.addEventListener('mouseup',()=>{
+  if (drag.active&&drag.type!=='robot'&&drag.type!=='goal') {
+    if (getIS().planned) planPath();
+  }
+  drag.active=false; drag.type=null;
+});
+combinedCanvas.addEventListener('mouseleave',()=>{ drag.active=false; drag.type=null; });
+
+combinedCanvas.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  buildTransforms();
+  const [wx,wy]=canvasToWorld(e);
+  const is=getIS();
+  if (editMode==='obstacle') {
+    const idx=hitObstacle(wx,wy,is.obstacles);
+    if (idx>=0) {
+      is.obstacles.splice(idx,1);
+      if (is.planned) planPath();
+      else scheduleRedraw();
+    }
+  }
+});
+
+combinedCanvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  buildTransforms();
+  const [wx,wy]=canvasToWorld(e);
+  const is=getIS();
+  const delta=e.deltaY>0?-0.03:0.03;
+  if (editMode==='obstacle') {
+    const idx=hitObstacle(wx,wy,is.obstacles);
+    if (idx>=0) {
+      is.obstacles[idx].r=Math.max(.05,Math.min(2.0,is.obstacles[idx].r+delta));
+      if (is.planned) planPath();
+      else scheduleRedraw();
+    }
+  } else if (editMode==='robot') {
+    is.robot.yaw=(is.robot.yaw||0)+delta*3;
+    scheduleRedraw();
+  }
+},{passive:false});
+
+// Touch
+combinedCanvas.addEventListener('touchstart',e=>{ e.preventDefault(); const t=e.touches[0]; combinedCanvas.dispatchEvent(new MouseEvent('mousedown',{clientX:t.clientX,clientY:t.clientY,button:0})); },{passive:false});
+combinedCanvas.addEventListener('touchmove', e=>{ e.preventDefault(); const t=e.touches[0]; combinedCanvas.dispatchEvent(new MouseEvent('mousemove',{clientX:t.clientX,clientY:t.clientY}));  },{passive:false});
+combinedCanvas.addEventListener('touchend',  ()=>{ combinedCanvas.dispatchEvent(new MouseEvent('mouseup')); },{passive:false});
+
+// Initial render
+window.addEventListener('load',()=>{ updateChecklist(); scheduleRedraw(); });
+</script>
+</body>
+</html>

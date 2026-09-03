@@ -9,19 +9,24 @@ set -euo pipefail
 
 MODE="${1:-builtin}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SUITE_FILE="${SCRIPT_DIR}/../suites/dev_worlds.txt"
-RESULTS_DIR="${BARN_RESULTS_DIR:-results/${MODE}/dev}"
-OUT_FILE="${RESULTS_DIR}/raw_results.txt"
+RESULTS_DIR="${BARN_RESULTS_DIR:-${REPO_ROOT}/results/${MODE}/dev}"
+OUT_FILE="${BARN_OUT_FILE:-${RESULTS_DIR}/raw_results.txt}"
 
 mkdir -p "$RESULTS_DIR"
 : > "$OUT_FILE"  # start a fresh dev out_file (dev sweeps are disposable)
 
+TRIALS="${BARN_TRIALS_PER_WORLD:-10}"
+
 while read -r world_idx; do
   [[ -z "$world_idx" || "$world_idx" == \#* ]] && continue
-  echo "=== dev world ${world_idx} (${MODE}) ==="
-  BARN_RESULTS_DIR="$RESULTS_DIR" BARN_OUT_FILE="$OUT_FILE" \
-    "${SCRIPT_DIR}/run_single_world.sh" "$world_idx" "$MODE" 1
-  sleep 5
+  for trial in $(seq 1 "$TRIALS"); do
+    echo "=== dev world ${world_idx}, trial ${trial}/${TRIALS} (${MODE}) ==="
+    BARN_RESULTS_DIR="$RESULTS_DIR" BARN_OUT_FILE="$OUT_FILE" \
+      "${SCRIPT_DIR}/run_single_world.sh" "$world_idx" "$MODE" "$trial"
+    sleep 5
+  done
 done < "$SUITE_FILE"
 
 echo
