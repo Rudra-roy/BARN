@@ -32,7 +32,7 @@ struct LocalPlannerParams
   double braking_decel{2.0};
   double stop_margin{0.08};
   // Distance over which the entry-heading speed gate fades to full speed.
-  double heading_align_distance{1.0};
+  double heading_align_distance{0.35};
   // How far ahead the speed profile scans for the WORST curvature, applying it
   // to the current point so the robot pre-decelerates into corners instead of
   // braking once already in them.
@@ -59,8 +59,12 @@ struct LocalPlannerParams
   // open_clearance), because the reason to slow for a curve in BARN is tracking
   // error near a wall, not vehicle dynamics. gain = 1.0 restores the old
   // constant-budget behaviour exactly.
-  double open_clearance{1.20};
+  double open_clearance{0.80};
   double open_lateral_accel_gain{3.0};
+  // Minimum lateral acceleration allowed in tight/narrow corridors (c < 0.35 m)
+  double tight_lateral_accel{0.50};
+  // Safe crawl speed floor in tight/narrow turns
+  double crawl_speed{0.35};
   Footprint footprint{};
 };
 

@@ -131,7 +131,7 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   astar.distance_weight = declare_parameter<double>("distance_weight", 1.0);
   // Soft clearance weight replaces the old binary inflation layer. A higher
   // value pushes paths to the center of corridors without hard-blocking them.
-  astar.clearance_weight = declare_parameter<double>("clearance_weight", 0.3);
+  astar.clearance_weight = declare_parameter<double>("clearance_weight", 1.2);
   astar.clearance_penalty_radius = declare_parameter<double>("clearance_penalty_radius", 1.0);
   // Reduced turn/rotate penalties: the old values (0.35/0.50) heavily penalized
   // the sequence of turns needed for L-turns and U-turns, causing A* to prefer
@@ -139,6 +139,9 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   astar.turn_weight = declare_parameter<double>("turn_weight", 0.15);
   astar.rotate_weight = declare_parameter<double>("rotate_weight", 0.20);
   astar.yaw_bins = declare_parameter<int>("yaw_bins", 24);
+  astar.footprint.half_length = 0.254;
+  astar.footprint.half_width = 0.2159;
+  astar.footprint.margin = declare_parameter<double>("global_planner_footprint_margin", 0.00);
   global_planner_ = GlobalPlannerAStar(astar);
   base_clearance_weight_ = astar.clearance_weight;
 
@@ -153,10 +156,19 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   local.smooth_weight = declare_parameter<double>("smooth_weight", 0.35);
   local.anchor_weight = declare_parameter<double>("anchor_weight", 0.20);
   local.obstacle_weight = declare_parameter<double>("obstacle_weight", 0.25);
-  local.max_lateral_accel = declare_parameter<double>("max_lateral_accel", 1.5);
+  local.max_lateral_accel = declare_parameter<double>("max_lateral_accel", 3.5);
   local.curvature_lookahead_m = declare_parameter<double>("curvature_lookahead_m", 3.0);
-  local.open_clearance = declare_parameter<double>("open_clearance", 1.20);
-  local.open_lateral_accel_gain = declare_parameter<double>("open_lateral_accel_gain", 3.0);
+  local.open_clearance = declare_parameter<double>("open_clearance", 0.80);
+  local.open_lateral_accel_gain = declare_parameter<double>("open_lateral_accel_gain", 1.0);
+  local.tight_lateral_accel = declare_parameter<double>("tight_lateral_accel", 0.50);
+  local.crawl_speed = declare_parameter<double>("crawl_speed", 0.35);
+  local.heading_align_distance = declare_parameter<double>("heading_align_distance", 0.35);
+
+  tight_lateral_accel_ = local.tight_lateral_accel;
+  max_lateral_accel_ = local.max_lateral_accel;
+  open_clearance_ = local.open_clearance;
+  turn_governor_crawl_speed_ = local.crawl_speed;
+  turn_governor_enable_ = declare_parameter<bool>("turn_governor_enable", true);
 
   local_planner_ = LocalPlanner(local);
 
@@ -168,6 +180,9 @@ ClassicalMpcNode::ClassicalMpcNode(const rclcpp::NodeOptions & options)
   bspline.horizon_m = local.horizon_m;
   bspline.max_yaw_rate = local.max_yaw_rate;
   bspline.max_lateral_accel = local.max_lateral_accel;
+  bspline.tight_lateral_accel = local.tight_lateral_accel;
+  bspline.open_clearance = local.open_clearance;
+  bspline.crawl_speed = local.crawl_speed;
   bspline.desired_clearance = local.desired_clearance;
   bspline.heading_align_distance = local.heading_align_distance;
   bspline.braking_decel = local.braking_decel;
@@ -469,11 +484,16 @@ void ClassicalMpcNode::map_callback(const nav_msgs::msg::OccupancyGrid::SharedPt
     distance_field_ = std::make_shared<const barn_core::DistanceField2D>(std::move(next_field));
     have_map_ = true;
 
-    // Validate against the raw planning grid, not the inflated one.
-    // Binary inflation was closing off valid corridors at tight corners.
+    // Validate against the raw planning grid and distance field.
+    // On the 10cm grid, distance values in a 0.40m-0.44m corridor hover around 0.18m-0.20m.
+    // Using 0.16m ensures physically passable narrow passages are accepted while genuine wall touches (<0.16m) trigger replan.
+    // Hard occupied cells are checked along the full path; clearance is checked within the 2.5m local horizon.
+    constexpr double kMinPassableClearance = 0.16;
+    constexpr double kLocalClearanceHorizon = 2.5;
     if (
       global_path_.empty() ||
-      !path_validator_.is_path_clear(global_path_, *planning_grid_, false)) {
+      !path_validator_.is_path_clear(
+        global_path_, *planning_grid_, false, distance_field_.get(), kMinPassableClearance, kLocalClearanceHorizon)) {
       needs_replan = true;
     }
   }
@@ -560,6 +580,7 @@ void ClassicalMpcNode::planner_loop()
   while (true) {
     std::shared_ptr<const barn_core::OccupancyGrid2D> grid;
     std::shared_ptr<const barn_core::OccupancyGrid2D> planning_grid;
+    std::shared_ptr<const barn_core::DistanceField2D> field;
     barn_core::Pose2D pose;
     barn_core::Goal2D goal;
     std::uint64_t generation = 0;
@@ -579,6 +600,7 @@ void ClassicalMpcNode::planner_loop()
       // Use the raw planning grid for A* instead of the inflated one.
       // Soft clearance cost in A* replaces hard binary inflation.
       planning_grid = planning_grid_;
+      field = distance_field_;
       pose = state_.pose;
       goal = goal_;
       generation = goal_generation_;
@@ -616,7 +638,10 @@ void ClassicalMpcNode::planner_loop()
       stats = global_planner_.stats();
       is_los_path_ = false;
     }
-    bool accepted = !candidate.empty() && path_validator_.is_path_clear(candidate, *grid, false);
+    constexpr double kMinPassableClearance = 0.16;
+    constexpr double kLocalClearanceHorizon = 2.5;
+    bool accepted = !candidate.empty() &&
+      path_validator_.is_path_clear(candidate, *planning_grid, false, field.get(), kMinPassableClearance, kLocalClearanceHorizon);
     {
       std::lock_guard<std::mutex> lock(mutex_);
       planner_ms_ = stats.elapsed_ms;
@@ -626,78 +651,98 @@ void ClassicalMpcNode::planner_loop()
         continue;
       }
       
-      // Path stability: enforce a cooldown between path swaps to prevent
-      // rapid oscillation near obstacles where small map changes invalidate
-      // the first few path points (which the robot is already on top of).
-      bool force_accept = global_path_.empty();
-      if (!force_accept && last_path_swap_time_.nanoseconds() > 0) {
-        const double since_swap = (now() - last_path_swap_time_).seconds();
-        if (since_swap < path_cooldown_s_) {
-          bool ahead_blocked = false;
-          if (global_path_.size() > 3 && grid_) {
-            for (std::size_t i = 3; i < global_path_.size(); ++i) {
-              const auto cell = grid_->world_to_cell(global_path_[i].x, global_path_[i].y);
-              if (grid_->in_bounds(cell) &&
-                grid_->classify(cell) == barn_core::CellState::kOccupied)
-              {
-                ahead_blocked = true;
-                break;
-              }
+      // Path Hysteresis (Commitment):
+      // "If you are already driving down a path and it is clear, do not switch
+      // to another path unless the new path is at least 15%-20% better."
+      bool should_accept_new_path = false;
+
+      // Check if the current path ahead is blocked by obstacles OR has insufficient clearance:
+      // Hard occupied cells are checked along the full path. Clearance is checked within 2.5m local horizon.
+      bool ahead_blocked = false;
+      if (grid_ && !global_path_.empty()) {
+        double accumulated_dist = 0.0;
+        const std::size_t check_start = std::min<std::size_t>(1, global_path_.size());
+        for (std::size_t i = check_start; i < global_path_.size(); ++i) {
+          accumulated_dist += std::hypot(
+            global_path_[i].x - global_path_[i - 1].x,
+            global_path_[i].y - global_path_[i - 1].y);
+
+          const auto cell = grid_->world_to_cell(global_path_[i].x, global_path_[i].y);
+          if (!grid_->in_bounds(cell) ||
+            grid_->classify(cell) == barn_core::CellState::kOccupied)
+          {
+            ahead_blocked = true;
+            break;
+          }
+          if (distance_field_ && accumulated_dist <= kLocalClearanceHorizon) {
+            const double c = distance_field_->distance_world(global_path_[i].x, global_path_[i].y);
+            if (std::isfinite(c) && c < kMinPassableClearance) {
+              ahead_blocked = true;
+              break;
             }
           }
-          // Improvement escape: a materially better route is worth taking even
-          // inside the cooldown. The cooldown exists to stop oscillation between
-          // near-equal paths, not to refuse a genuinely shorter one -- and with
-          // periodic re-planning above, most candidates arrive while the map is
-          // still filling in, which is exactly when a real improvement appears.
-          double retained_len = 0.0;
-          for (std::size_t i = 1; i < global_path_.size(); ++i) {
-            retained_len += std::hypot(
-              global_path_[i].x - global_path_[i - 1].x,
-              global_path_[i].y - global_path_[i - 1].y);
-          }
-          double candidate_len = 0.0;
-          for (std::size_t i = 1; i < candidate.size(); ++i) {
-            candidate_len += std::hypot(
-              candidate[i].x - candidate[i - 1].x,
-              candidate[i].y - candidate[i - 1].y);
-          }
-          const bool much_better = accepted && retained_len > 0.1 &&
-            candidate_len < path_improvement_ratio_ * retained_len;
-          if (much_better) {
-            force_accept = true;
-          } else if (!ahead_blocked) {
-            // Path ahead is fine, keep it.
-            //
-            // Record the status in BOTH branches. Previously this was assigned
-            // only when `accepted`, so a plan that FAILED during cooldown kept
-            // whatever label preceded it -- which silently corrupted every
-            // planner_status statistic gathered from a live run (a measured
-            // "22-26% retained_cooldown, 17% failed_dead_end" was read through
-            // this hole). Only signal replan_completed_ on a real plan.
-            if (accepted) {
-              planner_status_ = "retained_cooldown";
-              replan_completed_ = true;
-            } else {
-              planner_status_ = stats.timed_out ? "timeout_during_cooldown"
-                                                : "failed_during_cooldown";
-            }
-            goto done;
-          }
-          // Path ahead is truly blocked — allow the swap despite cooldown
-          force_accept = true;
         }
       }
-      
+
+      if (global_path_.empty()) {
+        // No path yet: accept candidate if valid.
+        should_accept_new_path = accepted;
+      } else if (!accepted) {
+        // Candidate is invalid or blocked: keep current path.
+        should_accept_new_path = false;
+        if (ahead_blocked) {
+          // Current path is blocked / has no clearance, and A* couldn't find a forward path:
+          // Trigger reverse recovery so the robot backs out of the dead-end pinch into open ground!
+          request_reverse_recovery_ = true;
+          planner_status_ = "blocked_dead_end_reversing";
+        }
+      } else if (ahead_blocked) {
+        // Current path has obstacles or no clearance: immediately accept detour/escape candidate!
+        should_accept_new_path = true;
+      } else {
+        // Current path ahead is CLEAR: enforce hysteresis (commitment).
+        // Calculate lengths of current retained path and candidate path.
+        double retained_len = 0.0;
+        for (std::size_t i = 1; i < global_path_.size(); ++i) {
+          retained_len += std::hypot(
+            global_path_[i].x - global_path_[i - 1].x,
+            global_path_[i].y - global_path_[i - 1].y);
+        }
+        double candidate_len = 0.0;
+        for (std::size_t i = 1; i < candidate.size(); ++i) {
+          candidate_len += std::hypot(
+            candidate[i].x - candidate[i - 1].x,
+            candidate[i].y - candidate[i - 1].y);
+        }
+
+        // Accept new path only if it is at least (1 - path_improvement_ratio) better (e.g. 15% shorter)
+        // AND does not demand an immediate >90° heading reversal while current path is clear!
+        double cand_yaw = pose.yaw;
+        if (candidate.size() >= 2) {
+          cand_yaw = std::atan2(candidate[1].y - candidate[0].y, candidate[1].x - candidate[0].x);
+        }
+        const double heading_err = std::abs(barn_core::wrap_angle(cand_yaw - pose.yaw));
+        const bool much_better = (retained_len > 0.1) &&
+          (candidate_len < path_improvement_ratio_ * retained_len) &&
+          (heading_err < (M_PI / 2.0));
+
+        if (much_better) {
+          should_accept_new_path = true;
+        } else {
+          // Path ahead is clear and candidate is not 15%-20% better (or requires backward U-turn): commit to current path!
+          planner_status_ = "retained_hysteresis";
+          replan_completed_ = true;
+          goto done;
+        }
+      }
+
       // Dead-End & Anti-U-Turn Escape Guard:
       // If the replanned candidate requires a sharp turn (>90 deg flip) and the robot is
       // in a narrow space (clearance < rotation_clearance_m_), the robot cannot rotate on the spot
       // without clipping chassis corners.
       // Instead of rejecting the candidate path (which causes a planner rejection deadlock),
       // we ACCEPT the candidate path as the new global plan, but trigger breadcrumb reverse recovery.
-      // The robot backs out into open space along its known-clear breadcrumbs, where it can then
-      // safely execute the turn toward the new path.
-      if (accepted && !global_path_.empty() && candidate.size() >= 2) {
+      if (should_accept_new_path && !global_path_.empty() && candidate.size() >= 2) {
         const double cand_yaw = std::atan2(candidate[1].y - candidate[0].y, candidate[1].x - candidate[0].x);
         const double heading_err = std::abs(barn_core::wrap_angle(cand_yaw - pose.yaw));
         const double cur_clearance = distance_field_ ? distance_field_->distance_world(pose.x, pose.y) : 0.0;
@@ -712,7 +757,7 @@ void ClassicalMpcNode::planner_loop()
         }
       }
 
-      if (accepted) {
+      if (should_accept_new_path) {
         global_path_ = std::move(candidate);
         path_to_publish = global_path_;
         planner_status_ = "success";
@@ -1115,6 +1160,24 @@ void ClassicalMpcNode::control_step()
   // Reverse is reserved exclusively for the recovery state machine.
   if (!recovery_.active()) {
     command.v = std::max(0.0, command.v);
+
+    // Real-Time Command Governor (Continuous Clearance Scaling):
+    // In open space (clearance >= open_clearance_), robot executes high-speed sweeping turns.
+    // In constrained spaces, allowable turning speed scales continuously with clearance:
+    // v_safe = lateral_budget(c) / |w|, preventing chassis swing and wall drift.
+    if (turn_governor_enable_ && field && command.v > 0.0) {
+      const double current_c = field->distance_world(state.pose.x, state.pose.y);
+      const double abs_w = std::abs(command.w);
+      if (std::isfinite(current_c) && current_c < open_clearance_ && abs_w > 0.25) {
+        const double span = std::max(1e-3, open_clearance_ - 0.26);
+        const double ratio = std::clamp((current_c - 0.26) / span, 0.0, 1.0);
+        const double a_lat = tight_lateral_accel_ + ratio * (max_lateral_accel_ - tight_lateral_accel_);
+        const double v_safe_turn = std::max(turn_governor_crawl_speed_, a_lat / abs_w);
+        if (command.v > v_safe_turn) {
+          command.v = v_safe_turn;
+        }
+      }
+    }
   }
   geometry_msgs::msg::TwistStamped output;
   output.header.stamp = stamp;

@@ -178,6 +178,11 @@ private:
   double recovery_refund_distance_m_{1.0};
   double clearance_boost_hold_m_{2.0};
   double path_improvement_ratio_{0.85};
+  bool turn_governor_enable_{true};
+  double tight_lateral_accel_{0.50};
+  double max_lateral_accel_{3.50};
+  double turn_governor_crawl_speed_{0.35};
+  double open_clearance_{0.80};
   double progress_since_refund_{0.0};
   double progress_since_boost_{0.0};
   // Previous control_step stamp, so recovery integrates on the real period.

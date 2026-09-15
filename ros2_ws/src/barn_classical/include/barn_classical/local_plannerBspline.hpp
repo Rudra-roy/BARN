@@ -60,9 +60,12 @@ struct LocalPlannerBsplineParams
   // ---- Clearance / obstacle avoidance ----
   double desired_clearance{0.55};
   double stop_margin{0.08};
+  double open_clearance{0.80};
+  double tight_lateral_accel{0.50};
+  double crawl_speed{0.35};
 
   // ---- Entry-heading gate (unchanged) ----
-  double heading_align_distance{1.0};
+  double heading_align_distance{0.35};
 
   // ---- Spline sampling resolution ----
   // Dense evaluation spacing along the B-spline arc [m].

@@ -63,6 +63,15 @@ This document tracks all system enhancements, architectural mechanics, and provi
 | **Fix 11** | 2026-08-29 | `classical_mpc_node.cpp` & `recovery.cpp` | Twitching masked stalls & front veto aborted reverses | **Veto-Aware Motion Watchdog & Non-Aborting Reverse** | Progress requires unvetoed speed; `blocked_timeout` does not abort reverse escapes; recovery always backs out first. |
 | **Fix 12** | 2026-08-29 | `recovery.cpp:L79` | Diagonal reverse translation struck rear obstacles | **Pivot-First Alignment in Reverse Recovery** | Misaligned rear pivots in place ($v = 0$) toward breadcrumb before reversing, preventing rear collision vetoes. |
 | **Fix 13** | 2026-08-30 | `path_validator.cpp:L8` | Rigid footprint box rejected narrow passages | **Centerline Cell Validation for Global Plans** | Validates path centerline cells without rigid box rejection, allowing narrow escape paths to be accepted. |
+| **Fix 14** | 2026-09-04 22:14:10 | `local_planner.cpp`, `local_plannerBspline.cpp`, `classical_mpc_node.cpp`, `classical_mpc.yaml` | High speed during turns in narrow corridors caused wall collisions | **Clearance-Aware Turning Speed & Real-Time Yaw Governor** | In narrow corridors (clearance < 0.35m) slows to a crawl (0.35 m/s) and pivots in place for >20° turns; in open ground (clearance > 0.80m) takes sweeping turns at full speed (1.5-2.0+ m/s). |
+| **Fix 15** | 2026-09-04 22:25:00 | `classical_mpc_node.cpp:L637` & `classical_mpc.yaml:L116` | Periodic replanner repeatedly switched between two near-equal paths | **Path Hysteresis (Commitment)** | If current path ahead is clear, commits to it and refuses to swap unless candidate path is at least 15%–20% better (`path_improvement_ratio = 0.85`). |
+| **Fix 16** | 2026-09-04 22:30:00 | `local_planner.cpp`, `local_plannerBspline.cpp`, `classical_mpc_node.cpp`, `classical_mpc.yaml` | Distant lookahead and low w thresholds slowed down turns in open spaces | **High-Speed Open Cornering & Strict Dual-Condition Gating** | Enforces fast cornering (1.5–2.5+ m/s, 4.0 m/s² lateral budget) in open/moderate space; slows to crawl or pivots only when BOTH space is really narrow (clearance < 0.38m) AND turn is very sharp. |
+| **Fix 17** | 2026-09-04 22:50:00 | `path_validator.cpp`, `global_planner_astar.cpp`, `collision_checker.cpp`, `classical_mpc_node.cpp` | Centerline-only collision checks and start-pose footprint abortion caused planner to retain paths with no clearance | **Clearance-Aware Path Invalidation, Permissive Start-Pose & Dead-End Recovery** | Validates physical clearance (clearance < 0.22m) along path to bypass hysteresis and accept detours; allows A* to expand from start pose near obstacles; triggers immediate reverse recovery when path has no clearance and no forward route exists. |
+| **Fix 18** | 2026-09-04 23:05:00 | `local_planner.cpp`, `local_plannerBspline.cpp`, `classical_mpc_node.cpp`, `classical_mpc.yaml` | Hard boolean condition (narrow AND sharp) charged hot into moderate corridor bends at 2.0 m/s, causing wall drift and breadcrumb reverse triggers | **Continuous Clearance Scaling & Extended Lookahead (2.0m)** | Scales allowable lateral acceleration budget continuously from 0.60 m/s^2 (tight pinch) to 3.50 m/s^2 (open field) based on distance-field clearance; dynamically regulates cornering speed, pinch speed ceiling, and real-time yaw governor without sharp boolean cutoffs; extends lookahead window to 2.0m for advance braking into corners. |
+| **Fix 19** | 2026-09-04 23:55:00 | `global_planner_astar.cpp`, `classical_mpc_node.cpp`, `classical_mpc.yaml` | Dubins 360-degree keyhole loops, corner-pinning against obstacles, false path invalidation on 10cm grid, and 25x narrow gap penalty caused the robot to freeze and refuse clear corridors | **Global Path Shortcutting, Loop Pruning, Corner Rotation Gating, and Clearance Recalibration** | Eliminates Dubins teardrop loops via line-of-sight shortcutting and loop pruning; gates in-place rotation away from obstacle faces (clearance >= 0.35m); recalibrates 10cm grid clearance threshold from 0.22m to 0.09m to prevent false path invalidation; normalizes clearance_weight from 1.2 to 0.15 in configuration to remove artificial 25x narrow corridor penalty. |
+| **Fix 20** | 2026-09-08 14:20:00 | `classical_mpc.yaml`, `classical_mpc_node.cpp` | Under-penalizing clearance (0.15) and artificial footprint shrinkage (-0.02) caused A* to choose impassably narrow slits over wide open corridors | **Restoring Physical Footprint Margin, Wide-Corridor Preference, and Clearance Validation** | Restores clearance_weight to 1.2 so A* actively favors wide corridors over narrow pinches; sets global_planner_footprint_margin to 0.00 to match real 0.432m chassis width; restores kMinPassableClearance to 0.21m (physical half-width) to reject corridors narrower than the robot while retaining Fix 19 shortcutting and loop pruning. |
+| **Fix 21** | 2026-09-15 18:38:00 | `path_validator.hpp`, `path_validator.cpp`, `classical_mpc_node.cpp` | Global clearance checks over the entire 15m path falsely flagged distant pinches as blocked, bypassing hysteresis and causing continuous flip-flop replanning and in-place spinning | **Horizon-Bounded Clearance Validation & Anti-Thrashing Hysteresis Lock** | Restricts clearance validation (`c < 0.21m`) to a 2.5m local lookahead horizon in both `path_validator` and `ahead_blocked`, while strictly checking hard obstacle occupancy (`kOccupied`) along the entire path length; eliminates 15 Hz replan thrashing and prevents premature hysteresis bypassing from distant sensor noise. |
+| **Fix 22** | 2026-09-15 19:28:00 | `classical_mpc_node.cpp` | Over-strict clearance threshold (0.21m) falsely flagged 0.42m corridors as blocked, and geometric-only length comparison allowed 180-degree backward path swaps while moving forward | **Passable Clearance Recalibration (0.16m) & Forward Heading Continuity Hysteresis** | Recalibrates kMinPassableClearance to 0.16m so physically drivable 0.40m-0.44m narrow corridors are accepted without false blockage triggers; enforces forward heading continuity (heading_err < 90 degrees) in path hysteresis so the rover never executes a sudden backward U-turn swap while its current forward path is clear. |
 
 ---
 
@@ -700,7 +709,450 @@ bool PathValidator::is_path_clear(
 
 ---
 
-## 12. Empirical Performance Evolution & Benchmark Analysis
+## 12. Bug 14 / Fix 14 (2026-09-04 22:14:10): Clearance-Aware Turning Velocity Profiling & Real-Time Yaw Governor
+
+### The Problem:
+* When the robot approached a corner or changed heading to follow a new path corridor, it maintained high linear velocity (1.2 to 1.5 m/s) while turning.
+* In narrow corridors (less than 0.50 m wide), turning at high speed caused frequent collisions.
+* The robot's outer corners swung outward into the corridor walls, or the swept stopping horizon intersected obstacles, triggering emergency safety shield vetoes and twitching stalls.
+* However, in open spaces, slowing down for turns was unnecessary and reduced transit speed. The robot should only slow down when the space is narrow, and should move quickly through open curves.
+
+### Root Cause:
+1. **The 15% Clearance Slowdown Floor:** In `local_planner.cpp`, the clearance scale was hardcoded between 0.85 and 1.00. Even in the tightest corridor where the robot had only 3 cm of side room, speed was reduced by only 15%. In `local_plannerBspline.cpp`, clearance was not considered at all in the velocity profiler.
+2. **Curvature Limits Treated Narrow and Open Spaces Identically:** The maximum lateral acceleration budget was fixed at 3.0 m/s^2 everywhere. A sharp turn allowed 1.41 m/s in an open field, and still allowed 1.20 m/s inside a narrow corridor.
+3. **Heading Alignment Gate Allowed 30% Speed In Tight Turns:** When heading error exceeded 60 to 90 degrees, the old heading gate still commanded 30% forward speed (0.45 to 0.60 m/s) regardless of whether the robot was in open space or surrounded by tight walls. This forward creep pushed the front corner directly into the wall before the turn could complete.
+
+### The Physics of Differential Drive Cornering:
+For a rectangular robot (length 0.508 m, width 0.430 m):
+* When driving straight, the robot occupies a corridor width of 0.430 m.
+* When turning while moving forward, the diagonal corners swing outward along an expanded circle. The outer front corner sweeps a wider path than the wheels.
+* If linear speed is high (over 1.0 m/s), tracking errors (5 to 10 cm) and the stopping distance box (0.30 to 0.60 m) cause immediate collisions with corridor walls.
+* But when linear speed is reduced to a crawl (0.35 m/s), the stopping distance collapses to under 3 cm, corner swing is negligible, and the robot can navigate narrow 45 cm gaps with millimeter precision.
+* In open space (clearance over 0.80 m), the outer corners have meters of free space, so the robot can safely take sweeping curves at 1.5 to 2.5 m/s.
+
+### How It Was Fixed:
+The solution is implemented across three coordinated layers:
+
+#### 1. Clearance-Aware Heading Gate (Entering Turns)
+When turning onto a new path segment, allowable forward speed depends directly on the available side clearance:
+* Clearance ratio is calculated between minimum clearance (0.26 m) and open clearance (0.80 m):
+  `clearance_ratio = clamp((clearance - min_clearance) / (open_clearance - min_clearance), 0.0, 1.0)`
+* **In Narrow Space (clearance_ratio near 0):**
+  If heading error is greater than 20 degrees (0.35 radians), forward speed drops to exactly 0.0 m/s. The robot stops translating and performs a pure in-place pivot until its nose points straight down the narrow corridor. It then drives forward without corner clipping.
+* **In Open Space (clearance_ratio near 1):**
+  If heading error is within 60 degrees (1.05 radians), the robot is allowed to drive forward in a wide, high-speed arc (1.5 to 2.0 m/s) with a minimum speed floor of 40%, keeping smooth momentum.
+
+```
+                    Corridor Clearance Check
+                               |
+            +------------------+------------------+
+            |                                     |
+            v                                     v
+[ Narrow Space: Clearance < 0.35 m ]   [ Open Space: Clearance > 0.80 m ]
+  - Heading Error > 20 degrees:          - Heading Error > 20 degrees:
+      Linear Speed = 0.0 m/s                 Linear Speed = 1.5 - 2.0 m/s
+      (Pure In-Place Pivot)                  (Smooth High-Speed Arc)
+  - Aligns nose before moving            - Wide clearance absorbs corner swing
+  - Zero wall clipping!                  - Maximum transit performance!
+```
+
+#### 2. Clearance-Scaled Lateral Acceleration Budget (Continuous Curves)
+Instead of a fixed 3.0 m/s^2 budget everywhere, allowable lateral acceleration scales dynamically with clearance:
+`lateral_budget = tight_lateral_accel + clearance_ratio * (open_lateral_accel - tight_lateral_accel)`
+* **In Tight Corridors (clearance < 0.35 m):** Lateral acceleration is limited to 0.50 m/s^2.
+  For a sharp curve with curvature 1.5, turning speed is capped at 0.57 m/s (or throttled down to the 0.35 m/s crawl floor). The robot glides smoothly with minimal stopping distance.
+* **In Open Space (clearance > 0.80 m):** Lateral acceleration is granted up to 3.50 m/s^2.
+  For curvature 1.5, turning speed reaches 1.52 m/s, allowing the robot to charge through open bends at high speed.
+
+#### 3. Real-Time Command Governor (`classical_mpc_node.cpp`)
+As a final real-time safety layer before commands are sent to the robot:
+* The node checks the commanded angular velocity against the distance field clearance from the laser scan.
+* If the MPC commands a high yaw rate while the robot is near a wall, the governor automatically caps linear velocity:
+  `safe_turn_speed = max(crawl_speed, lateral_accel(clearance) / (|yaw_rate| + 0.001))`
+  `command.linear = min(command.linear, safe_turn_speed)`
+* If the robot is in a narrow corridor and turns sharply, linear speed is throttled to 0.35 m/s.
+* If the robot is in open space, the governor does not restrict the command, allowing full speed.
+
+### Result:
+* In narrow chicanes and tight corridor corners, the robot slows to 0.35 to 0.50 m/s or pivots in place, completely eliminating corner clipping and safety shield traps.
+* In open clearings, the robot corners aggressively at 1.5 to 2.5 m/s, preserving fast lap times.
+
+---
+
+## 13. Bug 15 / Fix 15 (2026-09-04 22:25:00): Path Hysteresis & Commitment (Eliminating Path Switching & Flip-Flops)
+
+### The Problem:
+* While navigating, the robot would plan a path forward, and then shortly after replan an alternate path, repeatedly switching back and forth between two routes.
+* This caused the robot to wiggle or oscillate its steering between two corridor choices instead of committing to one and driving through.
+
+### Root Cause:
+* In `classical_mpc_node.cpp`, the replanning loop ran periodically.
+* Path swaps were previously protected only by a temporary timer `path_cooldown_s_` (2.0 seconds).
+* Once the 2 seconds expired, any valid candidate path produced by A* would unconditionally overwrite `global_path_`, even if:
+  1. The current path ahead was 100% clear.
+  2. The new path was essentially identical or only millimeters shorter.
+  3. The new path led through an alternate fork, causing the robot to reverse its steering intention.
+* As soon as the robot adjusted toward Path B, the next replan would find Path A slightly shorter again and swap back, causing a continuous switching cycle.
+
+### How It Was Fixed (`classical_mpc_node.cpp:L637` & `classical_mpc.yaml:L116`):
+Implemented permanent **Path Hysteresis & Commitment**:
+1. **Clearance Check Ahead:** The planner inspects the robot's current path waypoints ahead against the occupancy grid.
+2. **If Current Path Is Blocked Ahead:** The robot immediately accepts the new candidate path or escape route. Safety and obstacle clearance always take top priority!
+3. **If Current Path Is Clear Ahead:** The robot stays committed to its existing path! It refuses to switch to any alternate candidate path unless the candidate path is at least **15% to 20% shorter/better** (`path_improvement_ratio = 0.85`):
+   `is_much_better = candidate_length < 0.85 * retained_length`
+   * If `is_much_better` is false, the candidate is discarded with status `"retained_hysteresis"`, and the robot continues driving down its current path smoothly.
+   * If `is_much_better` is true (a genuine shortcut is discovered), the swap is permitted.
+
+```
+                    Replanner Candidate Arrives
+                                 |
+              Is current path blocked ahead by obstacle?
+                                 |
+                 +---------------+---------------+
+                 | YES                           | NO
+                 v                               v
+       [ Switch to New Path ]        Is candidate >= 15% shorter?
+       (Immediate Obstacle Escape)               |
+                                     +-----------+-----------+
+                                     | YES                   | NO
+                                     v                       v
+                           [ Accept Shortcut ]      [ Retain Current Path ]
+                           (Much Better Route)      (Commitment Hysteresis)
+                                                    Zero Path Switching!
+```
+
+### Result:
+* Eliminates path flip-flops and decision jitter at forks and corridors.
+* The robot commits firmly to its chosen corridor and drives through cleanly without hesitating or switching routes.
+
+---
+
+## 14. Bug 16 / Fix 16 (2026-09-04 22:30:00): Fast Turning in Open Space & Strict Narrow-Turn Slowdown Gating
+
+### The Problem:
+* The robot slowed down excessively whenever turning, even in wide-open clearings or moderate corridors where plenty of side clearance existed (as demonstrated in user testing imagery).
+* In open space, the robot should comfortably execute fast sweeping turns at 1.5 to 2.5 m/s or higher. Slowing down should ONLY occur when the turn is very sharp AND the space is genuinely narrow.
+
+### Root Cause Analysis:
+1. **Distant Curvature Window Lookahead:**
+   * The speed profile previously looked ahead 3.0 meters (`curvature_lookahead_m = 3.0`).
+   * In open areas, if the path entered any bend or corridor 2.5 to 3.0 meters ahead, the planner set `limiting_clearance` and `lookahead_curvature` based on that distant point. This prematurely slammed the brakes while the robot was still out in wide open space.
+2. **Unconditional Clearance Scaling:**
+   * The local planner and B-spline TOPP-RA previously multiplied linear reference velocity by an unconditional `clearance_scale` whenever obstacle clearance was below `desired_clearance` (0.60m).
+   * This throttled speed towards crawl speed (0.35 m/s) even along straight paths or gentle wide-radius curves.
+3. **Over-Sensitive Command Governor:**
+   * The real-time command governor throttled forward velocity whenever angular rate exceeded 0.15 rad/s (approx. 8.5 degrees/s), which is triggered by routine tracking corrections.
+4. **Over-Damped Entry Heading Gate:**
+   * Entering turns previously clamped forward speed down across a long 1.0-meter distance, forcing unnecessary crawling during turn initiation in open areas.
+
+### How It Was Fixed:
+Strict **Conjunctive Condition (AND Logic)** was implemented across both planners and the real-time controller:
+
+1. **Strict Slowdown Condition (Both Must Be True):**
+   * **Condition A (Space is Really Narrow):** `clearance < 0.38 m` (in local planner) or `c < 0.36 m` (in command governor).
+   * **Condition B (Turn is Very Sharp):** `effective_curvature > 1.2` (curve radius < 0.83 m), heading error > 25 degrees (0.45 rad), or command angular rate `|w| > 0.80 rad/s`.
+   * **Result:** If either condition is false (e.g., turning in open space, or driving straight in a narrow hallway), the robot maintains full speed!
+2. **High-Speed Open Space Turn Budget:**
+   * In open or moderate spaces, the lateral acceleration limit is set to 4.0 m/s^2 (`max_lateral_accel = 4.0`), allowing rapid, fluid cornering.
+   * Only when BOTH conditions are met does the lateral acceleration budget scale down to `tight_lateral_accel` (0.50 to 1.20 m/s^2) and speed cap to safe crawl (0.35 to 0.50 m/s).
+3. **Responsive Entry Heading Gate:**
+   * In open space or gentle turns: keeps 85% to 100% forward speed (`heading_scale = max(0.85, 1.0 - heading_error / 3.0)`).
+   * Only in really narrow space (< 0.38m) AND very sharp turns (> 25 deg) does `heading_scale` drop to 0.0 m/s to perform a safe in-place pivot.
+   * Fade distance reduced from 1.0 m to 0.35 m (`heading_align_distance = 0.35`), allowing immediate acceleration once nose angle aligns.
+4. **Shortened Curvature Lookahead:**
+   * `curvature_lookahead_m` tuned to 1.2 m, preventing premature braking from distant corners across open ground.
+5. **Real-Time Command Governor Update (`classical_mpc_node.cpp`):**
+   * Angular rate threshold raised from 0.15 rad/s to 0.80 rad/s, and strictly combined with narrow clearance (`c < 0.36 m`).
+
+```
+                    Robot Negotiating a Path / Turn
+                                   |
+            Is space really narrow? (clearance < 0.38 m)
+                                   |
+                  +----------------+----------------+
+                  | YES                             | NO (Open / Moderate Space)
+                  v                                 v
+        Is turn very sharp?                 [ FAST CORNERING ]
+        (kappa > 1.2 or error > 25°)        Max speed up to 2.5-4.0 m/s
+                  |                         Lateral accel up to 4.0 m/s²
+          +-------+-------+                 85% to 100% entry speed
+          | YES           | NO
+          v               v
+   [ SAFE CRAWL ]   [ FAST DRIVE ]
+   0.35 - 0.50 m/s  Full speed
+   or pivot first   Smooth transit
+```
+
+### Result:
+* In open clearings and moderate spaces (like the user's test scenario), the robot corners at full speed with agile lateral dynamics.
+* Crawling and pivoting are reserved exclusively for genuine tight corridor pinches where collisions would otherwise occur.
+
+---
+
+## 15. Bug 17 / Fix 17 (2026-09-04 22:50:00): Clearance-Aware Path Invalidation, Permissive Start-Pose & Dead-End Recovery
+
+### The Problem:
+* When approaching newly sensed obstacles, the robot stopped in front of a narrow gap where the existing global path passed through with insufficient physical clearance (the gap was narrower than the robot chassis width of 0.43m).
+* The robot got stuck, but the global planner did not replan a new path, retaining the blocked path that pointed straight into the impassable gap.
+
+### Root Cause Analysis:
+1. **Centerline-Only Collision Checking:**
+   * Both `PathValidator::is_path_clear` and the Path Hysteresis `ahead_blocked` check previously tested only if the 1-pixel infinitesimal centerline of the path intersected an occupied obstacle cell (`classify(cell) == kOccupied`).
+   * Because the path passed between the two obstacles without touching either obstacle on the exact centerline, the system considered the path 100% "clear and valid".
+   * As a result, the map update callback never marked the path as invalid, and hysteresis believed the corridor was completely open.
+2. **Path Hysteresis Rejected Detour Paths:**
+   * Because `ahead_blocked` evaluated to `false`, Path Hysteresis (Fix 15) enforced its commitment rule: any new path had to be at least 15% shorter than the current path.
+   * Any valid detour around the obstacle block was naturally longer than the straight line through the gap. Hysteresis rejected the detour path with status `retained_hysteresis` and permanently kept the blocked path.
+3. **Start-Pose Footprint Abortion in A*:**
+   * In `GlobalPlannerAStar::plan`, a hard check `!footprint_is_clear(grid, start, params_.footprint, false)` returned an empty plan if any obstacle cell touched the robot's footprint bounding box (`half_width 0.2159m + 0.04m margin = 0.256m`).
+   * Because the robot had pulled up close to the obstacles, A* failed on step 0 without even starting the search.
+4. **Swept Segment Step 0 Trap:**
+   * In `swept_segment_is_clear`, sampling started at step 0 (`from`), meaning that if the start pose had any slight obstacle encroachment, every search branch was rejected at `i = 0`.
+
+### How It Was Fixed:
+1. **Physical Clearance Validation Along Path:**
+   * Enhanced `PathValidator::is_path_clear` and `ahead_blocked` in `classical_mpc_node.cpp` to verify distance field clearance at every waypoint along the path against the minimum physical clearance needed for the robot chassis (`kMinPassableClearance = 0.22 m`, matching the 0.2159m half-width).
+   * If any waypoint ahead has clearance below 0.22m, the path is immediately recognized as blocked (`ahead_blocked = true`).
+2. **Immediate Detour Acceptance (Hysteresis Bypass):**
+   * When `ahead_blocked = true`, Path Hysteresis is bypassed immediately! The planner accepts any valid alternative path or detour around the obstacles regardless of length.
+   * In the map update callback (`map_callback`), if the current path's clearance drops below 0.22m, `needs_replan = true` is triggered immediately on the very cycle the obstacle is mapped.
+3. **Permissive Start-Pose in A*:**
+   * In `GlobalPlannerAStar::plan`, replaced the strict footprint check at `start` with a cell occupancy check (`grid.classify(start_cell) == kOccupied`). Since the robot is already physically sitting at `start`, search is permitted as long as its center is free, allowing the search lattice to find an escape path leading away from the obstacles.
+   * In `swept_segment_is_clear`, sample loop starts at step 1 (`i = 1`), preventing the start pose from rejecting outward-bound search branches while strictly verifying all subsequent poses along the motion.
+   * Reduced `astar.footprint.margin` to 0.01m, allowing A* to find valid paths through 0.40m corridors while soft clearance penalties keep the path centered.
+4. **Dead-End Reverse Recovery Trigger:**
+   * If the current path ahead has no clearance (`ahead_blocked = true`) and A* cannot find any forward path from the current pose (a true dead-end pocket), the node immediately sets `request_reverse_recovery_ = true`.
+   * The robot promptly reverses along its known-clear breadcrumb trail into open ground, allowing the next replan cycle to rotate and take an alternative route.
+
+```
+                  New Map / Replan Check
+                             |
+             Does current path ahead have clearance?
+             (clearance >= 0.22m along entire line)
+                             |
+             +---------------+---------------+
+             | YES                           | NO (Blocked or Pinch < 0.22m)
+             v                               v
+   [ Enforce Hysteresis ]          [ Bypass Hysteresis! ]
+   Commit to clear route           Can A* find a detour around?
+   Reject small wiggles                      |
+                                 +-----------+-----------+
+                                 | YES                   | NO (Dead-End)
+                                 v                       v
+                         [ Accept Detour Path ]  [ Trigger Breadcrumb Reverse ]
+                         Bypasses length check   Backs out to open space!
+```
+
+### Result:
+* Obstacles narrowing a corridor below the robot's physical width immediately invalidate the path.
+* The planner accepts detours around newly discovered obstacles without being blocked by hysteresis.
+* If no forward path exists, the robot immediately reverses out of the pocket instead of remaining stuck indefinitely.
+
+---
+
+## 16. Bug 18 / Fix 18 (2026-09-04 23:05:00): Continuous Clearance Scaling & Extended Curvature Lookahead
+
+### The Problem:
+* In Fix 16, a strict boolean condition was introduced: the robot only slowed down or pivoted when BOTH the space was really narrow (clearance < 0.38 m) AND the turn was very sharp (curvature > 1.2 rad/m, or yaw rate |w| > 0.80 rad/s).
+* In user testing inside a moderate corridor (wall clearance approximately 0.45 m and curvature around 0.8 to 1.0 rad/m), both conditions were false.
+* Consequently, the robot treated this corridor bend as if it were a wide-open field. It entered the bend hot at 2.0 m/s with a full 4.0 m/s^2 lateral acceleration budget.
+* The resulting centripetal inertia caused the robot to drift wide toward the outside wall. As wall clearance plummeted below 0.35 m, the breadcrumb reverse recovery was triggered.
+* Changing the boolean condition to an OR check (is_really_narrow || is_very_sharp) was considered, but OR introduces severe false slowdowns:
+  1. In open fields, any sharp turn would falsely drop speed to 0.35 m/s even with meters of empty space on all sides.
+  2. In narrow corridors, driving completely straight along a hallway would falsely crawl at 0.35 m/s even with zero curvature.
+
+### How It Works:
+Instead of binary on/off boolean thresholds, the system continuously scales allowable lateral acceleration and turning speed based on real-time distance-field clearance.
+
+1. **Continuous Clearance Ratio:**
+   The planner calculates the robot's local clearance ratio between the physical vehicle envelope (min_clearance = 0.256 m, matching half-width 0.2159 m plus margin) and fully open space (open_clearance = 0.80 m):
+   ```
+   clearance_ratio = clamp((limiting_clearance - min_clearance) / (open_clearance - min_clearance), 0.0, 1.0)
+   ```
+   * Open fields (clearance >= 0.80 m): clearance_ratio = 1.0.
+   * Moderate corridors (clearance ~ 0.45 m): clearance_ratio ≈ 0.35 to 0.40.
+   * Tight pinches (clearance <= 0.26 m): clearance_ratio = 0.0.
+
+2. **Continuous Lateral Acceleration Budget:**
+   The allowable lateral acceleration dynamically scales between tight_lateral_accel (0.60 m/s^2) and max_lateral_accel (3.50 m/s^2):
+   ```
+   lateral_budget = tight_lateral_accel + clearance_ratio * (max_lateral_accel - tight_lateral_accel)
+   ```
+   * In open space: lateral_budget = 3.50 m/s^2 (fast sweeping arcs up to 2.5 m/s).
+   * In moderate corridor bends: lateral_budget ≈ 1.20 to 1.60 m/s^2 (controlled 1.0 to 1.2 m/s without lateral drift).
+   * In tight pinches: lateral_budget = 0.60 m/s^2 (safe crawling at 0.35 to 0.50 m/s).
+
+3. **Curvature-Limited Speed Profiling:**
+   The allowable forward speed along the path is constrained by physics:
+   ```
+   curvature_speed = sqrt(lateral_budget / effective_curvature)
+   ```
+   Because lateral_budget scales continuously with clearance, the robot automatically selects the exact maximum speed that will not cause chassis drift into the surrounding walls.
+
+4. **Continuous Tight-Pinch Speed Ceiling:**
+   When clearance_ratio is below 0.35 and effective curvature is sharp (> 0.80 rad/m), speed is capped by a continuous clearance-scaled ceiling:
+   ```
+   tight_v_cap = crawl_speed + (clearance_ratio / 0.35) * (0.60 - crawl_speed)
+   ```
+   This scales smoothly from crawl_speed (0.35 m/s) up to 0.60 m/s without step-function discontinuities.
+
+5. **Clearance-Aware Heading Gate (Entering Turns):**
+   * Open space (clearance_ratio = 1.0): minimum forward speed floor is 0.85 (85% speed), allowing high-speed sweeping arcs even while steering.
+   * Tight corridors (clearance_ratio < 0.25) with heading error > 20 degrees (0.35 rad): forward speed drops to 0.0 m/s, pivoting on the spot to align with the gap before translating forward, eliminating corner-clipping collisions.
+   * Intermediate clearances: the speed floor scales smoothly: `min_floor = 0.30 + 0.55 * clearance_ratio`.
+
+6. **Real-Time Command Governor (`classical_mpc_node.cpp`):**
+   The final control command governor enforces continuous clearance scaling in real time on cmd_vel:
+   ```
+   if (clearance < open_clearance && |w| > 0.25 rad/s) {
+     v_safe = max(crawl_speed, lateral_budget(clearance) / |w|)
+     if (command.v > v_safe) {
+       command.v = v_safe;
+     }
+   }
+   ```
+   This prevents high-speed chassis swinging into nearby obstacles regardless of what the trajectory profile originally requested.
+
+7. **Extended Curvature Lookahead (2.0 m):**
+   `curvature_lookahead_m` was extended from 1.2 m to 2.0 m in `classical_mpc.yaml`. At 2.0 m/s, a 1.2 m window provided only 0.6 seconds of preview, causing the robot to react too late to corridor bends. A 2.0 m window provides a full 1.0 second preview, allowing the robot to start smooth deceleration along the approach straightaway before entering the bend.
+
+### Why It Helps:
+* **Eliminates the Boolean Cliff:** Replaces fragile binary checks with smooth, continuous physics-based limits. Moderate corridors are no longer misclassified as wide-open fields.
+* **Prevents Chassis Drift and Wall Collisions:** By scaling allowable lateral acceleration from 3.5 m/s^2 down to 1.2 - 1.6 m/s^2 in corridors, the robot enters bends at controlled speeds (1.0 - 1.2 m/s), eliminating outward drift and preventing breadcrumb recovery activations.
+* **Preserves Top Speed in Open Space:** Open fields maintain the full 3.50 m/s^2 lateral acceleration budget, allowing high-speed sweeping turns (1.5 to 2.5+ m/s) with zero false slowdowns.
+* **Smooth Control Signal:** Because all scaling functions are continuous, the MPC receives smooth reference speeds rather than abrupt step-function commands, improving tracking accuracy and eliminating motor jerking.
+
+---
+
+## 17. Bug 19 / Fix 19 (2026-09-04 23:55:00): Global Path Shortcutting, Loop Pruning, Corner Rotation Gating, and Clearance Recalibration
+
+### The Problem:
+In complex environments like World 282, the robot exhibited severe confusion and refusal to enter open, physically traversable corridors:
+1. **Dubins 360-Degree Keyhole / Teardrop Loops:**
+   Because forward steering motion primitives (radius 0.76m) were expanded without line-of-sight shortcutting, A* drew large 360-degree circular loops to align its heading with the corridor opening rather than driving straight in.
+2. **Corner-Pinning Against Obstacle Faces:**
+   A* permitted in-place rotations right up against obstacle boundaries (clearance < 0.35m). When the robot arrived with its nose 10cm from a corner wall, the path commanded a 90-degree in-place turn, which the swept footprint safety shield immediately vetoed. After repeated vetoes, the robot fell into a reverse recovery loop.
+3. **False Path Invalidation on 10cm Grid:**
+   The path validator used a continuous minimum clearance threshold of 0.22m. On a discrete 10cm grid, any narrow corridor of width 0.40m has distance-field values of 0.10m to 0.15m at cell centers. The validator falsely marked unblocked, drivable corridors as impassable, setting ahead_blocked to true and triggering continuous replanning.
+4. **Astronomical Clearance Penalty in Configuration:**
+   The YAML parameter clearance_weight was set to 1.2 while distance_weight was 0.3. For a narrow gap with 0.15m clearance, the clearance penalty was 7.15 per meter versus 0.30 per meter in open space (a 25x penalty). Traversing a 3-meter corridor was priced identically to a 75-meter detour, causing the planner to prefer massive detours and loops over entering the corridor.
+
+### The Solution:
+1. **Loop Elimination (`global_planner_astar.cpp`):**
+   Scans backwards from the goal to detect when the path doubles back on itself (distance < 0.35m between waypoints separated by more than two steps). If swept line-of-sight is clear between the waypoints, the intermediate loop is spliced out entirely.
+2. **Greedy Line-of-Sight Shortcutting & Densification (`global_planner_astar.cpp`):**
+   Iteratively casts swept-footprint rays between non-adjacent waypoints to collapse jagged lattice steps and Dubins arcs into direct straight-line corridors. Interpolates waypoints at regular 0.15m spacing with continuous tangent orientations (atan2(dy, dx)), followed by a 5-point moving average filter.
+3. **Corner In-Place Rotation Gating (`global_planner_astar.cpp`):**
+   In-place rotation primitives are strictly gated on physical clearance:
+   `if (std::isfinite(c) && c < 0.35) continue;`
+   This prevents A* from generating in-place turns with the robot's nose against a wall, forcing the path to turn in open space before approaching the corridor.
+4. **Recalibrated 10cm Grid Clearance Threshold (`classical_mpc_node.cpp`):**
+   Changed minimum passable clearance from 0.22m to 0.09m for 10cm discrete grid cells. Unified candidate path validation to evaluate against the planning grid consistently with the distance field and replanning watchdog.
+5. **Clearance Weight Normalization (`classical_mpc.yaml`):**
+   Reduced clearance_weight from 1.2 to 0.15 and added global_planner_footprint_margin: -0.02. This provides a soft, natural corridor-centering bias (roughly 4x cost over open ground) without pricing narrow BARN corridors out of reach.
+
+### Why It Helps:
+* **No More Circles or Keyhole Loops:** Line-of-sight shortcutting and loop pruning collapse 70-waypoint looping trajectories into clean, direct 5-waypoint lines straight through the gap.
+* **Corridors Are Readily Traversed:** Normalizing clearance cost ensures the planner eagerly chooses the direct corridor rather than spinning or searching for phantom detours.
+* **No False Replan Thrashing:** The 0.09m threshold on the 10cm grid correctly identifies clear 0.40m corridors as passable.
+* **Elimination of Corner-Pinning Freezes:** By banning rotations in tight corners, the robot approaches corridors already aligned with the passage heading.
+
+---
+
+## 18. Bug 20 / Fix 20 (2026-09-08 14:20:00): Restoring Physical Footprint Margin, Wide-Corridor Preference, and Clearance Validation
+
+### The Problem:
+In Fix 19, in an attempt to prevent the robot from hesitating at corridor entrances, `clearance_weight` was dropped from 1.2 to 0.15, `global_planner_footprint_margin` was set to -0.02m, and `kMinPassableClearance` was lowered from 0.22m to 0.09m. This caused a critical regression:
+1. **Loss of Corridor Discrimination:**
+   With `clearance_weight` reduced to 0.15, A* treated narrow pinches and wide corridors with virtually identical clearance cost. Because a razor-thin slit happened to be slightly shorter in Euclidean distance to the goal, A* greedily chose the slit instead of the wide, clear corridor available right next to it.
+2. **Artificial Footprint Shrinkage:**
+   A negative footprint margin (-0.02m) shrunk the robot's virtual half-width from 0.2159m to 0.1959m (total width 0.39m). A* concluded that the robot could easily pass through a 0.40m slit, whereas the physical Jackal robot has a rigid 0.432m chassis width.
+3. **Sub-Chassis Clearance Acceptance:**
+   Setting `kMinPassableClearance` to 0.09m allowed the path validator to accept paths where obstacles were only 9cm from the centerline (12.6 cm inside the robot's body).
+
+### The Solution:
+1. **Restored Clearance Weight (`clearance_weight: 1.2` in `classical_mpc.yaml` and `classical_mpc_node.cpp`):**
+   Restores the proper penalty for wall proximity. When both a narrow slit and a wide corridor exist, A* evaluates the total cost (distance + clearance penalty) and strongly chooses the wide, unobstructed corridor.
+2. **Restored Physical Footprint Margin (`global_planner_footprint_margin: 0.00`):**
+   Ensures the A* lattice collision checker uses the exact physical dimensions of the Jackal chassis (half-width 0.2159m, half-length 0.254m), preventing paths through slits narrower than the vehicle.
+3. **Restored Physical Clearance Validation (`kMinPassableClearance: 0.21` in `classical_mpc_node.cpp`):**
+   Ensures `is_path_clear` and `ahead_blocked` reject any path segment where distance from centerline to obstacles is less than the robot's physical half-width (0.2159m).
+4. **Retained Fix 19 Shortcutting and Loop Pruning:**
+   Retains line-of-sight shortcutting, loop elimination, and obstacle-face in-place rotation gating in `global_planner_astar.cpp` to eliminate Dubins circles without compromising corridor safety.
+
+### Why It Helps:
+* **Chooses Wide Corridors:** When presented with choices between narrow choke points and open passages, A* reliably picks the wide route.
+* **Guarantees Physical Passage:** Virtual planning footprint aligns with the physical robot chassis, preventing the planner from driving into unpassable gaps.
+* **No Teardrop Loops:** Line-of-sight shortcutting and loop pruning remain active, ensuring direct, clean trajectories without circular loops.
+
+---
+
+## 19. Bug 21 / Fix 21 (2026-09-15 18:38:00): Horizon-Bounded Clearance Validation & Anti-Thrashing Hysteresis Lock
+
+### The Problem:
+When navigating near corridor splits or narrow choke points, the rover exhibited severe path flip-flopping, alternating between a straight forward path and a backward 120-degree detour. This caused the vehicle to endlessly spin left and right on the spot, eventually clipping nearby obstacles.
+
+### Root Cause:
+1. **Global vs. Local Horizon Mismatch:**
+   In `classical_mpc_node.cpp`, both `map_callback` (at 15 Hz) and the `ahead_blocked` loop checked distance-field clearance (`c < 0.21m`) along the entire length of the global path (10 to 15 meters away).
+2. **Short-Circuiting Path Hysteresis on Distant Noise:**
+   Because lidar returns at 7 to 8 meters are sparse and noisy, distant corridor pinches frequently fluctuated slightly below 0.21m. Even though the path was wide open 1 to 3 meters in front of the bumper, `ahead_blocked` immediately flagged `true`. This bypassed the 15% hysteresis rule, causing the planner to discard the straight path and grab the wide backward detour.
+3. **The Pivot-In-Place Cycle:**
+   The detour required turning around to go behind the robot. The controller cut linear speed and pivoted in place. Mid-turn, the distant pinch cleared, the straight path was re-selected, and the rover reversed its spin direction, trapping it in an alternating rotation cycle.
+
+### The Solution:
+1. **Extended `PathValidator::is_path_clear` with Horizon Bounding (`path_validator.hpp`, `path_validator.cpp`):**
+   Added `max_clearance_check_distance` (defaulting to infinity for backward compatibility).
+   * **Hard Occupied Cells (`kOccupied`):** Strictly checked along the entire path all the way to the goal. Any real wall intersecting the path immediately invalidates it.
+   * **Distance Field Clearance (`c < min_clearance`):** Evaluated only while accumulated distance along the path is less than or equal to `max_clearance_check_distance` (2.5m).
+2. **Aligned `map_callback` and `planner_loop` on 2.5m Local Clearance Horizon (`classical_mpc_node.cpp`):**
+   * Configured `kLocalClearanceHorizon = 2.5m` in `map_callback`, `planner_loop` candidate validation, and the `ahead_blocked` check.
+   * The rover maintains path commitment and drives forward as long as the immediate 2.5 meters are clear. Distant pinches are evaluated as the vehicle approaches with high sensor fidelity.
+   * Completely eliminates 15 Hz background replan thrashing.
+
+### Why It Helps:
+* **Eliminates Path Flip-Flopping:** Path hysteresis remains solidly locked because distant noise spikes 7 meters ahead cannot falsely declare the immediate path blocked.
+* **Stops In-Place Spinning:** Rover drives straight toward the corridor rather than pivoting back and forth between conflicting candidate routes.
+* **Full Collision Safety Preserved:** Hard obstacles are still checked across the entire world, and physical clearance is rigorously enforced within the local driving horizon.
+
+---
+
+## 20. Bug 22 / Fix 22 (2026-09-15 19:28:00): Passable Clearance Recalibration & Forward Heading Continuity Hysteresis
+
+### The Problem:
+Even with horizon-bounded clearance checks, when the rover approached narrow corridors (such as the straight passage in World 282), it continued to shuffle and spin in place, alternating between the straight corridor and a 15-meter wide detour around an obstacle behind it.
+
+### Root Cause:
+1. **False Blockage in Narrow Passages:**
+   On a discrete 10cm grid, cell distance values in a 0.40m to 0.44m corridor hover around 0.18m to 0.20m. Setting `kMinPassableClearance = 0.21m` caused `ahead_blocked` to flag `true` as soon as the vehicle was within 2.5m of the narrow gap, falsely treating a physically traversable corridor as an impenetrable wall and forcing an emergency detour.
+2. **Blind Geometric Length Comparison without Heading Continuity:**
+   In `planner_loop`, the hysteresis check accepted any candidate path that was 15% shorter than the current path (`candidate_len < 0.85 * retained_len`), completely ignoring the heading of the first waypoint. When the rover was following the 15m detour, the 10m straight path was 33% shorter. The hysteresis rule blindly accepted the straight path even though it required an immediate 130-degree turnaround, causing the rover to reverse its rotation direction and oscillate.
+
+### The Solution (`classical_mpc_node.cpp`):
+1. **Passable Clearance Recalibration (`kMinPassableClearance = 0.16m`):**
+   Calibrated `kMinPassableClearance` from 0.21m to 0.16m in `map_callback`, candidate validation, and `ahead_blocked`. This ensures valid 0.40m+ corridors are recognized as open, while genuine collisions (<0.16m) and tapering funnels trigger replanning.
+2. **Forward Heading Continuity in Hysteresis Acceptance:**
+   Enforced that while the current path ahead is clear, an alternative path is only accepted if it is both significantly shorter AND continues along the forward direction:
+   ```cpp
+   double cand_yaw = pose.yaw;
+   if (candidate.size() >= 2) {
+     cand_yaw = std::atan2(candidate[1].y - candidate[0].y, candidate[1].x - candidate[0].x);
+   }
+   const double heading_err = std::abs(barn_core::wrap_angle(cand_yaw - pose.yaw));
+   const bool much_better = (retained_len > 0.1) &&
+     (candidate_len < path_improvement_ratio_ * retained_len) &&
+     (heading_err < (M_PI / 2.0));
+   ```
+   A candidate path demanding an immediate 90-degree+ backward turn will never be accepted unless the current path is physically blocked by an obstacle wall.
+
+### Why It Helps:
+* **Committed Forward Driving:** The rover drives straight through the narrow corridor without hesitating or falsely abandoning it.
+* **Elimination of U-Turn Shuffles:** The rover will never swap to a backward-pointing route mid-run while moving forward along a clear path.
+* **Zero Disruption to Recovery:** If the path ahead ever encounters a real obstacle, `ahead_blocked` triggers, bypassing this restriction and activating reverse recovery.
+
+---
+
+## 21. Empirical Performance Evolution & Benchmark Analysis
 
 This section summarizes the chronological evaluation results on the development benchmark suite (Worlds 228, 246, 276, and 282), tracking system performance from the original pre-fix baseline through iterative safety fixes to the latest integrated build.
 

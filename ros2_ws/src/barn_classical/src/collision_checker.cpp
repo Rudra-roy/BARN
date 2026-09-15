@@ -69,7 +69,7 @@ bool swept_segment_is_clear(
   const int samples = std::max(
     1, static_cast<int>(std::ceil(std::max(distance / sample_step,
     std::abs(yaw_delta) / (5.0 * M_PI / 180.0)))));
-  for (int i = 0; i <= samples; ++i) {
+  for (int i = 1; i <= samples; ++i) {
     const double ratio = static_cast<double>(i) / samples;
     barn_core::Pose2D sample_pose;
     sample_pose.x = from.x + ratio * (to.x - from.x);
