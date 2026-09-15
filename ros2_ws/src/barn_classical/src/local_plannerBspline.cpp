@@ -231,7 +231,9 @@ std::vector<SplineSample> sample_spline(
 std::vector<double> topp_ra(
   const std::vector<SplineSample> & samples,
   double track_width, double v_wheel_max, double a_wheel_max,
-  double max_linear_speed, double max_yaw_rate, double max_lateral_accel)
+  double max_linear_speed, double max_yaw_rate, double max_lateral_accel,
+  const barn_core::DistanceField2D * distance_field = nullptr,
+  double min_clearance = 0.25, double open_clearance = 0.80, double tight_lateral_accel = 0.50)
 {
   const int n = static_cast<int>(samples.size());
   if (n < 2) {
@@ -256,9 +258,20 @@ std::vector<double> topp_ra(
       sdot_max = std::min(sdot_max, max_yaw_rate / kappa);
     }
 
-    // 3. Maximum lateral acceleration limit: a_lat = ṡ² · kappa <= max_lateral_accel => ṡ <= sqrt(max_lateral_accel / kappa)
-    if (kappa > 1e-4 && max_lateral_accel > 1e-4) {
-      sdot_max = std::min(sdot_max, std::sqrt(max_lateral_accel / kappa));
+    // 3. Maximum lateral acceleration limit: a_lat = ṡ² · kappa <= a_lat_max
+    // Continuous clearance scaling: open space (c >= open_clearance) gets max_lateral_accel,
+    // narrow space scales down smoothly toward tight_lateral_accel.
+    double a_lat_max = max_lateral_accel;
+    if (distance_field != nullptr) {
+      const double c = distance_field->distance_world(samples[i].x, samples[i].y);
+      if (std::isfinite(c)) {
+        const double span = std::max(1e-3, open_clearance - min_clearance);
+        const double ratio = std::clamp((c - min_clearance) / span, 0.0, 1.0);
+        a_lat_max = tight_lateral_accel + ratio * (max_lateral_accel - tight_lateral_accel);
+      }
+    }
+    if (kappa > 1e-4 && a_lat_max > 1e-4) {
+      sdot_max = std::min(sdot_max, std::sqrt(a_lat_max / kappa));
     }
 
     // 4. Also cap by the robot's linear speed limit.
@@ -621,14 +634,16 @@ LocalTrajectory LocalPlannerBspline::plan(
   }
 
   // -------------------------------------------------------------------
-  // Step 6: TOPP-RA velocity profiling.
+  // Step 6: TOPP-RA velocity profiling (clearance-aware).
   // -------------------------------------------------------------------
+  const double min_clearance = params_.footprint.half_width + params_.stop_margin;
   auto sdot = topp_ra(
     samples, params_.track_width, params_.wheel_v_max, params_.wheel_a_max,
-    params_.max_speed, params_.max_yaw_rate, params_.max_lateral_accel);
+    params_.max_speed, params_.max_yaw_rate, params_.max_lateral_accel,
+    &distance_field, min_clearance, params_.open_clearance, params_.tight_lateral_accel);
 
   // -------------------------------------------------------------------
-  // Step 7: Build the LocalTrajectory output.
+  // Step 7: Build the LocalTrajectory output with clearance slowdown.
   // -------------------------------------------------------------------
   LocalTrajectory result;
   result.reserve(refined.size());
@@ -643,6 +658,19 @@ LocalTrajectory LocalPlannerBspline::plan(
     // v_ref from TOPP-RA.
     double v = (i < sdot.size()) ? sdot[i] : 0.0;
     v = std::min(v, params_.max_speed);
+
+    // In tight pinches with sharp curvature, throttle speed to safe clearance-scaled ceiling:
+    const double kappa_i = (i < samples.size()) ? samples[i].kappa : 0.0;
+    double clearance_ratio_i = 1.0;
+    if (std::isfinite(point.clearance)) {
+      const double span = std::max(1e-3, params_.open_clearance - min_clearance);
+      clearance_ratio_i = std::clamp((point.clearance - min_clearance) / span, 0.0, 1.0);
+    }
+    if (clearance_ratio_i < 0.35 && kappa_i > 0.8) {
+      const double tight_v_cap = params_.crawl_speed + (clearance_ratio_i / 0.35) * (0.60 - params_.crawl_speed);
+      v = std::min(v, tight_v_cap);
+      v = std::max(params_.crawl_speed, v);
+    }
     point.v_ref = v;
 
     if (result.empty()) {
@@ -652,7 +680,7 @@ LocalTrajectory LocalPlannerBspline::plan(
         max_kappa = std::max(max_kappa, s.kappa);
       }
       debug_.curvature = max_kappa;
-      debug_.curvature_speed = v;
+      debug_.curvature_speed = (i < sdot.size()) ? sdot[i] : 0.0;
       debug_.clearance_scale = 1.0;
       debug_.heading_scale = 1.0;
       debug_.v_ref = v;
@@ -665,11 +693,35 @@ LocalTrajectory LocalPlannerBspline::plan(
   }
 
   // -------------------------------------------------------------------
-  // Step 8: Entry-heading gate (unchanged from elastic band).
+  // Step 8: Clearance-Aware Heading Gate (Entering Turns).
   // -------------------------------------------------------------------
+  // In OPEN space: takes smooth, high-speed sweeping arcs (85% to 100% speed).
+  // In NARROW space: if heading error > 20 deg (0.35 rad), pivots in place first to prevent corner clipping.
   if (!result.empty() && refined.size() >= 2) {
     const double heading_error = std::abs(barn_core::wrap_angle(refined[0].yaw - pose.yaw));
-    const double heading_scale = std::max(0.3, 1.0 - heading_error / 1.5);
+    const double start_clearance = result[0].clearance;
+    double start_clearance_ratio = 1.0;
+    if (std::isfinite(start_clearance)) {
+      const double span = std::max(1e-3, params_.open_clearance - min_clearance);
+      start_clearance_ratio = std::clamp((start_clearance - min_clearance) / span, 0.0, 1.0);
+    }
+
+    double heading_scale = 1.0;
+    if (start_clearance_ratio < 0.25 && heading_error > 0.35) {
+      // Really narrow space and sharp turn: pivot in place first
+      heading_scale = 0.0;
+    } else {
+      // Continuous speed floor based on clearance ratio:
+      // In open space: floor is 0.85 (fast arc). In tighter corridors: floor scales smoothly.
+      const double min_floor = 0.30 + 0.55 * start_clearance_ratio;
+      const double threshold = 0.35 + 0.70 * start_clearance_ratio;
+      if (heading_error > threshold) {
+        heading_scale = min_floor;
+      } else {
+        heading_scale = 1.0 - (1.0 - min_floor) * (heading_error / threshold);
+      }
+    }
+
     double arc = 0.0;
     for (std::size_t i = 0; i < result.size(); ++i) {
       if (i > 0) {

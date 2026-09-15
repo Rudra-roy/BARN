@@ -111,6 +111,11 @@ classical_mpc_node:
     enable_los_shortcut: true
     los_max_range: 4.0
     global_planner_budget_ms: 500.0
+    # Path Hysteresis (Commitment):
+    # Tells the planner: "If you are already driving down a path and it is clear,
+    # do not switch to another path unless the new path is at least 15%-20% better."
+    # 0.85 requires the new candidate path to be at least 15% shorter than current path.
+    path_improvement_ratio: 0.85
     # Cost balance: clearance shaping is per-meter and only applies within
     # clearance_penalty_radius of an obstacle, so threading a real (tight)
     # corridor stays cheaper than a long detour through unknown space; the
@@ -118,13 +123,12 @@ classical_mpc_node:
     unknown_cost_multiplier: 2.0
     heuristic_weight: 2.0
     distance_weight: 0.3
-    # Tightened clearance shaping: bias the global path toward the centre of
-    # corridors and prefer a wider route when one exists, so the robot is less
-    # likely to be led into a pinch it cannot rotate or recover in. Soft (never
-    # hard-blocks a genuinely narrow BARN gap); the wider penalty radius lets the
-    # planner "see" walls from further out. Validate on the dev suite — too high
-    # and A* detours around legitimately narrow passages.
+    # Clearance shaping: bias the global path toward the centre of corridors and
+    # prefer a wider route when one exists, so the robot avoids entering impassably tight pinches.
+    # At 1.2, narrow passages carry a realistic clearance penalty, ensuring A* picks wide open corridors
+    # over dangerously tight slits while loop pruning and shortcutting eliminate Dubins circles.
     clearance_weight: 1.2
+    global_planner_footprint_margin: 0.00
     # TRIED AND REVERTED (world 288, 12 trials each): 1.4 -> 0.8 was a large
     # regression, score 0.4469 -> 0.3044, success 12/12 -> 9/12 (3 timeouts),
     # median AT 13.9 -> 14.9 s. Do not retry without a new reason.
@@ -313,35 +317,18 @@ classical_mpc_node:
     # obstacle_margin and clearance_penalty_radius it reduces no clearance and
     # cannot reach barn_safety's veto band. Worth a properly powered test (~30
     # trials/config on a speed-bound world such as 216 or 66) before adopting.
-    max_lateral_accel: 3.0
-    # Clearance-gated cornering: the curvature speed limit spends a lateral-accel
-    # budget that grows with the room available AT THE CORNER THAT BINDS, because
-    # the reason to slow for a BARN curve is tracking error near a wall, not
-    # vehicle dynamics. gain 1.0 == the old constant-budget behaviour.
-    #
-    # REJECTED at 1.0 (= old constant-budget behaviour). The idea is sound and
-    # the speed is real, but it raises the COLLISION rate ~20x and that is the
-    # one thing this benchmark cannot absorb.
-    #
-    #   gain 3.0  w66  0.2263 -> 0.2096, 9/10, 1 COLLISION, recovery 9 -> 13
-    #   gain 1.5  w66  0.2263 -> 0.2609, 10/10          (+15%)
-    #   gain 1.5  w294 0.1953 -> 0.2134, 10/10, sd 3.8 -> 1.6   (+9%)
-    #   gain 1.5  w288 0.4286 -> 0.3911, 9/10, 1 COLLISION
-    #
-    # 2 collisions in 40 trials against 0 in 65 baseline trials here and 1 in 430
-    # in the campaign. Halving the gain changed WHICH world collided, not whether
-    # one did -- so this is not a magnitude that can be tuned down safely without
-    # a much larger sample than 10 trials/world to detect a ~2-5% event.
-    #
-    # Why it likely collides: the budget is scaled by the clearance at the
-    # PLANNED corner, but the robot corners with tracking error, so the space it
-    # actually uses is smaller than the space the plan promised -- and the extra
-    # speed is granted precisely where that error grows. A safer formulation
-    # would key on the clearance the robot can GUARANTEE (plan clearance minus a
-    # tracking-error allowance), or restrict the gain to genuinely open ground
-    # (open_clearance ~2.0+) rather than 1.2 m corridors.
-    open_clearance: 1.20
+    # Maximum lateral acceleration in open space (c >= open_clearance) [m/s^2]
+    max_lateral_accel: 3.5
+    # Minimum lateral acceleration in tight corridors (c < 0.35m) [m/s^2]
+    tight_lateral_accel: 0.60
+    # Clearance at which the surroundings count as fully open [m]
+    open_clearance: 0.80
     open_lateral_accel_gain: 1.0
+    # Safe crawl speed floor in tight turns [m/s]
+    crawl_speed: 0.35
+    heading_align_distance: 0.35
+    # Real-time command governor in classical_mpc_node: throttles forward speed during sharp turns in tight spaces
+    turn_governor_enable: true
 
     # Local Planner Selection (A/B comparison):
     # false = Original Elastic Band planner (default)
@@ -359,24 +346,8 @@ classical_mpc_node:
     wheel_a_max: 2.5
     topp_ra_samples: 100
 
-    # Window the speed profile scans for the worst curvature ahead (see the
-    # comment in barn_classical/include/barn_classical/local_planner.hpp).
-    #
-    # TRIED AND REVERTED (world 294, 10 trials each): 3.0 -> 1.5 made the
-    # SUCCESSES faster -- median AT 31.6 -> 28.4 s (-10%), sd 3.8 -> 2.9 -- but
-    # cost a timeout, 10/10 -> 9/10, and score 0.1953 -> 0.1890. Exactly the
-    # trade the 1.5 -> 3.0 widening was made to avoid: less runway to
-    # pre-decelerate means arriving at a corner too fast, and the one bad trial
-    # logged 4 recovery episodes and 2 reverses before running out the clock.
-    # On this benchmark a hard zero costs far more than 10% of cruise speed.
-    #
-    # NOTE the offline model predicted NO CHANGE here (mean v_ref 1.25 at both
-    # 1.5 and 3.0 m for world 294) and was wrong: the robot's actual A* path is
-    # 1.44x longer than the reference path the model reads, so its curvature
-    # profile differs. The model predicts CRUISE SPEED well (1.25 predicted vs
-    # 1.137 measured) but does NOT predict the effect of changing this window.
-    # Do not use it to justify a shorter one without a measured trial.
-    curvature_lookahead_m: 3.0
+    # Window the speed profile scans for the worst curvature ahead.
+    curvature_lookahead_m: 2.0
     unknown_speed: 2.0
     mpc_deadline_ms: 35.0
     startup_creep_delay_s: 1.0

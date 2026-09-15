@@ -71,7 +71,8 @@ Path2D GlobalPlannerAStar::plan(
   const auto start_cell = grid.world_to_cell(start.x, start.y);
   const auto goal_cell = grid.world_to_cell(goal.x, goal.y);
   if (!grid.in_bounds(start_cell) || !grid.in_bounds(goal_cell) ||
-    !footprint_is_clear(grid, start, params_.footprint, false))
+    grid.classify(start_cell) == barn_core::CellState::kOccupied ||
+    grid.classify(goal_cell) == barn_core::CellState::kOccupied)
   {
     return {};
   }
@@ -207,6 +208,13 @@ Path2D GlobalPlannerAStar::plan(
       neighbors.emplace_back(next, params_.step_size + params_.turn_weight * std::abs(turn));
     }
     for (int turn : {-1, 1}) {
+      // In-place rotation requires physical rotation clearance (half-diagonal + margin >= 0.35m)
+      // to prevent A* from pinning the robot into sharp corners against walls.
+      const auto cur_cell = grid.world_to_cell(current.pose.x, current.pose.y);
+      const double c = distance_field.distance(cur_cell);
+      if (std::isfinite(c) && c < 0.35) {
+        continue;
+      }
       barn_core::Pose2D next = current.pose;
       next.yaw = barn_core::wrap_angle(next.yaw + turn * (2.0 * M_PI / params_.yaw_bins));
       neighbors.emplace_back(next, params_.rotate_weight * (2.0 * M_PI / params_.yaw_bins));
@@ -281,31 +289,104 @@ Path2D GlobalPlannerAStar::plan(
     reverse_path.push_back(goal_pose);
   }
 
-  // Corner smoothing: Simple moving average filter to round off the sharp lattice turns
-  if (reverse_path.size() > 2) {
-    Path2D smoothed_path = reverse_path;
+  // 1. Loop Elimination:
+  // If the path doubles back or visits near an earlier waypoint, cut out the redundant loop.
+  Path2D loop_free;
+  loop_free.reserve(reverse_path.size());
+  std::size_t i = 0;
+  while (i < reverse_path.size()) {
+    loop_free.push_back(reverse_path[i]);
+    std::size_t skip_to = i;
+    for (std::size_t j = reverse_path.size() - 1; j > i + 2; --j) {
+      const double d = std::hypot(
+        reverse_path[j].x - reverse_path[i].x,
+        reverse_path[j].y - reverse_path[i].y);
+      if (d < 0.35 && swept_segment_is_clear(
+          grid, reverse_path[i], reverse_path[j], params_.footprint, false, grid.resolution()))
+      {
+        skip_to = j;
+        break;
+      }
+    }
+    if (skip_to > i) {
+      i = skip_to;
+    } else {
+      ++i;
+    }
+  }
+
+  // 2. Line-of-Sight Shortcutting:
+  // Greedily connect distant visible waypoints to remove jagged lattice turns and Dubins arcs.
+  Path2D shortcut_path;
+  if (!loop_free.empty()) {
+    shortcut_path.push_back(loop_free.front());
+    std::size_t curr_idx = 0;
+    while (curr_idx < loop_free.size() - 1) {
+      std::size_t next_idx = curr_idx + 1;
+      for (std::size_t test_idx = loop_free.size() - 1; test_idx > curr_idx + 1; --test_idx) {
+        if (swept_segment_is_clear(
+            grid, loop_free[curr_idx], loop_free[test_idx], params_.footprint, false, grid.resolution()))
+        {
+          next_idx = test_idx;
+          break;
+        }
+      }
+      shortcut_path.push_back(loop_free[next_idx]);
+      curr_idx = next_idx;
+    }
+  } else {
+    shortcut_path = reverse_path;
+  }
+
+  // 3. Densification:
+  // Interpolate waypoints at regular 0.15m intervals with smooth tangent headings.
+  Path2D densified;
+  densified.reserve(shortcut_path.size() * 5);
+  constexpr double kSpacing = 0.15;
+  for (std::size_t k = 0; k + 1 < shortcut_path.size(); ++k) {
+    const auto & p0 = shortcut_path[k];
+    const auto & p1 = shortcut_path[k + 1];
+    const double dist = std::hypot(p1.x - p0.x, p1.y - p0.y);
+    const int steps = std::max(1, static_cast<int>(std::ceil(dist / kSpacing)));
+    const double seg_yaw = std::atan2(p1.y - p0.y, p1.x - p0.x);
+    for (int s = 0; s < steps; ++s) {
+      const double t = static_cast<double>(s) / steps;
+      barn_core::Pose2D pt;
+      pt.x = p0.x + t * (p1.x - p0.x);
+      pt.y = p0.y + t * (p1.y - p0.y);
+      pt.yaw = seg_yaw;
+      densified.push_back(pt);
+    }
+  }
+  if (!shortcut_path.empty()) {
+    densified.push_back(shortcut_path.back());
+  }
+
+  // 4. Moving average smoothing on densified path to smooth orientation transitions:
+  if (densified.size() > 2) {
+    Path2D smoothed_path = densified;
     const int half_window = 2; // 5-point moving average
-    for (size_t i = 1; i < reverse_path.size() - 1; ++i) {
+    for (std::size_t k = 1; k + 1 < densified.size(); ++k) {
       double sum_x = 0.0;
       double sum_y = 0.0;
       double sum_sin = 0.0;
       double sum_cos = 0.0;
       int count = 0;
       for (int j = -half_window; j <= half_window; ++j) {
-        int idx = std::clamp(static_cast<int>(i) + j, 0, static_cast<int>(reverse_path.size()) - 1);
-        sum_x += reverse_path[idx].x;
-        sum_y += reverse_path[idx].y;
-        sum_sin += std::sin(reverse_path[idx].yaw);
-        sum_cos += std::cos(reverse_path[idx].yaw);
+        int idx = std::clamp(static_cast<int>(k) + j, 0, static_cast<int>(densified.size()) - 1);
+        sum_x += densified[idx].x;
+        sum_y += densified[idx].y;
+        sum_sin += std::sin(densified[idx].yaw);
+        sum_cos += std::cos(densified[idx].yaw);
         count++;
       }
-      smoothed_path[i].x = sum_x / count;
-      smoothed_path[i].y = sum_y / count;
-      smoothed_path[i].yaw = std::atan2(sum_sin, sum_cos);
+      smoothed_path[k].x = sum_x / count;
+      smoothed_path[k].y = sum_y / count;
+      smoothed_path[k].yaw = std::atan2(sum_sin, sum_cos);
     }
     return smoothed_path;
   }
-  return reverse_path;
+  return densified;
 }
 
 }  // namespace barn_classical

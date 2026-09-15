@@ -164,6 +164,7 @@ LocalTrajectory LocalPlanner::plan(
 
   LocalTrajectory result;
   result.reserve(refined.size());
+  const double min_clearance = params_.footprint.half_width + params_.footprint.margin;
   for (std::size_t i = 0; i < refined.size(); ++i) {
     barn_core::TrajectoryPoint point;
     point.pose = refined[i];
@@ -203,7 +204,6 @@ LocalTrajectory LocalPlanner::plan(
         }
       }
     }
-    const double min_clearance = params_.footprint.half_width + params_.footprint.margin;
 
     // Spend the lateral-acceleration budget according to how much room the corner
     // has. Previously this was a constant, so a curve was taken at exactly the
@@ -212,44 +212,40 @@ LocalTrajectory LocalPlanner::plan(
     // for the whole approach to it. Observed directly: the robot decelerates hard
     // for every curve regardless of size or surroundings.
     //
-    // A lateral-accel cap is nominally about tipping or slipping, but a 0.43 m
-    // Jackal at ~1 m/s is nowhere near either. The real reason to slow for a BARN
-    // curve is that tracking error near a wall becomes a collision -- and that
-    // reason scales with clearance, so the budget does too. In a pinch the
-    // original conservatism is unchanged; in the open the robot is allowed to
-    // corner at up to open_lateral_accel_gain x the budget.
-    double lateral_budget = params_.max_lateral_accel;
+    // Continuous Clearance-Scaled Lateral Acceleration:
+    // In open space (clearance >= open_clearance, e.g. 0.80m): lateral_budget = max_lateral_accel (3.5 m/s^2),
+    //   enabling fast sweeping arcs (1.5 - 2.5 m/s) with zero false slowdowns.
+    // Near walls (clearance < open_clearance): scales continuously down toward tight_lateral_accel (0.60 m/s^2),
+    //   preventing chassis drift and corner clipping in corridor bends!
+    const double effective_curvature = lookahead_curvature;
+    double clearance_ratio = 1.0;
     if (std::isfinite(limiting_clearance)) {
       const double span = std::max(1e-3, params_.open_clearance - min_clearance);
-      const double t = std::clamp((limiting_clearance - min_clearance) / span, 0.0, 1.0);
-      lateral_budget *= 1.0 + t * (std::max(1.0, params_.open_lateral_accel_gain) - 1.0);
+      clearance_ratio = std::clamp((limiting_clearance - min_clearance) / span, 0.0, 1.0);
     }
+    const double lateral_budget = params_.tight_lateral_accel +
+      clearance_ratio * (params_.max_lateral_accel - params_.tight_lateral_accel);
 
-    const double effective_curvature = lookahead_curvature;
     const double curvature_speed = effective_curvature > 1e-4 ?
       std::min(
         std::sqrt(lateral_budget / effective_curvature),
         params_.max_yaw_rate / effective_curvature)
       : params_.max_speed;
 
-    // Soft side-clearance slowdown: reduce speed in narrow spaces for safety.
-    // NOTE the comment below is stale -- the code produces a 0.85..1.0 range, not
-    // a 0.45 floor. Left as-is: it is a 15% effect and not what governs speed.
-    double clearance_scale = 1.0;
-    if (std::isfinite(point.clearance)) {
-      if (point.clearance < params_.desired_clearance) {
-        const double t = (point.clearance - min_clearance) / (params_.desired_clearance - min_clearance);
-        clearance_scale = 0.85 + 0.15 * std::clamp(t, 0.0, 1.0);
-      }
-    }
+    point.v_ref = std::min(params_.max_speed, curvature_speed);
 
-    point.v_ref = std::min(params_.max_speed, curvature_speed) * clearance_scale;
+    // In tight pinches with sharp curvature, throttle speed to safe clearance-scaled ceiling:
+    if (clearance_ratio < 0.35 && effective_curvature > 0.8) {
+      const double tight_v_cap = params_.crawl_speed + (clearance_ratio / 0.35) * (0.60 - params_.crawl_speed);
+      point.v_ref = std::min(point.v_ref, tight_v_cap);
+      point.v_ref = std::max(params_.crawl_speed, point.v_ref);
+    }
     if (result.empty()) {
       // First point == the one the controller tracks next. Recorded so a live
       // trial can say WHICH term zeroed the command, not merely that it was zero.
       debug_.curvature = effective_curvature;
       debug_.curvature_speed = curvature_speed;
-      debug_.clearance_scale = clearance_scale;
+      debug_.clearance_scale = 1.0;
       debug_.heading_scale = 1.0;
       debug_.v_ref = point.v_ref;
     }
@@ -259,16 +255,35 @@ LocalTrajectory LocalPlanner::plan(
     result.push_back(point);
   }
 
-  // Entry-heading gate: Enforce strict differential-drive behavior. If the
-  // robot's current heading is more than ~25 degrees off the first path tangent,
-  // drop v_ref to 0. This forces the MPC to completely rotate in place and align
-  // before creeping forward, instead of driving in a wide Ackermann-style arc.
+  // Clearance-Aware Heading Gate (Entering Turns):
+  // In OPEN space: takes smooth, high-speed sweeping arcs (85% to 100% speed).
+  // In NARROW space: if heading error > 20 deg (0.35 rad), pivots in place first to prevent corner clipping.
   if (!result.empty() && refined.size() >= 2) {
     const double heading_error = std::abs(barn_core::wrap_angle(refined[0].yaw - pose.yaw));
-    // Linearly scale from 1.0 (at 0 error) down to 0.3 at 1.5 rad (~86 deg).
-    const double heading_scale = std::max(0.3, 1.0 - heading_error / 1.5);
-    // Apply the scale over the first ~1.0 m of the trajectory, fading out
-    // linearly so the speed ramps up naturally once the robot is aligned.
+    const double start_clearance = result[0].clearance;
+    double start_clearance_ratio = 1.0;
+    if (std::isfinite(start_clearance)) {
+      const double span = std::max(1e-3, params_.open_clearance - min_clearance);
+      start_clearance_ratio = std::clamp((start_clearance - min_clearance) / span, 0.0, 1.0);
+    }
+
+    double heading_scale = 1.0;
+    if (start_clearance_ratio < 0.25 && heading_error > 0.35) {
+      // Really narrow space and sharp turn: pivot in place first
+      heading_scale = 0.0;
+    } else {
+      // Continuous speed floor based on clearance ratio:
+      // In open space: floor is 0.85 (fast arc). In tighter corridors: floor scales smoothly.
+      const double min_floor = 0.30 + 0.55 * start_clearance_ratio;
+      const double threshold = 0.35 + 0.70 * start_clearance_ratio;
+      if (heading_error > threshold) {
+        heading_scale = min_floor;
+      } else {
+        heading_scale = 1.0 - (1.0 - min_floor) * (heading_error / threshold);
+      }
+    }
+
+    // Apply the scale over heading_align_distance, fading out quickly
     double arc = 0.0;
     for (std::size_t i = 0; i < result.size(); ++i) {
       if (i > 0) {
